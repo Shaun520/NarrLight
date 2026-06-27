@@ -1,0 +1,261 @@
+/* =========================================================
+   叙光 NARRLIGHT · 认证页面共用样式
+   古风视觉：纸张背景 + 朱砂红主按钮 + 4px 圆角
+   配色变量来自 globals.css (:root)
+   用于 /auth/login 与 /auth/sign-up 页面
+   ========================================================= */
+
+/* 认证页面：全屏居中 */
+.auth-page {
+  min-height: 100svh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+/* ===================== 认证卡片 ===================== */
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--paper-light);
+  border: 1px solid rgba(122, 92, 58, 0.28);
+  border-radius: 6px;
+  box-shadow: var(--shadow-md);
+  padding: 32px 30px 26px;
+  position: relative;
+}
+/* 卡片顶部朱砂装饰条 */
+.auth-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--blood) 30%,
+    var(--blood) 70%,
+    transparent
+  );
+  border-radius: 6px 6px 0 0;
+}
+
+.auth-card__head {
+  text-align: center;
+  margin-bottom: 22px;
+}
+.auth-card__title {
+  font-family: "ZCOOL XiaoWei", "Noto Serif SC", serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+.auth-card__subtitle {
+  font-size: 13px;
+  color: var(--sepia);
+  margin: 0;
+}
+
+/* ===================== 表单结构 ===================== */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.auth-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--char);
+  letter-spacing: 0.04em;
+}
+
+/* 通用单行输入框（昵称等） */
+.auth-input {
+  height: 40px;
+  width: 100%;
+  padding: 0 12px;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--paper-lighter);
+  border: 1px solid rgba(122, 92, 58, 0.35);
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+.auth-input::placeholder {
+  color: var(--sepia-soft);
+  opacity: 0.8;
+}
+.auth-input:focus {
+  border-color: var(--blood);
+  box-shadow: 0 0 0 2px rgba(138, 28, 28, 0.12);
+}
+.auth-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ===================== 手机号输入：+86 前缀 + 11 位 ===================== */
+.phone-input {
+  display: flex;
+  align-items: stretch;
+  height: 40px;
+  border: 1px solid rgba(122, 92, 58, 0.35);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--paper-lighter);
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+.phone-input:focus-within {
+  border-color: var(--blood);
+  box-shadow: 0 0 0 2px rgba(138, 28, 28, 0.12);
+}
+.phone-input__prefix {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-family: "Courier Prime", monospace;
+  font-size: 14px;
+  color: var(--char);
+  background: rgba(138, 28, 28, 0.06);
+  border-right: 1px solid rgba(122, 92, 58, 0.28);
+  flex-shrink: 0;
+}
+.phone-input__field {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 0 12px;
+  font-size: 14px;
+  color: var(--ink);
+  min-width: 0;
+}
+.phone-input__field::placeholder {
+  color: var(--sepia-soft);
+  opacity: 0.8;
+}
+.phone-input__field:disabled {
+  cursor: not-allowed;
+}
+
+/* ===================== 验证码输入：6 位 + 发送按钮 ===================== */
+.code-input {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  height: 40px;
+}
+.code-input__field {
+  flex: 1;
+  height: 40px;
+  padding: 0 12px;
+  font-size: 14px;
+  letter-spacing: 0.18em;
+  color: var(--ink);
+  background: var(--paper-lighter);
+  border: 1px solid rgba(122, 92, 58, 0.35);
+  border-radius: 4px;
+  outline: none;
+  min-width: 0;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+.code-input__field::placeholder {
+  color: var(--sepia-soft);
+  letter-spacing: normal;
+  opacity: 0.8;
+}
+.code-input__field:focus {
+  border-color: var(--blood);
+  box-shadow: 0 0 0 2px rgba(138, 28, 28, 0.12);
+}
+.code-input__field:disabled {
+  cursor: not-allowed;
+}
+.code-input__send {
+  flex-shrink: 0;
+  min-width: 108px;
+  padding: 0 14px;
+  font-size: 13px;
+  color: var(--blood);
+  background: rgba(138, 28, 28, 0.06);
+  border: 1px solid var(--blood);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+  white-space: nowrap;
+}
+.code-input__send:hover:not(:disabled) {
+  background: var(--blood);
+  color: var(--paper-light);
+}
+.code-input__send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===================== 主按钮：朱砂红 ===================== */
+.auth-btn-primary {
+  height: 42px;
+  width: 100%;
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--paper-light);
+  background: linear-gradient(135deg, var(--blood) 0%, #6b1515 100%);
+  border: 1px solid rgba(243, 233, 219, 0.25);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(60, 10, 10, 0.3);
+  cursor: pointer;
+  transition: filter 0.18s, transform 0.18s, box-shadow 0.18s;
+}
+.auth-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(60, 10, 10, 0.4);
+}
+.auth-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ===================== 错误提示 ===================== */
+.auth-error {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--blood);
+  background: rgba(138, 28, 28, 0.08);
+  border-left: 3px solid var(--blood);
+  border-radius: 2px;
+}
+
+/* ===================== 底部链接 ===================== */
+.auth-footer {
+  margin-top: 2px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--sepia);
+}
+.auth-link {
+  color: var(--blood);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.18s;
+}
+.auth-link:hover {
+  border-bottom-color: var(--blood);
+}

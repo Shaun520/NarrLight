@@ -1,0 +1,917 @@
+/* =========================================================
+   叙光 · 创作社区（视图9）样式
+   对齐 docs/prototype/workbench2.html #view-community
+   配色变量来自 globals.css (:root)
+   通用 .btn-primary / .btn-ghost / .seal 见 globals.css
+   ========================================================= */
+
+/* ===================== 页头 ===================== */
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(138, 28, 28, 0.2);
+}
+.page-title {
+  font-family: "Noto Serif SC", serif;
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+.page-desc {
+  font-size: 12.5px;
+  color: var(--sepia);
+  margin-top: 5px;
+  font-family: "Courier Prime", monospace;
+  letter-spacing: 0.04em;
+}
+.page-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+/* 页头按钮内图标尺寸 */
+.page-actions .btn svg,
+.page-actions .btn-primary svg,
+.page-actions .btn-ghost svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ===================== 视角切换 ===================== */
+.perspective-switch {
+  display: inline-flex;
+  background: rgba(26, 18, 11, 0.08);
+  border: 1px solid rgba(122, 92, 58, 0.3);
+  border-radius: 4px;
+  padding: 3px;
+  gap: 2px;
+}
+.ps-btn {
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--sepia);
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+  transition: all 0.18s;
+}
+.ps-btn:hover {
+  color: var(--ink);
+}
+.ps-btn.active {
+  background: linear-gradient(135deg, var(--blood) 0%, #6b1515 100%);
+  color: var(--paper-light);
+  box-shadow: 0 2px 6px rgba(60, 10, 10, 0.3);
+}
+
+/* 视角切换：通过容器 data-perspective 显隐按钮 */
+.community-view[data-perspective="creator"] .for-player {
+  display: none;
+}
+.community-view[data-perspective="player"] .for-creator {
+  display: none;
+}
+
+/* ===================== 社区搜索条 ===================== */
+.xhs-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--paper-lighter);
+  border: 1.5px solid rgba(138, 28, 28, 0.22);
+  border-radius: 24px;
+  padding: 9px 18px;
+  margin-bottom: 14px;
+  transition: all 0.18s;
+}
+.xhs-search:focus-within {
+  border-color: var(--blood);
+  box-shadow: 0 0 0 3px rgba(138, 28, 28, 0.08);
+}
+.xhs-search svg {
+  width: 17px;
+  height: 17px;
+  color: var(--sepia);
+  flex-shrink: 0;
+}
+.xhs-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.xhs-search input::placeholder {
+  color: var(--sepia-soft);
+}
+.xhs-search .xs-tag {
+  font-size: 11px;
+  color: var(--blood);
+  font-family: "Courier Prime", monospace;
+  letter-spacing: 0.06em;
+  padding-left: 10px;
+  border-left: 1px solid rgba(138, 28, 28, 0.2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.xhs-search .xs-tag:hover {
+  text-decoration: underline;
+}
+
+/* ===================== 分类 Tab ===================== */
+.xhs-cats {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid rgba(138, 28, 28, 0.16);
+  margin-bottom: 12px;
+  overflow-x: auto;
+}
+.xhs-cats::-webkit-scrollbar {
+  height: 0;
+}
+.xhs-cat {
+  padding: 9px 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--sepia);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+  transition: all 0.16s;
+}
+.xhs-cat:hover {
+  color: var(--ink);
+}
+.xhs-cat.active {
+  color: var(--blood);
+  border-bottom-color: var(--blood);
+}
+.xhs-cat .xc-num {
+  font-size: 10px;
+  color: var(--sepia-soft);
+  font-family: "Courier Prime", monospace;
+  margin-left: 3px;
+}
+
+/* ===================== 筛选 chips ===================== */
+.xhs-chips {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.xhs-chip {
+  font-size: 11.5px;
+  padding: 4px 11px;
+  border-radius: 14px;
+  background: rgba(253, 248, 240, 0.7);
+  border: 1px solid rgba(122, 92, 58, 0.25);
+  color: var(--sepia);
+  cursor: pointer;
+  transition: all 0.16s;
+}
+.xhs-chip:hover {
+  border-color: var(--blood-soft);
+  color: var(--ink);
+}
+.xhs-chip.active {
+  background: var(--blood);
+  border-color: var(--blood);
+  color: var(--paper-light);
+}
+
+/* ===================== 社区脉搏 ===================== */
+.xhs-pulse {
+  display: flex;
+  gap: 18px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(28, 25, 21, 0.95), #15110d);
+  border-radius: 5px;
+  border: 1px solid var(--noir-line);
+  margin-bottom: 16px;
+  color: var(--noir-text);
+}
+.xhs-pulse .xp-item {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.xhs-pulse .xp-num {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--gold-soft);
+  font-family: "Courier Prime", monospace;
+}
+.xhs-pulse .xp-lbl {
+  font-size: 11px;
+  color: var(--noir-muted);
+}
+.xhs-pulse .xp-div {
+  width: 1px;
+  align-self: stretch;
+  background: var(--noir-line);
+}
+
+/* ===================== 主体布局：瀑布流 + 侧栏 ===================== */
+.xhs-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 18px;
+}
+.xhs-feed {
+  column-count: 3;
+  column-gap: 14px;
+}
+.xhs-feed::-webkit-scrollbar {
+  width: 6px;
+}
+.xhs-feed::-webkit-scrollbar-thumb {
+  background: rgba(138, 28, 28, 0.25);
+  border-radius: 3px;
+}
+
+/* ===================== 瀑布流卡片 ===================== */
+.xhs-card {
+  break-inside: avoid;
+  margin-bottom: 14px;
+  background: var(--paper-lighter);
+  border: 1px solid rgba(122, 92, 58, 0.2);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: inline-block;
+  width: 100%;
+}
+.xhs-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(26, 18, 11, 0.16);
+}
+
+/* 封面 + 8 种预设背景 */
+.xc-cover {
+  position: relative;
+  width: 100%;
+  background: var(--noir-bg);
+  display: block;
+  overflow: hidden;
+}
+.xc-cover.c1 {
+  background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.78) 100%),
+    linear-gradient(135deg, rgba(58, 42, 26, 0.5), rgba(26, 20, 16, 0.7)),
+    url("https://picsum.photos/seed/narrXhs1/420/520?grayscale") center/cover;
+}
+.xc-cover.c2 {
+  background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.78) 100%),
+    linear-gradient(135deg, rgba(26, 42, 42, 0.5), rgba(13, 24, 24, 0.7)),
+    url("https://picsum.photos/seed/narrXhs2/420/480?grayscale") center/cover;
+}
+.xc-cover.c3 {
+  background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.78) 100%),
+    linear-gradient(135deg, rgba(42, 26, 42, 0.5), rgba(26, 13, 24, 0.7)),
+    url("https://picsum.photos/seed/narrXhs3/420/560?grayscale") center/cover;
+}
+.xc-cover.c4 {
+  background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.78) 100%),
+    linear-gradient(135deg, rgba(42, 42, 26, 0.5), rgba(24, 24, 16, 0.7)),
+    url("https://picsum.photos/seed/narrXhs4/420/460?grayscale") center/cover;
+}
+.xc-cover.c5 {
+  background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.78) 100%),
+    linear-gradient(135deg, rgba(26, 26, 42, 0.5), rgba(13, 13, 24, 0.7)),
+    url("https://picsum.photos/seed/narrXhs5/420/500?grayscale") center/cover;
+}
+.xc-cover.c6 {
+  background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.78) 100%),
+    linear-gradient(135deg, rgba(58, 26, 26, 0.5), rgba(24, 13, 13, 0.7)),
+    url("https://picsum.photos/seed/narrXhs6/420/540?grayscale") center/cover;
+}
+.xc-cover.c7 {
+  background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.78) 100%),
+    linear-gradient(135deg, rgba(26, 58, 42, 0.5), rgba(13, 24, 18, 0.7)),
+    url("https://picsum.photos/seed/narrXhs7/420/480?grayscale") center/cover;
+}
+.xc-cover.c8 {
+  background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.78) 100%),
+    linear-gradient(135deg, rgba(58, 42, 26, 0.5), rgba(24, 18, 13, 0.7)),
+    url("https://picsum.photos/seed/narrXhs8/420/520?grayscale") center/cover;
+}
+
+/* 3 种高度 */
+.xc-cover.h-tall {
+  height: 280px;
+}
+.xc-cover.h-mid {
+  height: 220px;
+}
+.xc-cover.h-short {
+  height: 170px;
+}
+
+/* 徽标（6 种） */
+.xc-badge {
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  font-size: 10.5px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-family: "ZCOOL XiaoWei", serif;
+  letter-spacing: 0.12em;
+  color: var(--paper-light);
+  backdrop-filter: blur(4px);
+}
+.xc-badge.b-rec {
+  background: rgba(138, 28, 28, 0.85);
+}
+.xc-badge.b-carpool {
+  background: rgba(74, 124, 89, 0.85);
+}
+.xc-badge.b-guide {
+  background: rgba(58, 90, 122, 0.85);
+}
+.xc-badge.b-review {
+  background: rgba(184, 132, 28, 0.85);
+}
+.xc-badge.b-talk {
+  background: rgba(92, 66, 38, 0.85);
+}
+.xc-badge.b-ask {
+  background: rgba(176, 141, 87, 0.85);
+}
+
+/* 角标 */
+.xc-stamp {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold-soft);
+  font-family: "Courier Prime", monospace;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 2px 7px;
+  border-radius: 3px;
+  backdrop-filter: blur(4px);
+}
+
+/* 封面标题 */
+.xc-cover-title {
+  position: absolute;
+  left: 11px;
+  bottom: 10px;
+  right: 11px;
+  font-family: "Ma Shan Zheng", "Noto Serif SC", serif;
+  font-size: 18px;
+  color: var(--paper-light);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  line-height: 1.25;
+}
+
+/* 拼车座位进度条 */
+.xc-seat-bar {
+  position: absolute;
+  left: 11px;
+  right: 11px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.xc-seat-bar .xsb-num {
+  font-family: "Courier Prime", monospace;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--paper-light);
+}
+.xc-seat-bar .xsb-track {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+}
+.xc-seat-bar .xsb-fill {
+  height: 100%;
+  background: var(--gold-soft);
+  border-radius: 2px;
+}
+.xc-seat-bar.full .xsb-fill {
+  background: var(--ok);
+}
+
+/* 卡片正文 */
+.xc-body {
+  padding: 10px 12px 8px;
+}
+.xc-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.4;
+  margin-bottom: 5px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.xc-excerpt {
+  font-size: 12px;
+  color: var(--sepia);
+  line-height: 1.55;
+  margin-bottom: 7px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.xc-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.xc-tags .xt {
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 9px;
+  background: rgba(138, 28, 28, 0.08);
+  color: var(--blood);
+  border: 1px solid rgba(138, 28, 28, 0.18);
+}
+.xc-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 7px;
+  border-top: 1px dashed rgba(122, 92, 58, 0.18);
+}
+.xc-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.xc-author .xa-av {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold), var(--blood));
+  color: var(--paper-light);
+  font-size: 9.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.xc-author .xa-name {
+  font-size: 11.5px;
+  color: var(--sepia);
+}
+.xc-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.xc-stats .xs-act {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--sepia);
+  font-family: "Courier Prime", monospace;
+  cursor: pointer;
+}
+.xc-stats .xs-act svg {
+  width: 13px;
+  height: 13px;
+}
+.xc-stats .xs-act.liked {
+  color: var(--blood);
+}
+.xc-stats .xs-act.liked svg {
+  fill: var(--blood);
+}
+.xc-join {
+  font-size: 11px;
+  color: var(--paper-light);
+  background: var(--blood);
+  padding: 3px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.16s;
+}
+.xc-join:hover {
+  background: var(--blood-bright);
+}
+.xc-join.disabled {
+  background: rgba(122, 92, 58, 0.4);
+  cursor: not-allowed;
+}
+.xc-join.joined {
+  background: var(--ok);
+}
+
+/* 纯文字卡（求助/讨论） */
+.xhs-card.text-card {
+  background: linear-gradient(
+    135deg,
+    rgba(253, 248, 240, 0.95),
+    rgba(234, 221, 207, 0.6)
+  );
+  border-left: 3px solid var(--warn);
+}
+.xhs-card.text-card .xc-body {
+  padding: 14px 14px 10px;
+}
+/* 纯文字卡 badge 位于正文顶部，需覆盖绝对定位为内联 */
+.xhs-card.text-card .xc-badge {
+  position: static;
+  display: inline-block;
+}
+
+/* ===================== 社区侧栏 ===================== */
+.xhs-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.xhs-widget {
+  background: var(--paper-lighter);
+  border: 1px solid rgba(122, 92, 58, 0.2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.xw-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px 9px;
+  border-bottom: 1px solid rgba(138, 28, 28, 0.14);
+}
+.xw-head h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Noto Serif SC", serif;
+  margin: 0;
+}
+.xw-head h4 svg {
+  width: 15px;
+  height: 15px;
+  color: var(--blood);
+}
+.xw-head .xw-more {
+  font-size: 11px;
+  color: var(--sepia);
+  font-family: "Courier Prime", monospace;
+  cursor: pointer;
+}
+.xw-head .xw-more:hover {
+  color: var(--blood);
+}
+.xw-body {
+  padding: 6px 14px 10px;
+}
+
+/* 热门话题 */
+.xhs-topic {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px dashed rgba(122, 92, 58, 0.16);
+  cursor: pointer;
+}
+.xhs-topic:last-child {
+  border-bottom: none;
+}
+.xhs-topic:hover .xt-name {
+  color: var(--blood);
+}
+.xhs-topic .xt-rank {
+  width: 18px;
+  text-align: center;
+  font-family: "Courier Prime", monospace;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--sepia);
+}
+.xhs-topic .xt-rank.t1 {
+  color: #d4a543;
+}
+.xhs-topic .xt-rank.t2 {
+  color: #b8b8b8;
+}
+.xhs-topic .xt-rank.t3 {
+  color: #c08550;
+}
+.xhs-topic .xt-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xhs-topic .xt-hot {
+  font-size: 10.5px;
+  color: var(--blood-soft);
+  font-family: "Courier Prime", monospace;
+}
+.xhs-topic .xt-tag {
+  font-size: 9.5px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: rgba(138, 28, 28, 0.1);
+  color: var(--blood);
+}
+
+/* 推荐作者 */
+.xhs-author {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px dashed rgba(122, 92, 58, 0.16);
+}
+.xhs-author:last-child {
+  border-bottom: none;
+}
+.xhs-author .xa-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Ma Shan Zheng", serif;
+  font-size: 16px;
+  color: var(--paper-light);
+  flex-shrink: 0;
+}
+.xhs-author .xa-info {
+  flex: 1;
+  min-width: 0;
+}
+.xhs-author .xa-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.xhs-author .xa-name .verified {
+  font-size: 9.5px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: var(--blood);
+  color: var(--paper-light);
+  font-family: "ZCOOL XiaoWei", serif;
+}
+.xhs-author .xa-meta {
+  font-size: 11px;
+  color: var(--sepia);
+  font-family: "Courier Prime", monospace;
+  margin-top: 2px;
+}
+.xhs-author .xa-follow {
+  font-size: 11.5px;
+  color: var(--paper-light);
+  background: var(--blood);
+  padding: 4px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.16s;
+  border: none;
+}
+.xhs-author .xa-follow:hover {
+  background: var(--blood-bright);
+}
+.xhs-author .xa-follow.followed {
+  background: rgba(122, 92, 58, 0.25);
+  color: var(--sepia);
+}
+
+/* 热门剧本榜 */
+.xhs-rank-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(122, 92, 58, 0.16);
+  cursor: pointer;
+}
+.xhs-rank-item:last-child {
+  border-bottom: none;
+}
+.xhs-rank-item:hover .xr-name {
+  color: var(--blood);
+}
+.xhs-rank-item .xr-no {
+  width: 18px;
+  text-align: center;
+  font-family: "Courier Prime", monospace;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--sepia);
+}
+.xhs-rank-item .xr-no.t1 {
+  color: #d4a543;
+}
+.xhs-rank-item .xr-no.t2 {
+  color: #b8b8b8;
+}
+.xhs-rank-item .xr-no.t3 {
+  color: #c08550;
+}
+.xhs-rank-item .xr-cover {
+  width: 32px;
+  height: 42px;
+  border-radius: 2px;
+  background: var(--noir-bg);
+  flex-shrink: 0;
+}
+.xhs-rank-item .xr-info {
+  flex: 1;
+  min-width: 0;
+}
+.xhs-rank-item .xr-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xhs-rank-item .xr-sub {
+  font-size: 10.5px;
+  color: var(--sepia);
+  font-family: "Courier Prime", monospace;
+  margin-top: 1px;
+}
+
+/* ===================== 悬浮发布按钮 ===================== */
+.xhs-fab {
+  position: fixed;
+  right: 38px;
+  bottom: 38px;
+  z-index: 60;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--blood), #6b1515);
+  color: var(--paper-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 18px rgba(60, 10, 10, 0.4);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: none;
+}
+.xhs-fab:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 10px 24px rgba(60, 10, 10, 0.5);
+}
+.xhs-fab svg {
+  width: 24px;
+  height: 24px;
+}
+.xhs-fab::after {
+  content: "发布";
+  position: absolute;
+  right: 64px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--ink);
+  color: var(--paper-light);
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s;
+}
+.xhs-fab:hover::after {
+  opacity: 1;
+}
+.xhs-fab.pulse {
+  animation: xhsFabPulse 0.36s ease;
+}
+@keyframes xhsFabPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.9);
+    box-shadow: 0 0 0 12px rgba(138, 28, 28, 0.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ===================== 发布弹窗 ===================== */
+/* z-index 高于 FAB(60)，确保弹窗与遮罩覆盖悬浮按钮 */
+.publish-modal .ant-modal {
+  z-index: 1001;
+}
+.publish-modal .ant-modal-wrap {
+  z-index: 1001;
+}
+.publish-modal .ant-modal-header {
+  border-bottom: 1px solid rgba(138, 28, 28, 0.16);
+  margin-bottom: 16px;
+}
+.publish-modal .ant-modal-title {
+  font-family: "Noto Serif SC", serif;
+  font-weight: 900;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+.publish-modal .ant-form-item-label > label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.publish-modal .ant-input,
+.publish-modal .ant-select-selector,
+.publish-modal .ant-picker {
+  border-color: rgba(138, 28, 28, 0.22);
+}
+.publish-modal .ant-input:focus,
+.publish-modal .ant-input-focused,
+.publish-modal .ant-select-focused .ant-select-selector,
+.publish-modal .ant-picker-focused {
+  border-color: var(--blood);
+  box-shadow: 0 0 0 3px rgba(138, 28, 28, 0.08);
+}
+.publish-modal .ant-modal-footer .ant-btn-primary {
+  background: var(--blood);
+  border-color: var(--blood);
+}
+.publish-modal .ant-modal-footer .ant-btn-primary:hover {
+  background: var(--blood-bright);
+  border-color: var(--blood-bright);
+}
+
+/* ===================== 响应式 ===================== */
+@media (max-width: 1280px) {
+  /* 侧栏下沉、瀑布流改两列 */
+  .xhs-layout {
+    grid-template-columns: 1fr;
+  }
+  .xhs-sidebar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .xhs-sidebar .xhs-widget {
+    flex: 1 1 240px;
+  }
+  .xhs-feed {
+    column-count: 2;
+  }
+}
+@media (max-width: 900px) {
+  .perspective-switch {
+    display: none;
+  }
+  /* 社区：单列瀑布流、隐藏筛选 chips */
+  .xhs-feed {
+    column-count: 1;
+  }
+  .xhs-chips {
+    display: none;
+  }
+  .xhs-pulse {
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+  .xhs-pulse .xp-div {
+    display: none;
+  }
+  .xhs-fab {
+    right: 18px;
+    bottom: 18px;
+    width: 48px;
+    height: 48px;
+  }
+}

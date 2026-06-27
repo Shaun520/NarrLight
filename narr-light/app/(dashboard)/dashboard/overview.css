@@ -1,0 +1,597 @@
+/* =========================================================
+   概览页样式
+   对齐 docs/prototype/workbench2.html #view-overview
+   配色变量、字体来自 globals.css :root
+   ========================================================= */
+
+/* ===================== 卡片头 / 卡片体（概览页内 .card 的补充）===================== */
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.16);
+}
+.card-head h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.card-head h3 svg {
+  width: 16px;
+  height: 16px;
+  color: var(--blood);
+}
+.card-body {
+  padding: 16px;
+}
+
+/* ===================== 概览屏 ===================== */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.stat-card {
+  background: rgba(253, 248, 240, 0.75);
+  border: 1px solid rgba(122, 92, 58, 0.22);
+  border-left: 4px solid var(--blood);
+  border-radius: 4px;
+  padding: 16px 18px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+.stat-card:nth-child(2) { border-left-color: var(--gold); }
+.stat-card:nth-child(3) { border-left-color: var(--ok); }
+.stat-card:nth-child(4) { border-left-color: var(--info); }
+.stat-card::after {
+  content: "";
+  position: absolute;
+  right: -10px;
+  bottom: -10px;
+  width: 60px;
+  height: 60px;
+  border: 1px solid rgba(138, 28, 28, 0.1);
+  border-radius: 50%;
+}
+.stat-label {
+  font-family: "Courier Prime", monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--sepia);
+  text-transform: uppercase;
+}
+.stat-value {
+  font-family: "Noto Serif SC", serif;
+  font-size: 32px;
+  font-weight: 900;
+  color: var(--ink);
+  margin-top: 6px;
+  line-height: 1;
+}
+.stat-value small {
+  font-size: 14px;
+  color: var(--sepia);
+  font-weight: 600;
+}
+.stat-trend {
+  font-family: "Courier Prime", monospace;
+  font-size: 11px;
+  margin-top: 8px;
+  color: var(--ok);
+}
+.stat-trend.down {
+  color: var(--blood);
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 16px;
+}
+.script-list { display: flex; flex-direction: column; }
+.script-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.12);
+  transition: background 0.16s;
+  cursor: pointer;
+}
+.script-row:hover { background: rgba(138, 28, 28, 0.05); }
+.script-row:last-child { border-bottom: none; }
+.sr-title { font-size: 14px; font-weight: 700; color: var(--ink); }
+.sr-genre {
+  font-family: "ZCOOL XiaoWei", serif;
+  font-size: 12px;
+  color: var(--sepia);
+}
+.sr-meta {
+  font-family: "Courier Prime", monospace;
+  font-size: 11px;
+  color: var(--sepia);
+}
+.status-tag {
+  font-family: "Courier Prime", monospace;
+  font-size: 10px;
+  padding: 3px 9px;
+  border-radius: 2px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid;
+}
+.st-done { color: var(--ok); border-color: rgba(74, 124, 89, 0.4); background: rgba(74, 124, 89, 0.1); }
+.st-gen { color: var(--warn); border-color: rgba(184, 132, 28, 0.4); background: rgba(184, 132, 28, 0.1); }
+.st-draft { color: var(--sepia); border-color: rgba(122, 92, 58, 0.4); background: rgba(122, 92, 58, 0.08); }
+.st-valid { color: var(--info); border-color: rgba(58, 90, 122, 0.4); background: rgba(58, 90, 122, 0.1); }
+
+.quick-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px dashed rgba(138, 28, 28, 0.3);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.18s;
+  margin-bottom: 10px;
+}
+.quick-action:hover {
+  background: rgba(138, 28, 28, 0.06);
+  border-style: solid;
+  transform: translateX(3px);
+}
+.qa-icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(138, 28, 28, 0.15), rgba(138, 28, 28, 0.04));
+  border: 1px solid rgba(138, 28, 28, 0.25);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--blood);
+}
+.qa-icon svg { width: 18px; height: 18px; }
+.qa-text { flex: 1; }
+.qa-title { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.qa-desc { font-size: 11.5px; color: var(--sepia); margin-top: 2px; }
+
+/* ===================== 概览 · 创作者视角增强 ===================== */
+.resume-hero {
+  display: grid;
+  grid-template-columns: auto 1fr 280px;
+  gap: 28px;
+  align-items: center;
+  background: linear-gradient(
+    135deg,
+    rgba(138, 28, 28, 0.06) 0%,
+    rgba(176, 141, 87, 0.08) 60%,
+    rgba(26, 18, 11, 0.05) 100%
+  );
+  border: 1px solid rgba(138, 28, 28, 0.22);
+  border-radius: 4px;
+  padding: 24px 28px;
+  margin-bottom: 22px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.resume-hero::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle at 70% 30%, rgba(138, 28, 28, 0.08), transparent 60%);
+  pointer-events: none;
+}
+.resume-hero::after {
+  content: "续";
+  position: absolute;
+  bottom: -22px;
+  right: 24px;
+  font-family: "ZCOOL XiaoWei", serif;
+  font-size: 88px;
+  color: rgba(138, 28, 28, 0.06);
+  font-weight: 900;
+  pointer-events: none;
+}
+.resume-progress {
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+.ring-svg { width: 130px; height: 130px; }
+.resume-stage {
+  margin-top: 8px;
+  font-family: "ZCOOL XiaoWei", serif;
+  font-size: 13px;
+  color: var(--gold-soft);
+  letter-spacing: 0.06em;
+}
+.resume-body { position: relative; z-index: 1; }
+.resume-tag {
+  font-family: "Courier Prime", monospace;
+  font-size: 11px;
+  color: var(--ok);
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+.resume-title {
+  font-family: "Noto Serif SC", serif;
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--ink);
+  margin: 0 0 4px;
+  line-height: 1.2;
+}
+.resume-genre {
+  font-family: "ZCOOL XiaoWei", serif;
+  font-size: 12px;
+  color: var(--sepia);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  margin-left: 8px;
+}
+.resume-loc {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--sepia);
+  margin: 6px 0 14px;
+}
+.resume-loc svg { width: 14px; height: 14px; color: var(--blood); }
+.resume-loc b { color: var(--ink); font-weight: 600; }
+.resume-issues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.ri-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 2px;
+  font-size: 11.5px;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all 0.16s;
+  text-decoration: none;
+}
+.ri-pill:hover { transform: translateY(-1px); }
+.ri-pill .ri-num { font-weight: 800; font-size: 13px; }
+.ri-pill.ri-err { color: var(--blood); border-color: rgba(138, 28, 28, 0.4); background: rgba(138, 28, 28, 0.08); }
+.ri-pill.ri-warn { color: var(--warn); border-color: rgba(184, 132, 28, 0.4); background: rgba(184, 132, 28, 0.08); cursor: default; }
+.ri-pill.ri-ok { color: var(--ok); border-color: rgba(74, 124, 89, 0.4); background: rgba(74, 124, 89, 0.08); cursor: default; }
+.resume-cta { display: flex; gap: 10px; }
+.btn-lg { padding: 10px 22px; font-size: 14px; }
+.resume-ai {
+  background: rgba(26, 18, 11, 0.55);
+  border: 1px solid rgba(176, 141, 87, 0.32);
+  border-radius: 3px;
+  padding: 14px 16px;
+  position: relative;
+  z-index: 1;
+}
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Courier Prime", monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+.ai-badge svg { width: 14px; height: 14px; }
+.ai-tip {
+  font-size: 12.5px;
+  color: var(--noir-text);
+  line-height: 1.65;
+  margin-bottom: 10px;
+}
+.ai-apply {
+  background: none;
+  border: none;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.ai-apply:hover { color: var(--blood); }
+
+/* 行动型统计卡（覆盖原 stat-card 排版） */
+.stat-action {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  cursor: pointer;
+  border-left-width: 3px;
+  text-decoration: none;
+  color: inherit;
+}
+.stat-action::after { display: none; }
+.stat-action .stat-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid;
+}
+.stat-action .stat-icon svg { width: 20px; height: 20px; }
+.stat-action .stat-main { min-width: 0; }
+.stat-action .stat-value { font-size: 24px; margin-top: 2px; }
+.stat-action .stat-trend {
+  font-family: "Noto Sans SC", sans-serif;
+  font-size: 11px;
+  margin-top: 4px;
+  color: var(--sepia);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stat-action .stat-arrow {
+  font-size: 22px;
+  color: var(--sepia);
+  font-weight: 300;
+  transition: transform 0.16s, color 0.16s;
+}
+.stat-action:hover .stat-arrow { transform: translateX(3px); color: var(--blood); }
+.si-err { color: var(--blood); border-color: rgba(138, 28, 28, 0.3); background: rgba(138, 28, 28, 0.08); }
+.si-warn { color: var(--warn); border-color: rgba(184, 132, 28, 0.3); background: rgba(184, 132, 28, 0.08); }
+.si-ok { color: var(--ok); border-color: rgba(74, 124, 89, 0.3); background: rgba(74, 124, 89, 0.08); }
+.si-info { color: var(--info); border-color: rgba(58, 90, 122, 0.3); background: rgba(58, 90, 122, 0.08); }
+
+/* 卡片头 tabs */
+.card-tabs { display: flex; gap: 4px; }
+.card-tabs .ct {
+  font-family: "Courier Prime", monospace;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 2px;
+  color: var(--char);
+  cursor: pointer;
+  transition: all 0.16s;
+}
+.card-tabs .ct:hover { color: var(--ink); background: rgba(138, 28, 28, 0.05); }
+.card-tabs .ct.active { color: var(--blood); background: rgba(138, 28, 28, 0.1); }
+
+/* 工作流剧本卡 */
+.workflow-list { display: flex; flex-direction: column; }
+.wf-card {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.12);
+  cursor: pointer;
+  transition: all 0.16s;
+  border-left: 2px solid transparent;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.wf-card:hover {
+  background: rgba(138, 28, 28, 0.04);
+  border-left-color: var(--blood);
+}
+.wf-card:last-child { border-bottom: none; }
+.wf-card.done { opacity: 0.75; }
+.wf-card.done:hover { opacity: 1; }
+.wf-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.wf-title-wrap { display: flex; align-items: baseline; gap: 10px; }
+.wf-title {
+  font-family: "Noto Serif SC", serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.wf-genre {
+  font-family: "ZCOOL XiaoWei", serif;
+  font-size: 11.5px;
+  color: var(--sepia);
+}
+.wf-bar {
+  height: 4px;
+  background: rgba(122, 92, 58, 0.15);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.wf-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--blood));
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+.wf-card.done .wf-bar-fill { background: linear-gradient(90deg, var(--ok), #6b8a5e); }
+.wf-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: "Courier Prime", monospace;
+  font-size: 11px;
+  color: var(--sepia);
+  flex-wrap: wrap;
+}
+.wf-meta b { color: var(--ink); font-size: 12px; }
+.wf-issues { display: inline-flex; align-items: center; gap: 5px; color: var(--blood); }
+.wf-issues.ok { color: var(--ok); }
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.dot.err { background: var(--blood); }
+.dot.warn { background: var(--warn); }
+.dot.ok { background: var(--ok); }
+
+/* 概览侧栏 */
+.overview-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.badge {
+  font-family: "Courier Prime", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  letter-spacing: 0.08em;
+}
+.badge.err { color: var(--blood); background: rgba(138, 28, 28, 0.15); }
+
+/* 待办汇总 */
+.todo-list { padding: 4px 0; }
+.todo-group { margin-bottom: 12px; }
+.todo-group:last-child { margin-bottom: 0; }
+.tg-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Courier Prime", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: var(--sepia);
+  padding: 6px 14px 4px;
+  text-transform: uppercase;
+}
+.tg-label .dot { width: 5px; height: 5px; }
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: all 0.16s;
+  text-decoration: none;
+  color: inherit;
+}
+.todo-item:hover {
+  background: rgba(138, 28, 28, 0.05);
+  border-left-color: var(--blood);
+}
+.ti-script {
+  font-size: 11px;
+  color: var(--sepia);
+  font-family: "Courier Prime", monospace;
+  flex-shrink: 0;
+}
+.ti-desc {
+  font-size: 12.5px;
+  color: var(--ink);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.todo-item:hover .ti-desc { color: var(--blood); }
+
+/* 创作活动流 */
+.activity-stream { padding: 6px 14px 10px; }
+.activity-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  position: relative;
+}
+.activity-item:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 22px;
+  bottom: -6px;
+  width: 1px;
+  background: rgba(122, 92, 58, 0.2);
+}
+.ac-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 4px;
+  border: 2px solid var(--paper);
+  box-shadow: 0 0 0 1px rgba(122, 92, 58, 0.3);
+  position: relative;
+  z-index: 1;
+}
+.ac-dot.edit { background: var(--info); }
+.ac-dot.ai { background: var(--gold); }
+.ac-dot.check { background: var(--warn); }
+.ac-dot.done { background: var(--ok); }
+.ac-dot.gen { background: var(--blood); }
+.ac-body { flex: 1; }
+.ac-text {
+  font-size: 12.5px;
+  color: var(--ink);
+  line-height: 1.5;
+}
+.ac-text b { color: var(--blood); font-weight: 700; }
+.ac-time {
+  font-family: "Courier Prime", monospace;
+  font-size: 10.5px;
+  color: var(--sepia);
+  margin-top: 2px;
+}
+
+/* 快捷操作横排 */
+.quick-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-top: 18px;
+}
+.quick-row .quick-action {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 0;
+  padding: 14px;
+  text-decoration: none;
+  color: inherit;
+}
+.quick-row .qa-icon { width: 32px; height: 32px; }
+.quick-row .qa-icon svg { width: 16px; height: 16px; }
+.quick-row .qa-title { font-size: 12.5px; }
+.quick-row .qa-desc { font-size: 11px; line-height: 1.4; }
+
+/* ===================== 响应式 ===================== */
+@media (max-width: 1280px) {
+  .resume-hero { grid-template-columns: 1fr; gap: 18px; }
+  .resume-progress { display: flex; align-items: center; gap: 16px; }
+  .ring-svg { width: 100px; height: 100px; }
+  .quick-row { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 900px) {
+  .quick-row { grid-template-columns: 1fr; }
+  .resume-cta { flex-direction: column; align-items: stretch; }
+}

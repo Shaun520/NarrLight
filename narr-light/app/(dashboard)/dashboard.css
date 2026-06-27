@@ -1,0 +1,422 @@
+/* =========================================================
+   叙光主工作区布局样式
+   对齐 docs/prototype/workbench2.html 原型
+   包含 .app grid 容器、.sidebar、.topbar、.main 及导航样式
+   配色变量来自 globals.css (:root)
+   ========================================================= */
+
+/* ===================== 应用容器 ===================== */
+.app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 248px 1fr;
+  grid-template-rows: 56px 1fr;
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar main";
+  background:
+    radial-gradient(circle at 12% 8%, rgba(138, 28, 28, 0.05) 0%, transparent 30%),
+    radial-gradient(circle at 88% 92%, rgba(43, 33, 24, 0.18) 0%, transparent 40%),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.018) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.014) 0 1px, transparent 1px 4px),
+    linear-gradient(135deg, var(--paper) 0%, var(--paper-2) 60%, var(--paper-3) 100%);
+}
+
+/* ===================== 侧边栏 ===================== */
+.sidebar {
+  grid-area: sidebar;
+  position: relative;
+  z-index: 5;
+  background:
+    radial-gradient(circle at 80% 10%, rgba(176, 141, 87, 0.08) 0%, transparent 45%),
+    linear-gradient(180deg, var(--noir-bg) 0%, #15110d 100%);
+  color: var(--noir-text);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--noir-line);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.sidebar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, transparent, var(--blood) 40%, var(--blood) 60%, transparent);
+  opacity: 0.4;
+}
+
+/* ---- 品牌区 ---- */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--noir-line);
+}
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--blood);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "ZCOOL XiaoWei", serif;
+  font-size: 18px;
+  color: var(--blood-soft);
+  box-shadow: inset 0 0 8px rgba(138, 28, 28, 0.3);
+  flex-shrink: 0;
+}
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.brand-name {
+  font-family: "Noto Serif SC", serif;
+  font-weight: 900;
+  font-size: 17px;
+  letter-spacing: 0.08em;
+  color: var(--paper-light);
+}
+.brand-sub {
+  font-family: "Courier Prime", monospace;
+  font-size: 11.5px;
+  letter-spacing: 0.24em;
+  color: var(--noir-muted);
+  text-transform: uppercase;
+}
+
+/* ---- 剧本切换器 ---- */
+.script-switch {
+  margin: 14px 14px 6px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--noir-line);
+  border-left: 3px solid var(--blood);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.script-switch:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.script-switch .ss-label {
+  font-family: "Courier Prime", monospace;
+  font-size: 11.5px;
+  letter-spacing: 0.18em;
+  color: var(--noir-muted);
+  text-transform: uppercase;
+}
+.script-switch .ss-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--paper-light);
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.script-switch .ss-meta {
+  font-family: "Courier Prime", monospace;
+  font-size: 11px;
+  color: var(--gold-soft);
+  margin-top: 4px;
+}
+
+/* ---- 导航 ---- */
+.nav-group {
+  padding: 8px 10px;
+  flex: 1;
+  overflow-y: auto;
+}
+.nav-group::-webkit-scrollbar {
+  width: 6px;
+}
+.nav-group::-webkit-scrollbar-thumb {
+  background: var(--noir-line);
+  border-radius: 3px;
+}
+.nav-section-title {
+  font-family: "Courier Prime", monospace;
+  font-size: 11.5px;
+  letter-spacing: 0.22em;
+  color: var(--noir-muted);
+  text-transform: uppercase;
+  padding: 12px 10px 6px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 3px;
+  color: var(--noir-text);
+  font-size: 13.5px;
+  text-align: left;
+  text-decoration: none;
+  transition: background 0.18s, color 0.18s, border-color 0.18s;
+  border-left: 2px solid transparent;
+  position: relative;
+}
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--paper-light);
+}
+.nav-item.active {
+  background: linear-gradient(90deg, rgba(138, 28, 28, 0.22) 0%, rgba(138, 28, 28, 0.04) 100%);
+  color: var(--paper-light);
+  border-left-color: var(--blood);
+}
+.nav-item.active::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  width: 5px;
+  height: 5px;
+  background: var(--blood-soft);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--blood);
+}
+.nav-item svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+.nav-item .badge {
+  margin-left: auto;
+  font-family: "Courier Prime", monospace;
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(138, 28, 28, 0.3);
+  color: var(--blood-soft);
+  border: 1px solid rgba(138, 28, 28, 0.4);
+}
+.nav-item .badge.warn {
+  background: rgba(184, 132, 28, 0.25);
+  color: var(--warn);
+  border-color: rgba(184, 132, 28, 0.4);
+}
+.nav-item .badge.ok {
+  background: rgba(74, 124, 89, 0.22);
+  color: #86c699;
+  border-color: rgba(74, 124, 89, 0.4);
+}
+
+/* ---- 底部用户区 ---- */
+.sidebar-foot {
+  padding: 12px 16px;
+  border-top: 1px solid var(--noir-line);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--sepia) 0%, var(--blood) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "ZCOOL XiaoWei", serif;
+  color: var(--paper-light);
+  font-size: 14px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.user-info {
+  flex: 1;
+  min-width: 0;
+}
+.user-name {
+  font-size: 13px;
+  color: var(--paper-light);
+  font-weight: 600;
+}
+.user-quota {
+  font-family: "Courier Prime", monospace;
+  font-size: 11px;
+  color: var(--gold-soft);
+  text-decoration: none;
+  cursor: pointer;
+  display: block;
+}
+.user-quota:hover {
+  color: var(--blood-soft);
+}
+.user-quota b {
+  color: var(--blood-soft);
+}
+/* 退出按钮在暗色侧栏中的配色覆盖 */
+.sidebar-foot .icon-btn {
+  color: var(--noir-text);
+}
+.sidebar-foot .icon-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--paper-light);
+}
+
+/* ===================== 顶栏 ===================== */
+.topbar {
+  grid-area: topbar;
+  position: relative;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 22px;
+  background: rgba(243, 233, 219, 0.55);
+  border-bottom: 1px solid rgba(138, 28, 28, 0.18);
+  backdrop-filter: blur(6px);
+}
+.crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--char);
+}
+.crumb .sep {
+  color: var(--sepia);
+  opacity: 0.6;
+}
+.crumb .here {
+  font-weight: 700;
+  color: var(--blood);
+}
+.topbar .spacer {
+  flex: 1;
+}
+
+/* ---- 搜索框 ---- */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(26, 18, 11, 0.06);
+  border: 1px solid rgba(26, 18, 11, 0.14);
+  border-radius: 3px;
+  width: 240px;
+}
+.search svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0.5;
+}
+.search input {
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 12.5px;
+  flex: 1;
+  font-family: "Courier Prime", monospace;
+  color: var(--char);
+}
+.search input::placeholder {
+  color: var(--sepia);
+  opacity: 0.6;
+}
+
+/* ---- AI 状态指示 ---- */
+.top-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "Courier Prime", monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--char);
+  padding: 5px 10px;
+  border: 1px solid rgba(138, 28, 28, 0.25);
+  border-radius: 2px;
+  background: rgba(234, 221, 207, 0.4);
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.dot.ok {
+  background: var(--ok);
+  box-shadow: 0 0 6px var(--ok);
+}
+.dot.gen {
+  background: var(--warn);
+  box-shadow: 0 0 6px var(--warn);
+  animation: dh-pulse 1.4s infinite;
+}
+@keyframes dh-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ---- 图标按钮 ---- */
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  color: var(--char);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.icon-btn:hover {
+  background: rgba(26, 18, 11, 0.08);
+}
+.icon-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* ===================== 主区 ===================== */
+.main {
+  grid-area: main;
+  position: relative;
+  z-index: 3;
+  overflow: hidden;
+}
+.view {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: 24px 28px 40px;
+  display: none;
+}
+.view.active {
+  display: block;
+  animation: dh-fadeIn 0.3s ease;
+}
+@keyframes dh-fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.view::-webkit-scrollbar {
+  width: 10px;
+}
+.view::-webkit-scrollbar-track {
+  background: rgba(26, 18, 11, 0.04);
+}
+.view::-webkit-scrollbar-thumb {
+  background: rgba(138, 28, 28, 0.3);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.view::-webkit-scrollbar-thumb:hover {
+  background: rgba(138, 28, 28, 0.5);
+  background-clip: padding-box;
+}

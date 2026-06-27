@@ -1,0 +1,850 @@
+/* =========================================================
+   人物关系图谱页样式（视图7 · #view-relations）
+   对齐 docs/prototype/workbench2.html 原型
+   包含：页头、工具栏（VIEW/LAYOUT/FILTER/明暗开关）、
+        双栏布局、关系图卡、详情面板、关联关系列表、
+        AI 调整盒、关系编辑 Modal
+   配色变量来自 globals.css (:root)
+   ========================================================= */
+
+/* ===================== 页头 ===================== */
+.relations-page .page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 4px 4px 18px;
+  border-bottom: 1px solid var(--noir-line);
+  margin-bottom: 18px;
+}
+.relations-page .page-title {
+  font-family: 'Noto Serif SC', serif;
+  font-weight: 900;
+  font-size: 24px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+.relations-page .page-title .seal {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--paper-light);
+  background: var(--blood);
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-weight: 700;
+}
+.relations-page .page-desc {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  color: var(--sepia-soft);
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+}
+.relations-page .page-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ===================== 通用按钮（页面作用域） ===================== */
+.relations-page .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 8px 14px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.12s;
+  background: transparent;
+  color: var(--ink);
+}
+.relations-page .btn svg {
+  width: 15px;
+  height: 15px;
+}
+.relations-page .btn-primary {
+  background: var(--blood);
+  color: var(--paper-light);
+  border-color: var(--blood);
+}
+.relations-page .btn-primary:hover {
+  background: var(--blood-bright);
+  border-color: var(--blood-bright);
+}
+.relations-page .btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.relations-page .btn-ghost {
+  background: transparent;
+  color: var(--sepia);
+  border-color: var(--noir-line);
+}
+.relations-page .btn-ghost:hover {
+  background: rgba(26, 18, 11, 0.05);
+  border-color: var(--sepia-soft);
+}
+.relations-page .btn-ghost:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.relations-page .btn-danger {
+  background: transparent;
+  color: var(--blood);
+  border-color: var(--blood);
+}
+.relations-page .btn-danger:hover {
+  background: var(--blood);
+  color: var(--paper-light);
+}
+.relations-page .btn-sm {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+/* ===================== 关系图工具栏 ===================== */
+.relations-page .rel-toolbar {
+  background: rgba(253, 248, 240, 0.6);
+  border: 1px solid rgba(122, 92, 58, 0.22);
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.relations-page .rel-tab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.relations-page .rv-label {
+  font-size: 10px;
+  color: var(--sepia-soft);
+  font-family: 'Courier Prime', monospace;
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+  padding-right: 4px;
+  border-right: 1px solid rgba(122, 92, 58, 0.2);
+  margin-right: 4px;
+}
+.relations-page .rel-vtab {
+  padding: 4px 11px;
+  font-size: 12px;
+  font-family: 'Noto Serif SC', serif;
+  color: var(--sepia);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.relations-page .rel-vtab svg {
+  width: 13px;
+  height: 13px;
+}
+.relations-page .rel-vtab .rv-num {
+  font-size: 10px;
+  font-family: 'Courier Prime', monospace;
+  color: var(--sepia-soft);
+  opacity: 0.7;
+}
+.relations-page .rel-vtab:hover {
+  color: var(--ink);
+  background: rgba(176, 141, 87, 0.08);
+}
+.relations-page .rel-vtab.active {
+  color: var(--paper-light);
+  background: var(--blood);
+  border-color: var(--blood);
+  box-shadow: 0 1px 4px rgba(138, 28, 28, 0.3);
+}
+.relations-page .rel-vtab.active .rv-num {
+  color: rgba(243, 233, 219, 0.85);
+  opacity: 1;
+}
+.relations-page .rv-div {
+  width: 1px;
+  height: 16px;
+  background: rgba(122, 92, 58, 0.25);
+  margin: 0 4px;
+}
+
+/* 第二行：筛选 chips + 明暗开关 */
+.relations-page .rel-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(138, 28, 28, 0.15);
+}
+.relations-page .rel-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+.relations-page .rel-chip {
+  padding: 3px 10px;
+  font-size: 11.5px;
+  font-family: 'Noto Serif SC', serif;
+  color: var(--sepia);
+  background: rgba(253, 248, 240, 0.7);
+  border: 1px solid rgba(122, 92, 58, 0.25);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  user-select: none;
+}
+.relations-page .rel-chip .rc-num {
+  font-size: 10px;
+  font-family: 'Courier Prime', monospace;
+  color: var(--sepia-soft);
+}
+.relations-page .rel-chip:hover {
+  color: var(--blood);
+  border-color: var(--blood);
+}
+.relations-page .rel-chip.active {
+  color: var(--paper-light);
+  background: var(--sepia);
+  border-color: var(--sepia);
+}
+.relations-page .rel-chip.active .rc-num {
+  color: rgba(243, 233, 219, 0.85);
+}
+.relations-page .rel-line-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px;
+  background: rgba(253, 248, 240, 0.5);
+  border: 1px solid rgba(122, 92, 58, 0.2);
+  border-radius: 12px;
+}
+.relations-page .rel-line-toggle .line-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.relations-page .lt-label {
+  font-size: 11px;
+  color: var(--sepia);
+  font-family: 'Courier Prime', monospace;
+  letter-spacing: 0.08em;
+}
+.relations-page .tgl {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  display: inline-block;
+}
+.relations-page .tgl input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.relations-page .tgl .slider {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--noir-line);
+  border-radius: 11px;
+  transition: 0.2s;
+  cursor: pointer;
+}
+.relations-page .tgl .slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: var(--paper-light);
+  border-radius: 50%;
+  transition: 0.2s;
+}
+.relations-page .tgl input:checked + .slider {
+  background: var(--blood);
+  border-color: var(--blood);
+}
+.relations-page .tgl input:checked + .slider::after {
+  transform: translateX(16px);
+}
+
+/* ===================== 双栏布局 ===================== */
+.relations-page .relation-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 16px;
+  align-items: start;
+}
+
+/* 关系图卡 */
+.relations-page .relation-graph-card {
+  background: var(--noir-bg-2);
+  border: 1px solid var(--noir-line);
+  border-radius: 2px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+}
+.relations-page .relation-graph-card .relation-graph-container {
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(176, 141, 87, 0.06) 0%, transparent 60%),
+    var(--noir-bg-2);
+}
+
+/* ===================== 侧栏 ===================== */
+.relations-page .side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* 通用 card / card-head / card-body 已由 globals.css 提供，
+   这里补全关系页特有布局 */
+.relations-page .side-panel .card {
+  background: rgba(253, 248, 240, 0.72);
+  border: 1px solid rgba(122, 92, 58, 0.22);
+  border-radius: 4px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+}
+.relations-page .side-panel .card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.16);
+}
+.relations-page .side-panel .card-head h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.relations-page .side-panel .card-head .count {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--blood);
+  background: rgba(138, 28, 28, 0.1);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+.relations-page .side-panel .card-body {
+  padding: 14px 16px;
+}
+
+/* 空状态 */
+.relations-page .rel-empty {
+  font-size: 12px;
+  color: var(--sepia-soft);
+  text-align: center;
+  padding: 20px 0;
+  font-family: 'Courier Prime', monospace;
+  letter-spacing: 0.06em;
+}
+
+/* 选中节点卡：头像 + 姓名 + 角色 + 简介 */
+.relations-page .rel-node-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.relations-page .rel-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #1a1410;
+  border: 2px solid var(--blood);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Noto Serif SC', serif;
+  color: var(--paper-light);
+  font-weight: 700;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.relations-page .rel-node-info {
+  min-width: 0;
+}
+.relations-page .rel-node-name {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 15px;
+  color: var(--ink);
+  font-weight: 700;
+}
+.relations-page .rel-node-role {
+  font-size: 11px;
+  color: var(--blood);
+  font-family: 'Courier Prime', monospace;
+  margin-top: 2px;
+  letter-spacing: 0.04em;
+}
+.relations-page .rel-node-bio {
+  font-size: 12px;
+  color: var(--sepia);
+  line-height: 1.7;
+}
+.relations-page .rel-node-task {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(122, 92, 58, 0.25);
+  font-size: 11.5px;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.relations-page .rel-task-label {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--gold-soft);
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+}
+.relations-page .rel-task-text {
+  color: var(--sepia);
+  line-height: 1.6;
+}
+
+/* ===================== 关联关系列表 ===================== */
+.relations-page .rel-list {
+  padding: 8px 12px !important;
+}
+.relations-page .rel-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid rgba(122, 92, 58, 0.18);
+  border-radius: 3px;
+  margin-bottom: 7px;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: all 0.16s;
+  background: rgba(253, 248, 240, 0.5);
+}
+.relations-page .rel-list-item:last-child {
+  margin-bottom: 0;
+}
+.relations-page .rel-list-item:hover {
+  border-color: var(--blood);
+  background: rgba(138, 28, 28, 0.05);
+}
+.relations-page .rel-list-item .rel-type {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 2px;
+  font-family: 'Courier Prime', monospace;
+  flex-shrink: 0;
+}
+.relations-page .rel-type.light {
+  background: rgba(176, 141, 87, 0.18);
+  color: var(--gold);
+  border: 1px solid rgba(176, 141, 87, 0.35);
+}
+.relations-page .rel-type.dark {
+  background: rgba(138, 28, 28, 0.18);
+  color: var(--blood);
+  border: 1px solid rgba(138, 28, 28, 0.35);
+}
+.relations-page .rel-list-item .rel-desc {
+  flex: 1;
+  min-width: 0;
+  color: var(--char);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.relations-page .rel-strength {
+  font-size: 10px;
+  color: var(--gold-soft);
+  font-family: 'Courier Prime', monospace;
+  flex-shrink: 0;
+  letter-spacing: 0.06em;
+}
+
+/* ===================== AI 关系调整盒 ===================== */
+.relations-page .ai-adjust-box {
+  background: rgba(28, 25, 21, 0.9);
+  color: var(--noir-text);
+  border: 1px solid var(--noir-line);
+  border-radius: 4px;
+  padding: 14px;
+}
+.relations-page .ai-adjust-box h4 {
+  font-size: 13px;
+  color: var(--gold-soft);
+  font-family: 'Courier Prime', monospace;
+  letter-spacing: 0.1em;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.relations-page .ai-adjust-box h4 svg {
+  width: 15px;
+  height: 15px;
+}
+.relations-page .quick-prompt {
+  display: block;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: var(--noir-text);
+  border: 1px solid var(--noir-line);
+  border-radius: 3px;
+  margin-bottom: 7px;
+  cursor: pointer;
+  transition: all 0.16s;
+  background: rgba(255, 255, 255, 0.02);
+}
+.relations-page .quick-prompt:last-child {
+  margin-bottom: 0;
+}
+.relations-page .quick-prompt:hover {
+  border-color: var(--blood);
+  color: var(--blood-soft);
+  background: rgba(138, 28, 28, 0.1);
+}
+.relations-page .quick-prompt::before {
+  content: '› ';
+  color: var(--gold-soft);
+}
+
+/* ===================== 图例（侧栏） ===================== */
+.relations-page .relation-legend .legend-section {
+  margin-bottom: 12px;
+}
+.relations-page .relation-legend .legend-section:last-child {
+  margin-bottom: 0;
+}
+.relations-page .legend-section-title {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--sepia-soft);
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+.relations-page .legend-line-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.relations-page .legend-line-swatch {
+  display: inline-block;
+  width: 28px;
+  border-top-width: 2px;
+  border-top-style: solid;
+}
+
+/* 关系类型 chips 图例 */
+.relations-page .rel-type-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.relations-page .rel-type-chip {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10.5px;
+  color: var(--sepia);
+  background: rgba(122, 92, 58, 0.1);
+  border: 1px solid rgba(122, 92, 58, 0.2);
+  border-radius: 2px;
+  padding: 2px 8px;
+}
+
+/* 阵营色图例 */
+.relations-page .rel-camp-legend {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+.relations-page .rel-camp-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--sepia);
+}
+.relations-page .rel-camp-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  flex-shrink: 0;
+}
+
+/* ===================== 关系编辑 Modal ===================== */
+.relations-page .relation-editor-mask,
+.relation-editor-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 8, 6, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.relation-editor-modal {
+  width: 520px;
+  max-width: 92vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(138, 28, 28, 0.06) 0%, transparent 40%),
+    linear-gradient(180deg, var(--paper-lighter) 0%, var(--paper-light) 100%);
+  border: 1px solid var(--noir-line);
+  border-left: 3px solid var(--blood);
+  border-radius: 2px;
+  box-shadow: -16px 0 40px rgba(26, 18, 11, 0.32);
+  font-family: 'Noto Serif SC', serif;
+  overflow: hidden;
+}
+.relation-editor-modal .re-head {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--noir-line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.relation-editor-modal .re-head h3 {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 0;
+}
+.relation-editor-modal .re-close {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--noir-line);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--sepia);
+  cursor: pointer;
+  transition: all 0.16s;
+}
+.relation-editor-modal .re-close:hover {
+  background: var(--blood);
+  color: var(--paper-light);
+  border-color: var(--blood);
+}
+.relation-editor-modal .re-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px;
+}
+.relation-editor-modal .re-row {
+  display: flex;
+  gap: 10px;
+}
+.relation-editor-modal .re-row-2 > * {
+  flex: 1;
+}
+.relation-editor-modal .re-field {
+  margin-bottom: 14px;
+}
+.relation-editor-modal .re-label {
+  display: block;
+  font-size: 12px;
+  color: var(--sepia);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.relation-editor-modal .re-input,
+.relation-editor-modal .re-select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--noir-line);
+  border-radius: 2px;
+  background: var(--paper-lighter);
+  color: var(--ink);
+  font-size: 13px;
+  font-family: 'Noto Serif SC', serif;
+  outline: none;
+  transition: border-color 0.16s;
+}
+.relation-editor-modal .re-input:focus,
+.relation-editor-modal .re-select:focus {
+  border-color: var(--blood);
+}
+.relation-editor-modal .re-type-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.relation-editor-modal .re-type-chip {
+  padding: 6px 0;
+  font-size: 12px;
+  font-family: 'Noto Serif SC', serif;
+  color: var(--sepia);
+  background: var(--paper-lighter);
+  border: 1px solid var(--noir-line);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.16s;
+}
+.relation-editor-modal .re-type-chip:hover {
+  border-color: var(--sepia-soft);
+  color: var(--ink);
+}
+.relation-editor-modal .re-type-chip.active {
+  background: var(--blood);
+  color: var(--paper-light);
+  border-color: var(--blood);
+}
+.relation-editor-modal .re-toggles {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.relation-editor-modal .re-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--noir-line);
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--sepia);
+  background: var(--paper-lighter);
+  transition: all 0.16s;
+  user-select: none;
+}
+.relation-editor-modal .re-toggle input {
+  accent-color: var(--blood);
+}
+.relation-editor-modal .re-toggle.on.light {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(176, 141, 87, 0.08);
+}
+.relation-editor-modal .re-toggle.on.dark {
+  border-color: var(--blood);
+  color: var(--blood);
+  background: rgba(138, 28, 28, 0.08);
+}
+.relation-editor-modal .re-strength-row {
+  display: flex;
+  gap: 6px;
+}
+.relation-editor-modal .re-strength-chip {
+  flex: 1;
+  padding: 6px 0;
+  font-size: 12px;
+  font-family: 'Courier Prime', monospace;
+  color: var(--sepia);
+  background: var(--paper-lighter);
+  border: 1px solid var(--noir-line);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.16s;
+  letter-spacing: 0.06em;
+}
+.relation-editor-modal .re-strength-chip:hover {
+  border-color: var(--sepia-soft);
+}
+.relation-editor-modal .re-strength-chip.active {
+  background: var(--ink);
+  color: var(--paper-light);
+  border-color: var(--ink);
+}
+.relation-editor-modal .re-strength-chip.active.fatal {
+  background: var(--blood);
+  border-color: var(--blood);
+}
+.relation-editor-modal .re-foot {
+  padding: 12px 18px;
+  border-top: 1px solid var(--noir-line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(26, 18, 11, 0.03);
+}
+.relation-editor-modal .re-foot-right {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+.relation-editor-modal .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.16s;
+}
+.relation-editor-modal .btn svg {
+  width: 13px;
+  height: 13px;
+}
+.relation-editor-modal .btn-primary {
+  background: var(--blood);
+  color: var(--paper-light);
+  border-color: var(--blood);
+}
+.relation-editor-modal .btn-primary:hover {
+  background: var(--blood-bright);
+}
+.relation-editor-modal .btn-ghost {
+  background: transparent;
+  color: var(--sepia);
+  border-color: var(--noir-line);
+}
+.relation-editor-modal .btn-ghost:hover {
+  background: rgba(26, 18, 11, 0.05);
+}
+.relation-editor-modal .btn-danger {
+  background: transparent;
+  color: var(--blood);
+  border-color: var(--blood);
+}
+.relation-editor-modal .btn-danger:hover {
+  background: var(--blood);
+  color: var(--paper-light);
+}
+
+/* ===================== 响应式 ===================== */
+@media (max-width: 1100px) {
+  .relations-page .relation-layout {
+    grid-template-columns: 1fr;
+  }
+}

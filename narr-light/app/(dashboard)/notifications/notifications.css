@@ -1,0 +1,277 @@
+/* =========================================================
+   叙光通知列表页样式
+   路由：/notifications
+   配色变量来自 globals.css :root
+   通用 .btn-primary / .btn-ghost / .seal 见 globals.css
+   图标配色与 notification-panel 组件保持一致
+   ========================================================= */
+
+/* ===================== 页头 ===================== */
+.notifications-page .page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(138, 28, 28, 0.2);
+}
+.notifications-page .page-title {
+  font-family: "Noto Serif SC", serif;
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+.notifications-page .page-title svg {
+  color: var(--blood);
+}
+.notifications-page .page-desc {
+  font-family: "Courier Prime", monospace;
+  font-size: 12px;
+  color: var(--sepia);
+  margin-top: 5px;
+  letter-spacing: 0.04em;
+}
+.notifications-page .page-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.notif-markall-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ===================== 加载态 ===================== */
+.notif-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 60px 20px;
+  font-family: "Noto Serif SC", serif;
+  font-size: 13.5px;
+  color: var(--sepia);
+}
+.notif-spin {
+  color: var(--blood);
+  animation: notif-spin 1s linear infinite;
+}
+@keyframes notif-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ===================== 筛选标签 ===================== */
+.notif-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.22);
+  flex-wrap: wrap;
+}
+.notif-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-family: "Noto Serif SC", serif;
+  font-size: 13px;
+  color: var(--sepia);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.18s, border-color 0.18s, background 0.18s;
+}
+.notif-tab:hover {
+  color: var(--blood);
+  background: rgba(138, 28, 28, 0.04);
+}
+.notif-tab.active {
+  color: var(--blood);
+  border-bottom-color: var(--blood);
+  font-weight: 700;
+}
+.notif-tab-count {
+  font-family: "Courier Prime", monospace;
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(122, 92, 58, 0.14);
+  color: var(--sepia);
+  border: 1px solid rgba(122, 92, 58, 0.25);
+  letter-spacing: 0.04em;
+}
+.notif-tab.active .notif-tab-count {
+  background: rgba(138, 28, 28, 0.12);
+  color: var(--blood);
+  border-color: rgba(138, 28, 28, 0.3);
+}
+
+/* ===================== 通知列表 ===================== */
+.notif-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 760px;
+}
+.notif-item {
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px;
+  text-align: left;
+  background: rgba(253, 248, 240, 0.6);
+  border: 1px solid rgba(122, 92, 58, 0.16);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, box-shadow 0.18s;
+  width: 100%;
+}
+.notif-item:hover {
+  background: rgba(138, 28, 28, 0.06);
+  border-color: rgba(138, 28, 28, 0.3);
+  box-shadow: var(--shadow-sm);
+}
+.notif-item.unread {
+  background: rgba(138, 28, 28, 0.05);
+  border-left: 3px solid var(--blood);
+}
+
+/* ---- 图标 ---- */
+.notif-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(138, 28, 28, 0.08);
+  border: 1px solid rgba(138, 28, 28, 0.18);
+}
+
+/* ---- 主体 ---- */
+.notif-body {
+  flex: 1;
+  min-width: 0;
+}
+.notif-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.notif-type-tag {
+  font-family: "Courier Prime", monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  padding: 1px 7px;
+  border-radius: 2px;
+  background: rgba(138, 28, 28, 0.08);
+  border: 1px solid currentColor;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+.notif-title {
+  font-family: "Noto Serif SC", serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.notif-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--blood-bright);
+  flex-shrink: 0;
+  box-shadow: 0 0 5px var(--blood);
+}
+.notif-desc {
+  font-family: "Noto Serif SC", serif;
+  font-size: 12.5px;
+  color: var(--char);
+  margin-top: 5px;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.notif-time {
+  font-family: "Courier Prime", monospace;
+  font-size: 10.5px;
+  color: var(--sepia);
+  margin-top: 6px;
+  letter-spacing: 0.06em;
+}
+
+/* ===================== 空状态 ===================== */
+.notif-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 56px 20px;
+  font-family: "Noto Serif SC", serif;
+  text-align: center;
+  max-width: 760px;
+}
+.notif-empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px dashed rgba(138, 28, 28, 0.35);
+  background: rgba(253, 248, 240, 0.6);
+  color: var(--sepia);
+}
+.notif-empty-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.notif-empty-desc {
+  font-size: 12.5px;
+  color: var(--sepia);
+  line-height: 1.65;
+  max-width: 360px;
+}
+
+/* ===================== 响应式 ===================== */
+@media (max-width: 760px) {
+  .notifications-page .page-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .notifications-page .page-actions {
+    width: 100%;
+  }
+  .notif-markall-btn {
+    flex: 1;
+  }
+  .notif-item {
+    padding: 12px;
+    gap: 10px;
+  }
+  .notif-icon {
+    width: 30px;
+    height: 30px;
+  }
+}

@@ -1,0 +1,385 @@
+/* =========================================================
+   叙光主工作区全局响应式样式（T202）
+   两档断点：
+     · ≤1280px 平板：侧栏窄化、编辑器两栏、关系图侧栏下沉、
+                    社区瀑布流 2 列、概览单列
+     · ≤900px  手机：侧栏抽屉化（汉堡菜单）、编辑器单栏、
+                    关系图全屏、社区 1 列、FAB 缩小
+   仅使用原型配色变量（var(--paper-*)/var(--blood)/var(--ink)…）
+   配套 HTML：layout.tsx 中的 #sb-toggle checkbox + .sb-toggle-btn
+   ========================================================= */
+
+/* =========================================================
+   平板断点 ≤1280px
+   ========================================================= */
+@media (max-width: 1280px) {
+  /* ---- 侧栏窄化：248px → 64px（仅图标）---- */
+  .app {
+    grid-template-columns: 64px 1fr;
+  }
+  .brand {
+    padding: 14px 0;
+    justify-content: center;
+  }
+  .brand-text {
+    display: none;
+  }
+  .script-switch {
+    margin: 10px 8px 4px;
+    padding: 8px 0;
+    border-left: none;
+    border-top: 3px solid var(--blood);
+    text-align: center;
+  }
+  .script-switch .ss-label,
+  .script-switch .ss-title span:last-child,
+  .script-switch .ss-meta {
+    display: none;
+  }
+  .script-switch .ss-title {
+    justify-content: center;
+    font-size: 11px;
+  }
+  .script-switch .ss-title span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 48px;
+  }
+  .nav-section-title {
+    text-align: center;
+    padding: 10px 0 4px;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+  }
+  .nav-item {
+    justify-content: center;
+    padding: 10px 0;
+  }
+  .nav-item span {
+    display: none;
+  }
+  .nav-item .badge {
+    display: none;
+  }
+  .sidebar-foot {
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 0;
+    align-items: center;
+  }
+  .sidebar-foot .user-info {
+    display: none;
+  }
+
+  /* ---- 编辑器三栏 → 两栏（隐藏右侧面板，浮动按钮唤出）---- */
+  .editor-layout {
+    grid-template-columns: 220px 1fr;
+  }
+  .editor-layout .side-panel {
+    position: fixed;
+    top: 56px;
+    right: 0;
+    bottom: 0;
+    width: 300px;
+    max-width: 80vw;
+    background: var(--paper-lighter);
+    border-left: 1px solid rgba(138, 28, 28, 0.2);
+    box-shadow: -8px 0 24px rgba(26, 18, 11, 0.18);
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    z-index: 20;
+    padding: 12px;
+    overflow-y: auto;
+  }
+  .editor-layout .side-panel.is-open {
+    transform: translateX(0);
+  }
+  /* 浮动唤出按钮（默认隐藏，平板断点显示） */
+  .editor-panel-fab {
+    display: inline-flex;
+    position: fixed;
+    right: 18px;
+    bottom: 24px;
+    z-index: 21;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--blood) 0%, #6b1515 100%);
+    color: var(--paper-light);
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(60, 10, 10, 0.35);
+    border: none;
+    cursor: pointer;
+  }
+
+  /* ---- 时间轴 min-width 保持，提示横滚 ---- */
+  .timeline-stage {
+    overflow-x: auto;
+    position: relative;
+  }
+  .timeline-stage::after {
+    content: "← 横向滚动查看完整时间轴 →";
+    display: block;
+    text-align: center;
+    font-family: "Courier Prime", monospace;
+    font-size: 10.5px;
+    color: var(--sepia);
+    padding: 6px 0 2px;
+    letter-spacing: 0.06em;
+    opacity: 0.7;
+  }
+
+  /* ---- 关系图侧栏移到底部 ---- */
+  .relations-page .relation-layout {
+    grid-template-columns: 1fr;
+  }
+
+  /* ---- 社区瀑布流 3 列 → 2 列 ---- */
+  .xhs-feed {
+    column-count: 2;
+  }
+  .xhs-layout {
+    grid-template-columns: 1fr;
+  }
+
+  /* ---- 概览页 overview-grid 单列 ---- */
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+  .resume-hero {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .quick-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* =========================================================
+   手机断点 ≤900px
+   ========================================================= */
+@media (max-width: 900px) {
+  /* ---- 侧栏抽屉化（汉堡菜单）---- */
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "topbar"
+      "main";
+  }
+  /* 隐藏的 checkbox 状态持有者 */
+  .sb-toggle-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  /* 汉堡按钮：仅手机断点显示 */
+  .sb-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 3px;
+    color: var(--char);
+    cursor: pointer;
+    border: none;
+    background: transparent;
+  }
+  .sb-toggle-btn:hover {
+    background: rgba(26, 18, 11, 0.08);
+  }
+  /* 侧栏脱离 grid，变抽屉 */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 248px;
+    max-width: 80vw;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 100;
+    grid-area: auto;
+  }
+  .sb-toggle-input:checked ~ .sidebar {
+    transform: translateX(0);
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.4);
+  }
+  /* 抽屉打开时的遮罩（由 body 数据属性或 :has 触发） */
+  body:has(.sb-toggle-input:checked)::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: rgba(26, 18, 11, 0.55);
+    z-index: 90;
+    pointer-events: none;
+  }
+  /* 抽屉化后恢复侧栏内部文字显示 */
+  .sidebar .brand-text,
+  .sidebar .script-switch .ss-label,
+  .sidebar .script-switch .ss-title span:last-child,
+  .sidebar .script-switch .ss-meta,
+  .sidebar .nav-item span,
+  .sidebar .sidebar-foot .user-info {
+    display: revert;
+  }
+  .sidebar .brand {
+    justify-content: flex-start;
+    padding: 16px 18px 14px;
+  }
+  .sidebar .script-switch {
+    margin: 14px 14px 6px;
+    padding: 10px 12px;
+    border-left: 3px solid var(--blood);
+    border-top: none;
+    text-align: left;
+  }
+  .sidebar .script-switch .ss-title {
+    justify-content: space-between;
+    font-size: 14px;
+  }
+  .sidebar .script-switch .ss-title span:first-child {
+    max-width: none;
+  }
+  .sidebar .nav-section-title {
+    text-align: left;
+    padding: 12px 10px 6px;
+    font-size: 11.5px;
+    letter-spacing: 0.22em;
+  }
+  .sidebar .nav-item {
+    justify-content: flex-start;
+    padding: 9px 12px;
+  }
+  .sidebar .sidebar-foot {
+    flex-direction: row;
+    padding: 12px 16px;
+    align-items: center;
+  }
+
+  /* ---- 顶栏简化 ---- */
+  .topbar {
+    padding: 0 12px;
+    gap: 10px;
+  }
+  .topbar .search {
+    width: auto;
+    flex: 1;
+    max-width: 180px;
+  }
+  .topbar .top-status {
+    display: none;
+  }
+  .topbar .crumb .sep,
+  .topbar .crumb span:first-child {
+    display: none;
+  }
+
+  /* ---- 主区缩小内边距 ---- */
+  .view {
+    padding: 16px 14px 32px;
+  }
+
+  /* ---- 编辑器单栏（章节树和面板抽屉化）---- */
+  .editor-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: auto;
+  }
+  .editor-layout > .card:first-child {
+    /* 章节树容器：折叠为顶部横条 */
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .editor-layout .side-panel {
+    display: none;
+  }
+  .editor-panel-fab {
+    display: none;
+  }
+
+  /* ---- 时间轴横向滚动 ---- */
+  .timeline-stage {
+    overflow-x: auto;
+  }
+  .tl-axis {
+    min-width: 760px;
+  }
+
+  /* ---- 关系图全屏 ---- */
+  .relations-page .relation-layout {
+    grid-template-columns: 1fr;
+  }
+  .relations-page .relation-graph-card {
+    min-height: 60vh;
+  }
+
+  /* ---- 社区瀑布流 2 列 → 1 列 ---- */
+  .xhs-feed {
+    column-count: 1;
+  }
+  .xhs-sidebar {
+    display: none;
+  }
+
+  /* ---- FAB 缩小 ---- */
+  .xhs-fab {
+    width: 44px;
+    height: 44px;
+    right: 16px;
+    bottom: 16px;
+  }
+  .xhs-fab svg {
+    width: 20px;
+    height: 20px;
+  }
+  .xhs-fab::after {
+    display: none;
+  }
+
+  /* ---- 概览页所有网格单列 ---- */
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+  .resume-hero {
+    grid-template-columns: 1fr;
+    padding: 18px 16px;
+  }
+  .resume-progress {
+    flex-direction: column;
+    align-items: center;
+  }
+  .ring-svg {
+    width: 90px;
+    height: 90px;
+  }
+  .quick-row {
+    grid-template-columns: 1fr;
+  }
+  .resume-cta {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* =========================================================
+   桌面断点：隐藏汉堡按钮与浮动面板按钮（默认隐藏）
+   ========================================================= */
+@media (min-width: 901px) {
+  .sb-toggle-btn {
+    display: none;
+  }
+  .sb-toggle-input {
+    display: none;
+  }
+  .editor-panel-fab {
+    display: none;
+  }
+}

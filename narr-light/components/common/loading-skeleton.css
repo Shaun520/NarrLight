@@ -1,0 +1,192 @@
+/* =========================================================
+   叙光骨架屏样式 (T401)
+   用于 Next.js App Router loading.tsx 路由级加载反馈
+   配色对齐 app/globals.css 古风变量；脉冲动画模拟纸面加载质感
+   布局尺寸对齐 app/(dashboard)/dashboard.css（侧栏 248px / 顶栏 56px）
+   ========================================================= */
+
+/* ===================== 脉冲动画 ===================== */
+@keyframes skeleton-pulse {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+
+/* ===================== 骨架基础元素 ===================== */
+.sk-line,
+.sk-block {
+  background: linear-gradient(90deg, var(--paper) 0%, var(--paper-light) 50%, var(--paper) 100%);
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+.sk-line { border-radius: 3px; }
+.sk-block { border-radius: 8px; }
+
+/* 深色侧栏内的骨架元素使用 noir 渐变，与暗色背景协调 */
+.sk-sidebar .sk-line,
+.sk-sidebar .sk-block {
+  background: linear-gradient(90deg, var(--noir-line) 0%, var(--noir-panel) 50%, var(--noir-line) 100%);
+}
+
+/* ===================== DashboardSkeleton 全屏覆盖层 =====================
+   loading.tsx 渲染于 (dashboard) layout 的 <main> 内，而 layout 已提供真实侧栏/顶栏；
+   此处采用 position:fixed 全屏覆盖，呈现完整布局骨架，加载完成后自动卸载露出真实布局。 */
+.sk-app {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  grid-template-columns: 248px 1fr;
+  grid-template-rows: 56px 1fr;
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar main";
+  background:
+    radial-gradient(circle at 12% 8%, rgba(138, 28, 28, 0.05) 0%, transparent 30%),
+    radial-gradient(circle at 88% 92%, rgba(43, 33, 24, 0.18) 0%, transparent 40%),
+    linear-gradient(135deg, var(--paper) 0%, var(--paper-2) 60%, var(--paper-3) 100%);
+}
+
+/* ---- 骨架侧栏 ---- */
+.sk-sidebar {
+  grid-area: sidebar;
+  background: linear-gradient(180deg, var(--noir-bg) 0%, #15110d 100%);
+  border-right: 1px solid var(--noir-line);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px;
+  gap: 14px;
+  overflow: hidden;
+}
+.sk-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--noir-line);
+}
+.sk-brand-mark { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; }
+.sk-brand-text { display: flex; flex-direction: column; gap: 6px; }
+.sk-brand-name { width: 60px; height: 16px; }
+.sk-brand-sub { width: 96px; height: 11px; }
+
+.sk-switch {
+  padding: 10px 12px;
+  border: 1px solid var(--noir-line);
+  border-left: 3px solid var(--blood);
+  border-radius: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sk-switch-label { width: 50px; height: 10px; }
+.sk-switch-title { width: 80%; height: 14px; }
+.sk-switch-meta { width: 60%; height: 10px; }
+
+.sk-nav-group { flex: 1; display: flex; flex-direction: column; gap: 18px; padding-top: 6px; }
+.sk-nav-section { display: flex; flex-direction: column; gap: 8px; }
+.sk-nav-title { width: 48px; height: 11px; }
+.sk-nav-item { height: 14px; border-radius: 3px; }
+
+.sk-foot {
+  padding-top: 12px;
+  border-top: 1px solid var(--noir-line);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sk-foot-avatar { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; }
+.sk-foot-info { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.sk-foot-name { width: 70px; height: 12px; }
+.sk-foot-quota { width: 92px; height: 10px; }
+.sk-foot-btn { width: 32px; height: 32px; border-radius: 3px; }
+
+/* ---- 骨架顶栏 ---- */
+.sk-topbar {
+  grid-area: topbar;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 22px;
+  background: rgba(243, 233, 219, 0.55);
+  border-bottom: 1px solid rgba(138, 28, 28, 0.18);
+}
+.sk-crumb { display: flex; align-items: center; gap: 8px; }
+.sk-crumb-line { width: 40px; height: 12px; }
+.sk-crumb-here { width: 90px; height: 12px; }
+.sk-search { width: 240px; height: 30px; border-radius: 3px; }
+.sk-spacer { flex: 1; }
+.sk-icon { width: 32px; height: 32px; border-radius: 3px; }
+.sk-status { width: 90px; height: 24px; border-radius: 2px; }
+
+/* ---- 骨架主区 ---- */
+.sk-main {
+  grid-area: main;
+  padding: 24px 28px 40px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.sk-page-title { width: 220px; height: 28px; }
+.sk-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.sk-card { height: 120px; }
+.sk-text-rows { display: flex; flex-direction: column; gap: 10px; }
+.sk-text-row { height: 12px; }
+
+/* ===================== ContentSkeleton 纯内容区 ===================== */
+.sk-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+.sk-content-title { width: 200px; height: 24px; }
+.sk-content-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.sk-content-card { height: 120px; }
+
+/* ===================== 子路由骨架布局工具类 ===================== */
+.sk-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.sk-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.sk-cols { display: flex; gap: 16px; align-items: stretch; }
+.sk-col-fixed-260 { width: 260px; flex-shrink: 0; }
+.sk-col-fixed-320 { width: 320px; flex-shrink: 0; }
+.sk-col-flex { flex: 1; min-width: 0; }
+.sk-stack { display: flex; flex-direction: column; gap: 12px; }
+.sk-stack-tight { display: flex; flex-direction: column; gap: 8px; }
+.sk-section-title { width: 140px; height: 18px; }
+.sk-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: rgba(253, 248, 240, 0.5);
+}
+.sk-icon-box { width: 28px; height: 28px; border-radius: 4px; flex-shrink: 0; }
+.sk-progress {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(26, 18, 11, 0.08);
+  overflow: hidden;
+}
+.sk-progress-fill {
+  height: 100%;
+  width: 60%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--blood) 0%, var(--blood-soft) 100%);
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+.sk-hero { height: 140px; }
+.sk-stat-card { height: 110px; }
+.sk-script-card { height: 180px; }
+.sk-plan-card { height: 160px; }
+.sk-tree-item { height: 12px; }
+.sk-editor-line { height: 12px; }

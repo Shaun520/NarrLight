@@ -1,0 +1,841 @@
+/* =========================================================
+   剧本编辑器样式（视图3 · #view-editor）
+   对齐 docs/prototype/workbench2.html 原型 1090-1655 行
+   通用 .card / .btn-* / .seal / .page-head 见 globals.css
+   本文件包含：编辑器布局、章节树、工具栏、内容区、
+   版本历史、AI 调整面板、Toast、版本对比、章节跳转搜索
+   配色变量来自 globals.css (:root)
+   ========================================================= */
+
+/* ===================== 页头（编辑器扩展） ===================== */
+.editor-view .page-head {
+  margin-bottom: 18px;
+}
+.editor-view .page-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.btn-edit {
+  background: rgba(122, 92, 58, 0.15);
+  border: 1px solid rgba(122, 92, 58, 0.35);
+  color: var(--sepia);
+  padding: 7px 14px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.18s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 13px;
+}
+.btn-edit:hover {
+  background: rgba(122, 92, 58, 0.25);
+}
+.btn-edit.active {
+  background: var(--ok);
+  color: var(--paper-light);
+  border-color: var(--ok);
+}
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 3px;
+}
+
+/* ===================== 三栏布局 ===================== */
+.editor-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr 280px;
+  gap: 16px;
+  align-items: start;
+  height: calc(100vh - 56px - 120px);
+  min-height: 560px;
+}
+
+/* ===================== 章节树 ===================== */
+.tree {
+  padding: 8px 0;
+}
+.tree-node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  font-size: 13px;
+  color: var(--char);
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: all 0.16s;
+}
+.tree-node:hover {
+  background: rgba(138, 28, 28, 0.05);
+}
+.tree-node.active {
+  background: rgba(138, 28, 28, 0.1);
+  border-left-color: var(--blood);
+  color: var(--blood);
+  font-weight: 700;
+}
+.tree-node.lv2 {
+  padding-left: 28px;
+  font-size: 12.5px;
+  color: var(--sepia);
+}
+.tree-node svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+.tree-node .count {
+  margin-left: auto;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--sepia);
+  opacity: 0.9;
+}
+
+/* 分组折叠 */
+.tree-node.tree-group {
+  user-select: none;
+}
+.tree-node.tree-group .tree-arrow {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--sepia);
+  transition: transform 0.2s;
+}
+.tree-children {
+  overflow: hidden;
+  transition: max-height 0.25s ease, opacity 0.2s;
+  max-height: 600px;
+}
+.tree-children.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+.tree-group.collapsed .tree-arrow {
+  transform: rotate(-90deg);
+}
+
+/* ===================== 编辑主区 ===================== */
+.editor-main {
+  background: rgba(253, 248, 240, 0.85);
+  border: 1px solid rgba(122, 92, 58, 0.22);
+  border-radius: 4px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  align-self: stretch;
+  min-height: 0;
+}
+
+/* ===================== 工具栏 ===================== */
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.16);
+  background: rgba(234, 221, 207, 0.4);
+  flex-wrap: wrap;
+}
+.tb-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  color: var(--char);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.16s;
+}
+.tb-btn:hover:not(:disabled) {
+  background: rgba(26, 18, 11, 0.08);
+}
+.tb-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.tb-btn svg {
+  width: 15px;
+  height: 15px;
+}
+.tb-sep {
+  width: 1px;
+  height: 18px;
+  background: rgba(26, 18, 11, 0.15);
+  margin: 0 4px;
+}
+.tb-label {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--sepia);
+  margin-left: auto;
+}
+.editor-edit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  border-radius: 2px;
+  background: rgba(74, 124, 89, 0.15);
+  color: var(--ok);
+  border: 1px solid rgba(74, 124, 89, 0.35);
+}
+.editor-edit-badge.dirty {
+  background: rgba(184, 132, 28, 0.18);
+  color: var(--warn);
+  border-color: rgba(184, 132, 28, 0.4);
+}
+
+/* ===================== 编辑内容区 ===================== */
+.editor-content {
+  flex: 1;
+  min-height: 0;
+  padding: 24px 32px;
+  overflow-y: auto;
+  font-size: 14.5px;
+  line-height: 1.85;
+  color: var(--char);
+}
+.editor-content h2 {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--ink);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.editor-content h2 .act-num {
+  font-family: 'ZCOOL XiaoWei', serif;
+  color: var(--paper-light);
+  background: var(--blood);
+  font-size: 13px;
+  padding: 2px 10px;
+  border-radius: 2px;
+}
+.editor-content .sub-h {
+  font-family: 'ZCOOL XiaoWei', serif;
+  font-size: 16px;
+  color: var(--blood);
+  margin: 18px 0 8px;
+  border-bottom: 1px dashed rgba(138, 28, 28, 0.3);
+  padding-bottom: 4px;
+}
+.editor-content p {
+  margin-bottom: 12px;
+  text-indent: 2em;
+}
+.editor-content .highlight {
+  background: rgba(184, 132, 28, 0.2);
+  border-bottom: 2px solid var(--warn);
+  padding: 1px 2px;
+}
+
+/* 人物剧本：多幕长卷排版（古风书卷气） */
+.editor-content .act-section {
+  margin-bottom: 4px;
+}
+.editor-content .act-section:last-child {
+  margin-bottom: 0;
+}
+.editor-content .act-section h2 {
+  margin-top: 2px;
+  margin-bottom: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.22);
+}
+.editor-content .page-meta {
+  font-family: 'Courier Prime', 'ZCOOL XiaoWei', monospace;
+  font-size: 11.5px;
+  color: var(--sepia);
+  letter-spacing: 0.12em;
+  margin: -2px 0 16px;
+  padding-left: 2px;
+}
+.editor-content .act-divider {
+  border: none;
+  text-align: center;
+  margin: 30px 0 26px;
+  height: 0;
+  position: relative;
+}
+.editor-content .act-divider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px dashed rgba(122, 92, 58, 0.35);
+}
+.editor-content .act-divider::after {
+  content: '❖';
+  position: relative;
+  top: -11px;
+  background: rgba(253, 248, 240, 0.96);
+  color: var(--blood);
+  padding: 0 14px;
+  font-size: 15px;
+}
+.editor-content .act-section p {
+  margin-bottom: 14px;
+  text-indent: 2em;
+  text-align: justify;
+  text-justify: inter-ideograph;
+}
+.editor-content .act-section p:first-of-type {
+  text-indent: 0;
+}
+.editor-content .act-section p:first-of-type::first-letter {
+  font-family: 'ZCOOL XiaoWei', 'Noto Serif SC', serif;
+  font-size: 2.1em;
+  font-weight: 900;
+  color: var(--blood);
+  float: left;
+  line-height: 0.95;
+  margin: 5px 8px 0 0;
+  padding: 2px 4px;
+}
+.editor-content .ai-suggest {
+  background: rgba(58, 90, 122, 0.1);
+  border-left: 3px solid var(--info);
+  padding: 10px 14px;
+  margin: 12px 0;
+  font-size: 13px;
+  color: var(--char);
+  border-radius: 0 3px 3px 0;
+}
+.editor-content .ai-suggest::before {
+  content: 'AI 建议 · ';
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--info);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+/* 滚动条美化 */
+.editor-content::-webkit-scrollbar {
+  width: 6px;
+}
+.editor-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.editor-content::-webkit-scrollbar-thumb {
+  background: rgba(138, 28, 28, 0.25);
+  border-radius: 3px;
+}
+.editor-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(138, 28, 28, 0.45);
+}
+
+/* 可编辑态 */
+.editor-content[contenteditable='true']:focus {
+  outline: 2px dashed rgba(138, 28, 28, 0.4);
+  outline-offset: 4px;
+  background: rgba(253, 248, 240, 0.98);
+}
+.editor-content[contenteditable='true'] p:hover {
+  background: rgba(184, 132, 28, 0.06);
+}
+
+/* ===================== 线索卡总览列表 ===================== */
+.clue-overview-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.clue-overview-item {
+  padding: 10px 12px;
+  background: rgba(253, 248, 240, 0.6);
+  border: 1px solid rgba(122, 92, 58, 0.2);
+  border-left: 3px solid var(--gold);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.16s;
+}
+.clue-overview-item:hover {
+  border-left-color: var(--blood);
+  background: rgba(138, 28, 28, 0.04);
+  transform: translateX(2px);
+}
+.clue-overview-item .co-no {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--sepia);
+  letter-spacing: 0.1em;
+}
+.clue-overview-item .co-title {
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 600;
+  margin: 2px 0;
+}
+.clue-overview-item .co-tag {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 2px;
+  background: rgba(122, 92, 58, 0.15);
+  color: var(--sepia);
+}
+.clue-overview-item .co-tag.blood {
+  background: rgba(138, 28, 28, 0.12);
+  color: var(--blood);
+}
+.clue-overview-item .co-tag.ok {
+  background: rgba(74, 124, 89, 0.15);
+  color: var(--ok);
+}
+
+/* ===================== 右侧面板 ===================== */
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-self: stretch;
+}
+.side-panel .card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.16);
+}
+.side-panel .card-head h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.side-panel .card-head h3 svg {
+  width: 16px;
+  height: 16px;
+  color: var(--blood);
+}
+.side-panel .card-body {
+  padding: 16px;
+}
+
+/* 版本历史 */
+.version-item {
+  padding: 10px 12px;
+  border: 1px solid rgba(122, 92, 58, 0.2);
+  border-radius: 3px;
+  background: rgba(253, 248, 240, 0.5);
+  cursor: pointer;
+  transition: all 0.16s;
+  margin-bottom: 8px;
+}
+.version-item:hover {
+  border-color: var(--blood);
+  background: rgba(138, 28, 28, 0.05);
+}
+.version-item.current {
+  border-color: var(--blood);
+  border-left-width: 3px;
+}
+.vi-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--sepia);
+}
+.vi-head b {
+  color: var(--blood);
+}
+.vi-note {
+  font-size: 12.5px;
+  color: var(--char);
+  margin-top: 4px;
+}
+
+/* ===================== AI 智能调整 ===================== */
+.ai-adjust-box {
+  background: rgba(28, 25, 21, 0.9);
+  color: var(--noir-text);
+  border: 1px solid var(--noir-line);
+  border-radius: 4px;
+  padding: 14px;
+}
+.ai-adjust-box h4 {
+  font-size: 13px;
+  color: var(--gold-soft);
+  font-family: 'Courier Prime', monospace;
+  letter-spacing: 0.1em;
+  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.ai-adjust-box h4 svg {
+  width: 15px;
+  height: 15px;
+}
+.quick-prompt {
+  display: block;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: var(--noir-text);
+  border: 1px solid var(--noir-line);
+  border-radius: 3px;
+  margin-bottom: 7px;
+  cursor: pointer;
+  transition: all 0.16s;
+  background: rgba(255, 255, 255, 0.02);
+}
+.quick-prompt:hover {
+  border-color: var(--blood);
+  color: var(--blood-soft);
+  background: rgba(138, 28, 28, 0.1);
+}
+.quick-prompt::before {
+  content: '› ';
+  color: var(--gold-soft);
+}
+.ai-adjust-textarea {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--noir-line);
+  border-radius: 3px;
+  color: var(--noir-text);
+  padding: 10px;
+  font-size: 12px;
+  font-family: 'Courier Prime', monospace;
+  outline: none;
+  min-height: 54px;
+  resize: vertical;
+  margin-top: 6px;
+}
+.ai-adjust-textarea:focus {
+  border-color: var(--blood);
+}
+
+/* ===================== Toast 保存提示 ===================== */
+.save-toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 9999;
+  padding: 12px 20px;
+  background: var(--noir-bg);
+  color: var(--paper-light);
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  box-shadow: var(--shadow-lg);
+  font-family: 'Noto Serif SC', serif;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transform: translateY(20px);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
+  pointer-events: none;
+}
+.save-toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+.save-toast .toast-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ok);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--paper-light);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* ===================== 版本对比弹层 ===================== */
+.vd-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 18, 11, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.vd-modal {
+  background: var(--paper-lighter);
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  box-shadow: var(--shadow-lg);
+  width: min(1080px, 96vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.vd-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.25);
+  background: rgba(234, 221, 207, 0.45);
+}
+.vd-head h3 {
+  margin: 0;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 16px;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+.vd-tag {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  background: rgba(122, 92, 58, 0.18);
+  color: var(--sepia);
+}
+.vd-tag.b {
+  background: rgba(138, 28, 28, 0.15);
+  color: var(--blood);
+}
+.vd-arrow {
+  color: var(--gold);
+  font-size: 14px;
+}
+.vd-summary {
+  margin-left: 12px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--sepia);
+}
+.vd-summary .added {
+  color: var(--ok);
+}
+.vd-summary .removed {
+  color: var(--blood);
+}
+.vd-close {
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--sepia);
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 3px;
+  transition: all 0.16s;
+}
+.vd-close:hover {
+  background: rgba(138, 28, 28, 0.1);
+  color: var(--blood);
+}
+.vd-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: rgba(122, 92, 58, 0.25);
+  overflow: hidden;
+}
+.vd-pane {
+  background: var(--paper-lighter);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.vd-pane-head {
+  padding: 8px 14px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--sepia);
+  letter-spacing: 0.08em;
+  border-bottom: 1px dashed rgba(122, 92, 58, 0.2);
+  background: rgba(253, 248, 240, 0.6);
+}
+.vd-pane-content {
+  flex: 1;
+  overflow: auto;
+  padding: 10px 14px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--char);
+}
+.vd-line {
+  display: flex;
+  gap: 6px;
+  padding: 1px 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-radius: 2px;
+}
+.vd-line.added {
+  background: rgba(74, 124, 89, 0.12);
+  color: #2f5a3c;
+}
+.vd-line.removed {
+  background: rgba(138, 28, 28, 0.12);
+  color: var(--blood);
+  text-decoration: line-through;
+  text-decoration-color: rgba(138, 28, 28, 0.35);
+}
+.vd-line-no {
+  flex-shrink: 0;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--sepia);
+  width: 12px;
+}
+
+/* ===================== 章节跳转搜索弹层 ===================== */
+.so-modal {
+  width: min(640px, 96vw);
+}
+.so-body {
+  padding: 16px 18px;
+  overflow: auto;
+  max-height: calc(88vh - 60px);
+}
+.so-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(122, 92, 58, 0.3);
+  border-radius: 4px;
+  background: rgba(253, 248, 240, 0.7);
+  margin-bottom: 14px;
+}
+.so-search svg {
+  color: var(--sepia);
+  flex-shrink: 0;
+}
+.so-search input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 13px;
+  color: var(--char);
+}
+.so-section-head {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--sepia);
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.so-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--sepia);
+  font-size: 13px;
+}
+.so-hits {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.so-hit {
+  padding: 8px 12px;
+  border: 1px solid rgba(122, 92, 58, 0.22);
+  border-left: 3px solid var(--gold);
+  border-radius: 3px;
+  background: rgba(253, 248, 240, 0.6);
+  cursor: pointer;
+  transition: all 0.16s;
+}
+.so-hit:hover {
+  border-left-color: var(--blood);
+  background: rgba(138, 28, 28, 0.04);
+  transform: translateX(2px);
+}
+.so-hit.active {
+  border-left-color: var(--blood);
+  background: rgba(138, 28, 28, 0.08);
+}
+.so-hit-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--blood);
+  margin-bottom: 2px;
+}
+.so-hit-head svg {
+  width: 12px;
+  height: 12px;
+}
+.so-hit-snippet {
+  font-size: 12.5px;
+  color: var(--char);
+  line-height: 1.6;
+}
+.so-outline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.so-group-title {
+  font-family: 'ZCOOL XiaoWei', serif;
+  font-size: 14px;
+  color: var(--blood);
+  border-bottom: 1px dashed rgba(138, 28, 28, 0.25);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+}
+.so-outline-item {
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--char);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.16s;
+}
+.so-outline-item:hover {
+  background: rgba(138, 28, 28, 0.06);
+  color: var(--blood);
+}
+.so-outline-item.active {
+  background: rgba(138, 28, 28, 0.1);
+  color: var(--blood);
+  font-weight: 700;
+  border-left: 2px solid var(--blood);
+}
+
+/* ===================== 高亮跳转脉冲动画 ===================== */
+@keyframes highlight-pulse {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgba(138, 28, 28, 0.2); }
+}
+.highlight-pulse {
+  animation: highlight-pulse 0.8s ease-in-out 3;
+  border-radius: 4px;
+}

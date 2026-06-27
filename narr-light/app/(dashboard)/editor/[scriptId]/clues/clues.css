@@ -1,0 +1,902 @@
+/* 线索卡管理页样式（视图6 · #view-clues）
+   对齐 docs/prototype/workbench2.html 原型
+   包含：页头、联动标签栏、线索卡网格、4 种视觉风格、
+        线索详情抽屉、标记组件、解锁层级、真相跳转、导出进度
+   配色变量来自 globals.css (:root) */
+
+/* ===== 页头 ===== */
+.clues-page .page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 4px 4px 18px;
+  border-bottom: 1px solid var(--noir-line);
+  margin-bottom: 18px;
+}
+.clues-page .page-title {
+  font-family: 'Noto Serif SC', serif;
+  font-weight: 900;
+  font-size: 24px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+.clues-page .page-title .seal {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--paper-light);
+  background: var(--blood);
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-weight: 700;
+}
+.clues-page .page-desc {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  color: var(--sepia-soft);
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+}
+.clues-page .page-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ===== 风格切换器 ===== */
+.style-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.style-chip {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-family: 'Noto Serif SC', serif;
+  border: 1px solid rgba(122, 92, 58, 0.3);
+  border-radius: 2px;
+  color: var(--sepia);
+  cursor: pointer;
+  transition: all 0.16s;
+  background: rgba(253, 248, 240, 0.7);
+}
+.style-chip:hover {
+  color: var(--ink);
+  border-color: var(--sepia);
+  background: rgba(253, 248, 240, 0.95);
+}
+.style-chip.active {
+  background: var(--blood);
+  color: var(--paper-light);
+  border-color: var(--blood);
+}
+
+/* ===== 联动标签栏（原型 2340-2413 行） ===== */
+.clue-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+  background: rgba(253, 248, 240, 0.55);
+  border: 1px solid rgba(122, 92, 58, 0.22);
+  border-radius: 4px;
+  padding: 12px 14px;
+}
+.tab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tab-row .row-label {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10.5px;
+  color: var(--sepia);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+.act-tab,
+.phase-tab {
+  position: relative;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-family: 'Noto Serif SC', serif;
+  border: 1px solid rgba(122, 92, 58, 0.35);
+  border-radius: 3px;
+  background: rgba(253, 248, 240, 0.7);
+  color: var(--char);
+  cursor: pointer;
+  transition: all 0.16s;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.act-tab:hover,
+.phase-tab:hover {
+  border-color: var(--sepia);
+  background: rgba(253, 248, 240, 0.95);
+}
+.act-tab .t-count,
+.phase-tab .t-count {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(122, 92, 58, 0.15);
+  color: var(--sepia);
+  letter-spacing: 0.04em;
+}
+.act-tab.active {
+  background: var(--ink);
+  color: var(--paper-light);
+  border-color: var(--ink);
+  box-shadow: 0 2px 8px rgba(26, 18, 11, 0.3);
+}
+.act-tab.active .t-count {
+  background: rgba(243, 233, 219, 0.18);
+  color: var(--paper-light);
+}
+.phase-tab.active {
+  background: var(--blood);
+  color: var(--paper-light);
+  border-color: var(--blood);
+}
+.phase-tab.active .t-count {
+  background: rgba(243, 233, 219, 0.2);
+  color: var(--paper-light);
+}
+.tab-divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(122, 92, 58, 0.25);
+  margin: 0 2px;
+}
+.clue-card.hidden-by-tab {
+  display: none;
+}
+.clue-empty {
+  grid-column: 1 / -1;
+  padding: 36px;
+  text-align: center;
+  color: var(--sepia);
+  font-size: 13px;
+  border: 1px dashed rgba(122, 92, 58, 0.3);
+  border-radius: 4px;
+  background: rgba(253, 248, 240, 0.4);
+}
+
+/* ===== 线索卡网格（原型 2014-2018 行） ===== */
+.clue-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+/* ===== 线索卡基础样式（原型 2020-2032 行） ===== */
+.clue-card {
+  position: relative;
+  padding: 16px 18px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  border-radius: 2px;
+  transition: transform 0.22s, box-shadow 0.22s, border-color 0.18s;
+  cursor: pointer;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+}
+.clue-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+.clue-card.selected {
+  outline: 2px solid var(--blood);
+  outline-offset: 2px;
+}
+.clue-card:focus-visible {
+  outline: 2px solid var(--blood);
+  outline-offset: 2px;
+}
+
+/* ===== 四种视觉风格（原型 2426-2455 行） ===== */
+.clue-card.ink {
+  background: radial-gradient(circle at 85% 12%, rgba(26, 18, 11, 0.1) 0%, transparent 45%),
+    linear-gradient(135deg, #f3e9db 0%, #e6d3c0 100%);
+  color: var(--char);
+  font-family: 'Noto Serif SC', serif;
+  border: 1px solid rgba(122, 92, 58, 0.28);
+  box-shadow: 0 8px 20px rgba(60, 30, 10, 0.18), inset 0 0 22px rgba(122, 92, 58, 0.06);
+}
+.clue-card.film {
+  background: linear-gradient(135deg, #25211c 0%, #1a1713 100%);
+  color: var(--noir-text);
+  font-family: 'Special Elite', monospace;
+  border: 1px solid rgba(200, 180, 150, 0.22);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4), inset 0 0 24px rgba(0, 0, 0, 0.3);
+}
+.clue-card.hand {
+  background: radial-gradient(circle at 20% 80%, rgba(122, 92, 58, 0.1) 0%, transparent 50%),
+    linear-gradient(135deg, #fdf8f0 0%, #f5efe3 100%);
+  color: #5a4632;
+  font-family: 'ZCOOL XiaoWei', 'Ma Shan Zheng', serif;
+  border: 1px solid rgba(122, 92, 58, 0.22);
+  border-radius: 2px 14px 2px 14px;
+  box-shadow: 0 7px 18px rgba(0, 0, 0, 0.12);
+}
+.clue-card.mini {
+  background: #fafafa;
+  color: #2b2118;
+  font-family: 'PingFang SC', 'Helvetica Neue', sans-serif;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  letter-spacing: 0.02em;
+}
+
+/* ===== 线索卡内部元素（原型 2456-2482 行） ===== */
+.cc-corner {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 22px;
+  color: rgba(138, 28, 28, 0.4);
+  font-weight: 700;
+  line-height: 1;
+}
+.clue-card.film .cc-corner {
+  color: rgba(201, 165, 106, 0.75);
+}
+.clue-card.hand .cc-corner {
+  color: rgba(122, 92, 58, 0.65);
+}
+.clue-card.mini .cc-corner {
+  color: #b0b0b0;
+  font-size: 14px;
+  font-family: 'Courier Prime', monospace;
+}
+
+.cc-tag {
+  font-size: 11.5px;
+  padding: 2px 7px;
+  border-radius: 2px;
+  letter-spacing: 0.06em;
+  font-family: 'Courier Prime', monospace;
+  align-self: flex-start;
+}
+.clue-card .cc-tag.public {
+  background: rgba(74, 124, 89, 0.15);
+  color: #4a7c59;
+  border: 1px solid rgba(74, 124, 89, 0.3);
+}
+.clue-card .cc-tag.private {
+  background: rgba(58, 90, 122, 0.15);
+  color: #3a5a7a;
+  border: 1px solid rgba(58, 90, 122, 0.3);
+}
+.clue-card .cc-tag.key {
+  background: rgba(138, 28, 28, 0.15);
+  color: var(--blood);
+  border: 1px solid rgba(138, 28, 28, 0.3);
+}
+.clue-card .cc-tag.trap {
+  background: rgba(184, 132, 28, 0.15);
+  color: var(--warn);
+  border: 1px solid rgba(184, 132, 28, 0.3);
+}
+.clue-card.film .cc-tag.public {
+  background: rgba(74, 124, 89, 0.25);
+  color: #7fb089;
+}
+.clue-card.film .cc-tag.private {
+  background: rgba(58, 90, 122, 0.3);
+  color: #8ab0d0;
+}
+.clue-card.film .cc-tag.key {
+  background: rgba(201, 67, 63, 0.25);
+  color: #e0857f;
+}
+.clue-card.film .cc-tag.trap {
+  background: rgba(201, 165, 106, 0.2);
+  color: #d4b478;
+}
+
+.cc-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 18px;
+}
+.cc-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+.clue-card.mini .cc-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+.clue-card .cc-text {
+  font-size: 13px;
+  line-height: 1.7;
+  opacity: 0.96;
+}
+.clue-card.mini .cc-text {
+  font-size: 13px;
+}
+
+.cc-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.15);
+  font-family: 'Courier Prime', monospace;
+  font-size: 11.5px;
+}
+.clue-card.film .cc-foot {
+  border-top-color: rgba(200, 180, 150, 0.2);
+  color: #c9b8a4;
+}
+.clue-card.mini .cc-foot {
+  border-top-color: #e8e8e8;
+  color: #666;
+}
+
+/* ===== 线索详情抽屉 ===== */
+.clue-detail-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 420px;
+  max-width: 90vw;
+  background: rgba(253, 248, 240, 0.98);
+  border-left: 1px solid rgba(122, 92, 58, 0.3);
+  box-shadow: -8px 0 32px rgba(26, 18, 11, 0.25);
+  z-index: 91;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.28s ease;
+}
+.clue-detail-drawer.open {
+  transform: translateX(0);
+}
+.clue-detail-drawer-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 18, 11, 0.4);
+  z-index: 90;
+}
+.clue-detail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.cd-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.2);
+  background: rgba(243, 233, 219, 0.4);
+}
+.cd-head-main {
+  flex: 1;
+  min-width: 0;
+}
+.cd-code {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--sepia);
+  letter-spacing: 0.1em;
+}
+.cd-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--ink);
+  margin: 4px 0 8px;
+  letter-spacing: 0.04em;
+}
+.cd-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.cd-chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  background: rgba(122, 92, 58, 0.12);
+  color: var(--sepia);
+  font-family: 'Noto Serif SC', serif;
+  letter-spacing: 0.04em;
+}
+.cd-chip.key {
+  background: rgba(138, 28, 28, 0.15);
+  color: var(--blood);
+}
+.cd-chip.trap {
+  background: rgba(184, 132, 28, 0.15);
+  color: var(--warn);
+}
+.cd-close {
+  background: transparent;
+  border: none;
+  color: var(--sepia);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 2px;
+  transition: color 0.16s, background 0.16s;
+}
+.cd-close:hover {
+  color: var(--blood);
+  background: rgba(138, 28, 28, 0.08);
+}
+.cd-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.cd-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cd-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--sepia);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.cd-text {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 14px;
+  line-height: 1.85;
+  color: var(--char);
+  margin: 0;
+}
+.cd-location {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cd-loc-name {
+  font-size: 14px;
+  color: var(--ink);
+  font-weight: 600;
+}
+.cd-owner {
+  font-size: 12px;
+  color: var(--sepia);
+}
+.cd-chars {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.cd-char {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: rgba(58, 90, 122, 0.1);
+  color: #3a5a7a;
+  border: 1px solid rgba(58, 90, 122, 0.2);
+}
+.cd-empty-inline {
+  font-size: 12px;
+  color: var(--sepia-soft);
+  font-style: italic;
+}
+.cd-meta-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.cd-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  color: var(--sepia);
+}
+.cd-meta-item.unlock {
+  color: var(--blood);
+  font-weight: 700;
+}
+
+/* 详情抽屉额外区域（标记 + 解锁层级） */
+.cd-extra {
+  flex-shrink: 0;
+  max-height: 42%;
+  overflow-y: auto;
+  padding: 14px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid rgba(122, 92, 58, 0.15);
+  background: rgba(253, 248, 240, 0.5);
+}
+
+/* ===== 标记组件 ===== */
+.clue-tags-mark {
+  background: rgba(253, 248, 240, 0.6);
+  border: 1px solid rgba(122, 92, 58, 0.2);
+  border-radius: 4px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ctm-title {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--sepia);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.ctm-row {
+  display: flex;
+  gap: 8px;
+}
+.ctm-toggle {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 13px;
+  color: var(--sepia);
+  background: rgba(253, 248, 240, 0.7);
+  border: 1px solid rgba(122, 92, 58, 0.25);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.16s;
+}
+.ctm-toggle:hover {
+  border-color: var(--sepia);
+  background: rgba(253, 248, 240, 0.95);
+}
+.ctm-toggle.active.key {
+  background: rgba(138, 28, 28, 0.12);
+  color: var(--blood);
+  border-color: var(--blood);
+  font-weight: 700;
+}
+.ctm-toggle.active.trap {
+  background: rgba(184, 132, 28, 0.12);
+  color: var(--warn);
+  border-color: var(--warn);
+  font-weight: 700;
+}
+.ctm-hint {
+  font-size: 10.5px;
+  color: var(--sepia-soft);
+  font-family: 'Courier Prime', monospace;
+  letter-spacing: 0.04em;
+}
+.ctm-note {
+  font-size: 11.5px;
+  color: var(--sepia-soft);
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* ===== 解锁层级 ===== */
+.clue-hierarchy {
+  background: rgba(253, 248, 240, 0.6);
+  border: 1px solid rgba(122, 92, 58, 0.2);
+  border-radius: 4px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ch-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--sepia);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.ch-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ch-node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  padding: 6px 8px;
+  border-radius: 2px;
+  background: rgba(243, 233, 219, 0.4);
+  border: 1px solid rgba(122, 92, 58, 0.15);
+}
+.ch-node.root {
+  background: rgba(138, 28, 28, 0.08);
+  border-color: rgba(138, 28, 28, 0.25);
+}
+.ch-node.prereq {
+  color: var(--sepia);
+}
+.ch-node-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--sepia);
+}
+.ch-node.root .ch-node-icon {
+  color: var(--blood);
+}
+.ch-node-code {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--sepia);
+  flex-shrink: 0;
+}
+.ch-node-title {
+  font-family: 'Noto Serif SC', serif;
+  font-weight: 600;
+  color: var(--char);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ch-arrow {
+  color: var(--sepia-soft);
+  flex-shrink: 0;
+}
+.ch-node-type {
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(122, 92, 58, 0.12);
+  color: var(--sepia);
+  flex-shrink: 0;
+}
+.ch-level {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(138, 28, 28, 0.12);
+  color: var(--blood);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.ch-jump {
+  background: transparent;
+  border: 1px solid rgba(122, 92, 58, 0.3);
+  color: var(--sepia);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.16s;
+  flex-shrink: 0;
+}
+.ch-jump:hover {
+  color: var(--blood);
+  border-color: var(--blood);
+}
+.ch-empty {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--sepia-soft);
+  padding: 8px 0;
+}
+
+/* ===== 真相跳转 ===== */
+.truth-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 12.5px;
+  color: var(--blood);
+  background: rgba(138, 28, 28, 0.08);
+  border: 1px solid rgba(138, 28, 28, 0.25);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.16s;
+}
+.truth-link:hover {
+  background: rgba(138, 28, 28, 0.15);
+  border-color: var(--blood);
+}
+
+/* ===== 导出进度模态 ===== */
+.export-progress-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 18, 11, 0.5);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.export-progress-modal {
+  width: 380px;
+  max-width: 90vw;
+  background: rgba(253, 248, 240, 0.98);
+  border: 1px solid rgba(122, 92, 58, 0.3);
+  border-radius: 4px;
+  box-shadow: 0 12px 40px rgba(26, 18, 11, 0.4);
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.epm-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.epm-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.epm-spin {
+  color: var(--sepia);
+  animation: epm-rotate 1s linear infinite;
+}
+.epm-ok {
+  color: #4a7c59;
+}
+.epm-err {
+  color: var(--blood);
+}
+.epm-close {
+  background: transparent;
+  border: none;
+  color: var(--sepia);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 2px;
+  transition: color 0.16s;
+}
+.epm-close:hover {
+  color: var(--blood);
+}
+.epm-bar-wrap {
+  height: 8px;
+  background: rgba(122, 92, 58, 0.15);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.epm-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--blood) 0%, #6b1515 100%);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+.epm-meta {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  color: var(--sepia);
+}
+.epm-percent {
+  font-weight: 700;
+  color: var(--blood);
+}
+.epm-current {
+  font-size: 12px;
+  color: var(--sepia);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.epm-tip {
+  font-size: 12.5px;
+  padding: 8px 12px;
+  border-radius: 2px;
+  font-family: 'Noto Serif SC', serif;
+}
+.epm-tip.ok {
+  background: rgba(74, 124, 89, 0.12);
+  color: #4a7c59;
+}
+.epm-tip.err {
+  background: rgba(138, 28, 28, 0.12);
+  color: var(--blood);
+}
+@keyframes epm-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ===================== 批量重绘确认弹窗 ===================== */
+.redraw-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.redraw-summary {
+  font-size: 13px;
+  color: var(--ink);
+  font-family: 'Noto Serif SC', serif;
+  line-height: 1.7;
+}
+.redraw-summary b {
+  color: var(--blood);
+  font-weight: 700;
+}
+.redraw-toolbar {
+  padding-bottom: 8px;
+  border-bottom: 1px dashed rgba(122, 92, 58, 0.25);
+}
+.redraw-list {
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 4px;
+}
+.redraw-item {
+  padding: 4px 6px;
+  border-radius: 2px;
+  transition: background 0.16s;
+}
+.redraw-item:hover {
+  background: rgba(122, 92, 58, 0.08);
+}
+.redraw-item-title {
+  font-size: 13px;
+  color: var(--ink);
+}
+.redraw-item-code {
+  margin-left: 8px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--sepia);
+}
+

@@ -1,0 +1,555 @@
+/* =========================================================
+   时间线校验页样式（视图4 · #view-timeline）
+   对齐 docs/prototype/workbench2.html 原型
+   包含：工具栏、筛选 chip、时间轴、轨道、事件块、
+        冲突脉冲动画、冲突列表
+   配色变量来自 globals.css (:root)
+   角色列宽 140px，轨道高度 86px，时间轴 min-width 760px 可横滚
+   ========================================================= */
+
+/* ===================== 页头 ===================== */
+.timeline-page .page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 4px 4px 18px;
+  border-bottom: 1px solid var(--noir-line);
+  margin-bottom: 18px;
+}
+.timeline-page .page-title {
+  font-family: 'Noto Serif SC', serif;
+  font-weight: 900;
+  font-size: 24px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+.timeline-page .page-title .seal {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--paper-light);
+  background: var(--blood);
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-weight: 700;
+}
+.timeline-page .page-desc {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  color: var(--sepia-soft);
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+}
+.timeline-page .page-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ===================== 通用按钮（与 illustrations.css 一致，确保 Portal 外也生效） ===================== */
+.timeline-page .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 8px 14px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.12s;
+  background: transparent;
+  color: var(--ink);
+}
+.timeline-page .btn svg {
+  width: 15px;
+  height: 15px;
+}
+.timeline-page .btn-primary {
+  background: var(--blood);
+  color: var(--paper-light);
+  border-color: var(--blood);
+}
+.timeline-page .btn-primary:hover {
+  background: var(--blood-bright);
+  border-color: var(--blood-bright);
+}
+.timeline-page .btn-ghost {
+  background: transparent;
+  color: var(--sepia);
+  border-color: var(--noir-line);
+}
+.timeline-page .btn-ghost:hover {
+  background: rgba(26, 18, 11, 0.05);
+  border-color: var(--sepia-soft);
+}
+.timeline-page .btn-sm {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+/* ===================== 工具栏 ===================== */
+.timeline-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.timeline-toolbar .tb-label {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--sepia);
+  letter-spacing: 0.1em;
+}
+.timeline-toolbar .tb-right {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 筛选 chip */
+.filter-chip {
+  padding: 5px 12px;
+  font-size: 13px;
+  border: 1px solid rgba(122, 92, 58, 0.4);
+  border-radius: 14px;
+  background: rgba(253, 248, 240, 0.75);
+  cursor: pointer;
+  transition: all 0.16s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+  font-family: 'Noto Serif SC', serif;
+  color: var(--char);
+}
+.filter-chip:hover {
+  border-color: var(--sepia-soft);
+  color: var(--ink);
+}
+.filter-chip .swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.filter-chip.active {
+  background: var(--char);
+  color: var(--paper-light);
+  border-color: var(--char);
+}
+.filter-chip.active .swatch {
+  box-shadow: 0 0 0 2px rgba(243, 233, 219, 0.3);
+}
+/* 仅看冲突 chip */
+.filter-chip.chip-conflict {
+  color: var(--blood);
+  border-color: var(--blood);
+}
+.filter-chip.chip-conflict.active {
+  background: var(--blood);
+  color: var(--paper-light);
+  border-color: var(--blood);
+}
+
+/* ===================== 时间轴容器 ===================== */
+.timeline-wrap {
+  background: rgba(253, 248, 240, 0.7);
+  border: 1px solid rgba(122, 92, 58, 0.22);
+  border-radius: 4px;
+  box-shadow: var(--shadow-sm);
+  padding: 20px;
+  overflow-x: auto;
+}
+.tl-axis {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 0;
+  min-width: 760px;
+}
+
+/* 左上角占位 */
+.tl-corner {
+  grid-column: 1;
+  grid-row: 1;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.3);
+  border-right: 1px solid rgba(122, 92, 58, 0.2);
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+}
+
+/* 时间刻度表头 */
+.tl-time-header {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  border-bottom: 1px solid rgba(122, 92, 58, 0.3);
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--sepia);
+  text-align: center;
+  letter-spacing: 0.08em;
+}
+
+/* 角色列 */
+.tl-char {
+  padding: 10px 12px 10px 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-right: 1px solid rgba(122, 92, 58, 0.2);
+  font-family: 'Noto Serif SC', serif;
+}
+.tl-char .swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* 事件轨道 —— 高度 86px */
+.tl-track {
+  position: relative;
+  height: 86px;
+  border-bottom: 1px dashed rgba(122, 92, 58, 0.18);
+  display: flex;
+  align-items: center;
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(12.5% - 1px),
+    rgba(122, 92, 58, 0.09) calc(12.5% - 1px),
+    rgba(122, 92, 58, 0.09) 12.5%
+  );
+}
+
+/* 事件块 */
+.tl-event {
+  position: absolute;
+  padding: 6px 8px;
+  color: var(--paper-light);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: transform 0.16s, box-shadow 0.16s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+}
+.tl-event .ev-name {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  font-family: 'Noto Serif SC', serif;
+}
+.tl-event .ev-time {
+  font-size: 9px;
+  font-family: 'Courier Prime', monospace;
+  opacity: 0.82;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* hover tooltip */
+.tl-event::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--paper-light);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s;
+  z-index: 20;
+  font-family: 'Noto Serif SC', serif;
+  box-shadow: var(--shadow-md);
+}
+.tl-event:hover::after {
+  opacity: 1;
+}
+.tl-event:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  z-index: 5;
+}
+
+/* 冲突事件：朱砂红 2px 描边 + conflictPulse 动画 */
+.tl-event.conflict {
+  box-shadow: 0 0 0 2px var(--blood), 0 2px 8px rgba(138, 28, 28, 0.5);
+  animation: conflictPulse 1.6s infinite;
+}
+.tl-event.conflict:hover {
+  box-shadow: 0 0 0 2px var(--blood), 0 4px 12px rgba(138, 28, 28, 0.6);
+  animation: none;
+}
+@keyframes conflictPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px var(--blood), 0 2px 8px rgba(138, 28, 28, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--blood), 0 2px 12px rgba(138, 28, 28, 0.7);
+  }
+}
+
+/* ===================== 冲突列表 ===================== */
+.conflict-list {
+  margin-top: 18px;
+}
+.conflict-list .card-head {
+  display: flex;
+  align-items: center;
+}
+.conflict-list .card-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 0;
+  font-family: 'Noto Serif SC', serif;
+}
+.conflict-list .card-head h3 svg {
+  width: 16px;
+  height: 16px;
+  color: var(--blood);
+}
+
+/* 冲突项 */
+.conflict-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(138, 28, 28, 0.06);
+  border: 1px solid rgba(138, 28, 28, 0.25);
+  border-left: 4px solid var(--blood);
+  border-radius: 3px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.16s;
+}
+.conflict-item:hover {
+  background: rgba(138, 28, 28, 0.12);
+  transform: translateX(3px);
+}
+/* 严重等级变体 */
+.conflict-item.sev-warning {
+  border-left-color: var(--warn);
+  background: rgba(184, 132, 28, 0.06);
+  border-color: rgba(184, 132, 28, 0.25);
+}
+.conflict-item.sev-warning:hover {
+  background: rgba(184, 132, 28, 0.12);
+}
+.conflict-item.sev-hint {
+  border-left-color: var(--info);
+  background: rgba(58, 90, 122, 0.05);
+  border-color: rgba(58, 90, 122, 0.22);
+}
+.conflict-item.sev-hint:hover {
+  background: rgba(58, 90, 122, 0.1);
+}
+
+.ci-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  background: var(--blood);
+  color: var(--paper-light);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Courier Prime', monospace;
+  font-weight: 700;
+  font-size: 13px;
+}
+.conflict-item.sev-warning .ci-icon {
+  background: var(--warn);
+}
+.conflict-item.sev-hint .ci-icon {
+  background: var(--info);
+}
+
+.ci-body {
+  flex: 1;
+  min-width: 0;
+}
+.ci-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Noto Serif SC', serif;
+}
+.ci-sev {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+}
+.ci-sev.sev-severe {
+  background: rgba(138, 28, 28, 0.15);
+  color: var(--blood);
+}
+.ci-sev.sev-warning {
+  background: rgba(184, 132, 28, 0.15);
+  color: var(--warn);
+}
+.ci-sev.sev-hint {
+  background: rgba(58, 90, 122, 0.15);
+  color: var(--info);
+}
+.ci-desc {
+  font-size: 12px;
+  color: var(--sepia);
+  margin-top: 3px;
+  line-height: 1.6;
+  font-family: 'Noto Serif SC', serif;
+}
+.ci-loc {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--blood);
+  margin-top: 5px;
+  letter-spacing: 0.02em;
+}
+.conflict-item.sev-warning .ci-loc {
+  color: var(--warn);
+}
+.conflict-item.sev-hint .ci-loc {
+  color: var(--info);
+}
+
+/* 空状态 */
+.conflict-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 14px;
+  background: rgba(74, 124, 89, 0.06);
+  border: 1px solid rgba(74, 124, 89, 0.25);
+  border-left: 4px solid var(--ok);
+  border-radius: 3px;
+  color: var(--ok);
+  font-size: 13px;
+  font-family: 'Noto Serif SC', serif;
+}
+.conflict-empty .ce-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--ok);
+  color: var(--paper-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* ===================== 校验中按钮态 ===================== */
+.timeline-page .btn.is-loading {
+  opacity: 0.7;
+  cursor: progress;
+  pointer-events: none;
+}
+.timeline-page .btn.is-loading svg {
+  animation: tlSpin 0.9s linear infinite;
+}
+@keyframes tlSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ===================== Toast ===================== */
+.timeline-page .tl-toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 9999;
+  padding: 12px 20px;
+  background: var(--noir-bg, #1a120b);
+  color: var(--paper-light, #fdf8f0);
+  border: 1px solid var(--gold, #b08d57);
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  font-family: 'Noto Serif SC', serif;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transform: translateY(20px);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
+  pointer-events: none;
+  max-width: 360px;
+}
+.timeline-page .tl-toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+.timeline-page .tl-toast .toast-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ok, #4a7c59);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--paper-light, #fdf8f0);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.timeline-page .tl-toast.t-err .toast-icon {
+  background: var(--blood, #8a1c1c);
+}
+.timeline-page .tl-toast.t-warn .toast-icon {
+  background: var(--warn, #b8841c);
+}
+
+/* ===================== 响应式 ===================== */
+@media (max-width: 900px) {
+  .timeline-toolbar {
+    gap: 8px;
+  }
+  .timeline-toolbar .tb-right {
+    margin-left: 0;
+    width: 100%;
+  }
+}

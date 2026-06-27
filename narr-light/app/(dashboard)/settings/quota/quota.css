@@ -1,0 +1,479 @@
+/* =========================================================
+   叙光额度管理页样式（T203）
+   路由：/settings/quota
+   配色变量来自 globals.css :root
+   通用 .btn-primary / .btn-ghost / .seal / .card-head 见 globals.css
+   ========================================================= */
+
+/* ===================== 页头 ===================== */
+.quota-page .page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(138, 28, 28, 0.2);
+}
+.quota-page .page-title {
+  font-family: "Noto Serif SC", serif;
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+.quota-page .page-title svg {
+  color: var(--blood);
+}
+.quota-page .page-desc {
+  font-family: "Courier Prime", monospace;
+  font-size: 12px;
+  color: var(--sepia);
+  margin-top: 5px;
+  letter-spacing: 0.04em;
+}
+.quota-page .page-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* ===================== 警告条 ===================== */
+.quota-warn {
+  background: rgba(184, 132, 28, 0.12);
+  border: 1px solid rgba(184, 132, 28, 0.4);
+  border-left: 3px solid var(--warn);
+  color: var(--warn);
+  padding: 8px 14px;
+  border-radius: 3px;
+  font-size: 12.5px;
+  margin-bottom: 16px;
+  font-family: "Noto Serif SC", serif;
+}
+
+/* ===================== 当前套餐卡 ===================== */
+.quota-current-card {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 28px;
+  align-items: center;
+  background: linear-gradient(
+    135deg,
+    rgba(138, 28, 28, 0.06) 0%,
+    rgba(176, 141, 87, 0.08) 60%,
+    rgba(26, 18, 11, 0.05) 100%
+  );
+  border: 1px solid rgba(138, 28, 28, 0.22);
+  border-radius: 4px;
+  padding: 22px 26px;
+  margin-bottom: 18px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.quota-current-card.is-pro {
+  background: linear-gradient(
+    135deg,
+    rgba(176, 141, 87, 0.18) 0%,
+    rgba(138, 28, 28, 0.1) 60%,
+    rgba(26, 18, 11, 0.08) 100%
+  );
+  border-color: rgba(176, 141, 87, 0.45);
+}
+.quota-current-card::after {
+  content: "额";
+  position: absolute;
+  bottom: -28px;
+  right: 22px;
+  font-family: "ZCOOL XiaoWei", serif;
+  font-size: 96px;
+  color: rgba(138, 28, 28, 0.06);
+  font-weight: 900;
+  pointer-events: none;
+}
+
+.qc-left {
+  position: relative;
+  z-index: 1;
+}
+.qc-plan-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Courier Prime", monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--paper-light);
+  background: var(--blood);
+  padding: 3px 10px;
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+.quota-current-card.is-pro .qc-plan-badge {
+  background: linear-gradient(135deg, var(--gold), #8a6d3b);
+}
+.qc-plan-badge svg {
+  width: 13px;
+  height: 13px;
+}
+.qc-title {
+  font-family: "Noto Serif SC", serif;
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--ink);
+  margin-top: 12px;
+  line-height: 1.2;
+}
+.quota-current-card.is-pro .qc-title {
+  color: var(--sepia);
+}
+.qc-desc {
+  font-size: 13px;
+  color: var(--sepia);
+  margin-top: 8px;
+  line-height: 1.65;
+}
+
+.qc-right {
+  position: relative;
+  z-index: 1;
+}
+.qc-progress-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: "Courier Prime", monospace;
+  font-size: 12px;
+  color: var(--sepia);
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+.qc-pct {
+  font-family: "Noto Serif SC", serif;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: 0;
+}
+.qc-pct.low {
+  color: var(--blood);
+}
+.qc-progress-bar {
+  height: 10px;
+  background: rgba(26, 18, 11, 0.08);
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid rgba(122, 92, 58, 0.2);
+}
+.qc-progress-bar.pro {
+  background: rgba(176, 141, 87, 0.15);
+  border-color: rgba(176, 141, 87, 0.3);
+}
+.qc-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--blood));
+  border-radius: 5px;
+  transition: width 0.5s ease;
+}
+.qc-progress-fill.low {
+  background: linear-gradient(90deg, var(--warn), var(--blood));
+  animation: qc-pulse 1.6s ease-in-out infinite;
+}
+.qc-progress-fill.pro {
+  background: linear-gradient(90deg, var(--gold-soft), var(--gold));
+}
+@keyframes qc-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.qc-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: var(--blood);
+  font-family: "Noto Serif SC", serif;
+}
+.qc-hint svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ===================== 套餐对比卡 ===================== */
+.quota-compare-card {
+  background: rgba(253, 248, 240, 0.78);
+  border: 1px solid rgba(122, 92, 58, 0.22);
+  border-radius: 4px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+.quota-compare-card .card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.16);
+}
+.quota-compare-card .card-head h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.quota-compare-card .card-head h3 svg {
+  width: 16px;
+  height: 16px;
+  color: var(--blood);
+}
+.qc-compare-body {
+  padding: 8px 16px 16px;
+}
+
+/* ---- 对比表 ---- */
+.quota-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-family: "Noto Serif SC", serif;
+}
+.quota-table thead th {
+  text-align: left;
+  padding: 10px 12px;
+  font-family: "Courier Prime", monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--sepia);
+  border-bottom: 1px solid rgba(122, 92, 58, 0.2);
+}
+.quota-table thead th.col-pro {
+  color: var(--blood);
+}
+.quota-table tbody tr {
+  border-bottom: 1px dashed rgba(122, 92, 58, 0.16);
+  transition: background 0.16s;
+}
+.quota-table tbody tr:last-child {
+  border-bottom: none;
+}
+.quota-table tbody tr:hover {
+  background: rgba(138, 28, 28, 0.04);
+}
+.quota-table td {
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+.qc-feature {
+  font-weight: 600;
+  color: var(--ink);
+}
+.qc-cell {
+  color: var(--sepia);
+  text-align: left;
+}
+.qc-cell.pro {
+  color: var(--blood);
+  font-weight: 600;
+}
+.qc-yes {
+  color: var(--ok);
+  display: inline-block;
+  vertical-align: middle;
+}
+.qc-no {
+  color: var(--sepia-soft);
+  opacity: 0.55;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* ---- 升级 CTA ---- */
+.qc-cta {
+  display: flex;
+  justify-content: center;
+  padding: 18px 0 4px;
+  border-top: 1px dashed rgba(122, 92, 58, 0.2);
+  margin-top: 12px;
+}
+.qc-current-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "ZCOOL XiaoWei", serif;
+  font-size: 14px;
+  color: var(--gold);
+  background: rgba(176, 141, 87, 0.12);
+  border: 1px solid rgba(176, 141, 87, 0.4);
+  padding: 8px 18px;
+  border-radius: 3px;
+  letter-spacing: 0.06em;
+}
+.qc-current-tag svg {
+  width: 15px;
+  height: 15px;
+}
+.qc-upgrade-btn {
+  font-family: "Noto Serif SC", serif;
+  font-size: 14px;
+  padding: 10px 26px;
+  letter-spacing: 0.04em;
+  position: relative;
+}
+.qc-mock-tag {
+  display: inline-block;
+  margin-left: 8px;
+  font-family: "Courier Prime", monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  padding: 1px 6px;
+  background: rgba(243, 233, 219, 0.25);
+  border: 1px solid rgba(243, 233, 219, 0.4);
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+
+/* ===================== 使用历史卡 ===================== */
+.quota-history-card {
+  background: rgba(253, 248, 240, 0.78);
+  border: 1px solid rgba(122, 92, 58, 0.22);
+  border-radius: 4px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.quota-history-card .card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.16);
+}
+.quota-history-card .card-head h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.quota-history-card .card-head h3 svg {
+  width: 16px;
+  height: 16px;
+  color: var(--blood);
+}
+.qh-count {
+  font-family: "Courier Prime", monospace;
+  font-size: 11px;
+  color: var(--sepia);
+  letter-spacing: 0.08em;
+}
+
+/* ---- 历史列表 ---- */
+.qh-list {
+  padding: 4px 0;
+  max-height: 420px;
+  overflow-y: auto;
+}
+.qh-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.1);
+  transition: background 0.16s;
+}
+.qh-row:last-child {
+  border-bottom: none;
+}
+.qh-row:hover {
+  background: rgba(138, 28, 28, 0.04);
+}
+.qh-type {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  font-family: "Noto Serif SC", serif;
+}
+.qh-time {
+  font-family: "Courier Prime", monospace;
+  font-size: 11.5px;
+  color: var(--sepia);
+  letter-spacing: 0.04em;
+}
+.qh-status {
+  font-family: "Courier Prime", monospace;
+  font-size: 10.5px;
+  padding: 3px 10px;
+  border-radius: 2px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid;
+  white-space: nowrap;
+}
+.qh-ok {
+  color: var(--ok);
+  border-color: rgba(74, 124, 89, 0.4);
+  background: rgba(74, 124, 89, 0.1);
+}
+.qh-err {
+  color: var(--blood);
+  border-color: rgba(138, 28, 28, 0.4);
+  background: rgba(138, 28, 28, 0.1);
+}
+.qh-gen {
+  color: var(--warn);
+  border-color: rgba(184, 132, 28, 0.4);
+  background: rgba(184, 132, 28, 0.1);
+}
+.qh-warn {
+  color: var(--sepia);
+  border-color: rgba(122, 92, 58, 0.4);
+  background: rgba(122, 92, 58, 0.08);
+}
+
+/* ===================== 响应式 ===================== */
+@media (max-width: 1280px) {
+  .quota-current-card {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+}
+@media (max-width: 900px) {
+  .quota-page .page-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .quota-table {
+    font-size: 12px;
+  }
+  .quota-table thead th,
+  .quota-table td {
+    padding: 8px 8px;
+  }
+  .qh-row {
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    padding: 9px 12px;
+  }
+  .qh-time {
+    grid-column: 1 / 2;
+    grid-row: 2;
+    font-size: 10.5px;
+  }
+  .qh-status {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    align-self: center;
+  }
+}

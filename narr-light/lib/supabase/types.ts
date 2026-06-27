@@ -1,0 +1,296 @@
+/**
+ * Supabase 数据库类型定义
+ *
+ * 由 Supabase CLI 自动生成，此处为手动维护的基础类型定义。
+ * 正式环境应使用 `supabase gen types typescript --project-id <id>` 生成完整类型。
+ */
+
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
+export interface Database {
+  public: {
+    Tables: {
+      users: {
+        Row: {
+          id: string;
+          phone: string;
+          nickname: string;
+          avatar_url: string | null;
+          free_quota_used: number;
+          free_quota_limit: number;
+          plan_type: "free" | "pro";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          phone: string;
+          nickname?: string;
+          avatar_url?: string | null;
+          free_quota_used?: number;
+          free_quota_limit?: number;
+          plan_type?: "free" | "pro";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          phone?: string;
+          nickname?: string;
+          avatar_url?: string | null;
+          free_quota_used?: number;
+          free_quota_limit?: number;
+          plan_type?: "free" | "pro";
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      scripts: {
+        Row: {
+          id: string;
+          author_id: string;
+          title: string;
+          description: string;
+          genre: "hardcore" | "emotion" | "horror" | "funny" | "mechanism";
+          player_count: number;
+          duration_hours: number;
+          difficulty: "beginner" | "intermediate" | "advanced";
+          background_setting: string;
+          core_theme: string;
+          status: "draft" | "generating" | "completed" | "archived";
+          word_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          author_id: string;
+          title: string;
+          description?: string;
+          genre: "hardcore" | "emotion" | "horror" | "funny" | "mechanism";
+          player_count?: number;
+          duration_hours?: number;
+          difficulty?: "beginner" | "intermediate" | "advanced";
+          background_setting?: string;
+          core_theme?: string;
+          status?: "draft" | "generating" | "completed" | "archived";
+          word_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          author_id?: string;
+          title?: string;
+          description?: string;
+          genre?: "hardcore" | "emotion" | "horror" | "funny" | "mechanism";
+          player_count?: number;
+          duration_hours?: number;
+          difficulty?: "beginner" | "intermediate" | "advanced";
+          background_setting?: string;
+          core_theme?: string;
+          status?: "draft" | "generating" | "completed" | "archived";
+          word_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      characters: {
+        Row: {
+          id: string;
+          script_id: string;
+          name: string;
+          role_identity: string;
+          gender: "male" | "female" | "unknown" | "";
+          age: number | null;
+          personality: string;
+          background_story: string;
+          personal_task: string;
+          is_murderer: boolean;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["characters"]["Row"], "created_at"> & { created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["characters"]["Row"]>;
+      };
+      acts: {
+        Row: {
+          id: string;
+          script_id: string;
+          title: string;
+          sort_order: number;
+          content: string;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["acts"]["Row"], "created_at"> & { created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["acts"]["Row"]>;
+      };
+      scenes: {
+        Row: {
+          id: string;
+          act_id: string;
+          title: string;
+          location: string;
+          content: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["scenes"]["Row"], "created_at"> & { created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["scenes"]["Row"]>;
+      };
+      clues: {
+        Row: {
+          id: string;
+          script_id: string;
+          title: string;
+          content: string;
+          clue_type: "physical" | "testimony" | "deep" | "hidden";
+          search_round: number;
+          location: string;
+          related_character_ids: string[];
+          is_distractor: boolean;
+          is_key_clue: boolean;
+          unlock_condition: string;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["clues"]["Row"], "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["clues"]["Row"]>;
+      };
+      character_relations: {
+        Row: {
+          id: string;
+          script_id: string;
+          source_character_id: string;
+          target_character_id: string;
+          relation_type: "family" | "friend" | "lover" | "enemy" | "colleague" | "conspiracy" | "other";
+          label: string;
+          is_visible: boolean;
+          is_hidden_relation: boolean;
+          hidden_label: string;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["character_relations"]["Row"], "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["character_relations"]["Row"]>;
+      };
+      timeline_events: {
+        Row: {
+          id: string;
+          script_id: string;
+          character_id: string | null;
+          event_time: string;
+          event_description: string;
+          location: string;
+          act_order: number | null;
+          is_narrative_trick: boolean;
+          trick_type: "time" | "identity" | "perspective" | "other" | "";
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["timeline_events"]["Row"], "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["timeline_events"]["Row"]>;
+      };
+      version_snapshots: {
+        Row: {
+          id: string;
+          script_id: string;
+          version_number: number;
+          snapshot_data: Json;
+          change_summary: string;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["version_snapshots"]["Row"], "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["version_snapshots"]["Row"]>;
+      };
+      generation_tasks: {
+        Row: {
+          id: string;
+          script_id: string;
+          task_type:
+            | "FULL_SCRIPT"
+            | "CHARACTER_ADJUST"
+            | "CLUE_MODIFY"
+            | "TRICK_REPLACE"
+            | "STYLE_CHANGE"
+            | "COMPRESS"
+            | "COMPLIANCE"
+            | "ILLUSTRATION";
+          status: "pending" | "running" | "completed" | "failed" | "cancelled";
+          params: Json;
+          progress_percent: number;
+          result_data: Json | null;
+          error_message: string | null;
+          started_at: string | null;
+          completed_at: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["generation_tasks"]["Row"], "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["generation_tasks"]["Row"]>;
+      };
+      validation_reports: {
+        Row: {
+          id: string;
+          script_id: string;
+          report_type: "TIMELINE" | "LOGIC" | "DIFFICULTY" | "FULL";
+          status: "in_progress" | "completed" | "cancelled";
+          result_data: Json;
+          issue_count_severe: number;
+          issue_count_warning: number;
+          issue_count_hint: number;
+          script_version_ref: number | null;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["validation_reports"]["Row"], "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["validation_reports"]["Row"]>;
+      };
+      difficulty_assessments: {
+        Row: {
+          id: string;
+          script_id: string;
+          overall_score: number;
+          overall_level: "easy" | "normal" | "hard" | "extreme" | "";
+          clue_count: number;
+          distractor_ratio: number;
+          trick_complexity: number;
+          genre_weighted_score: number;
+          detail_breakdown: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["difficulty_assessments"]["Row"], "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["difficulty_assessments"]["Row"]>;
+      };
+    };
+  };
+}

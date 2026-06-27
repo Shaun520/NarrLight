@@ -1,0 +1,441 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================
+   叙光 NARRLIGHT · 古风视觉系统
+   对齐 docs/prototype/workbench2.html 原型
+   ========================================================= */
+
+@layer base {
+  :root {
+    /* ===== 原型变量（hex 值，与 workbench2.html 一致）===== */
+    --paper: #eaddcf;
+    --paper-2: #d4c4b0;
+    --paper-3: #c9b8a4;
+    --paper-light: #f3e9db;
+    --paper-lighter: #fdf8f0;
+    --ink: #1a120b;
+    --char: #2b2118;
+    --charcoal: #1f1f1f;
+    --blood: #8a1c1c;
+    --blood-bright: #b91c1c;
+    --blood-soft: #c9433f;
+    --sepia: #5c4226;
+    --sepia-soft: #a88a64;
+    --gold: #b08d57;
+    --gold-soft: #c9a86a;
+    --noir-bg: #1c1915;
+    --noir-bg-2: #25211c;
+    --noir-panel: #2a2520;
+    --noir-text: #e8e0d0;
+    --noir-muted: #b3a489;
+    --noir-line: #3a322a;
+    --ok: #4a7c59;
+    --warn: #b8841c;
+    --err: #8a1c1c;
+    --info: #3a5a7a;
+    --shadow-sm: 0 2px 8px rgba(26, 18, 11, 0.12);
+    --shadow-md: 0 8px 24px rgba(26, 18, 11, 0.18);
+    --shadow-lg: 0 16px 40px rgba(26, 18, 11, 0.28);
+
+    /* ===== Tailwind shadcn 兼容变量（HSL，朱砂红体系）===== */
+    --background: 40 30% 92%;
+    --foreground: 30 20% 10%;
+    --card: 40 30% 95%;
+    --card-foreground: 30 20% 10%;
+    --popover: 40 30% 95%;
+    --popover-foreground: 30 20% 10%;
+    --primary: 0 70% 33%;
+    --primary-foreground: 40 30% 96%;
+    --secondary: 35 18% 88%;
+    --secondary-foreground: 30 20% 12%;
+    --muted: 35 14% 90%;
+    --muted-foreground: 35 10% 40%;
+    --accent: 35 25% 85%;
+    --accent-foreground: 30 20% 12%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 40 30% 96%;
+    --border: 35 20% 80%;
+    --input: 35 20% 80%;
+    --ring: 0 70% 33%;
+    --chart-1: 0 65% 45%;
+    --chart-2: 35 55% 45%;
+    --chart-3: 180 30% 35%;
+    --chart-4: 30 50% 45%;
+    --chart-5: 12 55% 50%;
+    /** 叙光品牌色 - 朱砂红体系 */
+    --brand: 0 70% 33%;
+    --brand-light: 0 65% 55%;
+    --brand-dark: 0 75% 22%;
+    --radius: 0.25rem;
+  }
+
+  .dark {
+    /* ===== 暗色主题：noir 为主，paper 调暗 ===== */
+    --paper: #2a2520;
+    --paper-2: #25211c;
+    --paper-3: #1c1915;
+    --paper-light: #3a322a;
+    --paper-lighter: #423a30;
+    --ink: #e8e0d0;
+    --char: #d4c8b0;
+    --charcoal: #b3a489;
+    --blood: #c9433f;
+    --blood-bright: #dc635f;
+    --blood-soft: #d97a76;
+    --sepia: #b3a489;
+    --sepia-soft: #8a7a5e;
+    --gold: #c9a86a;
+    --gold-soft: #d4b87a;
+    --noir-bg: #1c1915;
+    --noir-bg-2: #25211c;
+    --noir-panel: #2a2520;
+    --noir-text: #e8e0d0;
+    --noir-muted: #b3a489;
+    --noir-line: #3a322a;
+    --ok: #6a9c79;
+    --warn: #d4a43c;
+    --err: #c9433f;
+    --info: #5a7a9a;
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+
+    /* shadcn 兼容 */
+    --background: 30 10% 8%;
+    --foreground: 40 20% 88%;
+    --card: 30 10% 11%;
+    --card-foreground: 40 20% 88%;
+    --popover: 30 10% 11%;
+    --popover-foreground: 40 20% 88%;
+    --primary: 0 65% 45%;
+    --primary-foreground: 30 10% 96%;
+    --secondary: 30 8% 18%;
+    --secondary-foreground: 40 20% 85%;
+    --muted: 30 8% 16%;
+    --muted-foreground: 35 8% 60%;
+    --accent: 30 10% 22%;
+    --accent-foreground: 40 20% 85%;
+    --destructive: 0 60% 40%;
+    --destructive-foreground: 40 30% 96%;
+    --border: 30 10% 22%;
+    --input: 30 10% 22%;
+    --ring: 0 65% 45%;
+    --chart-1: 0 60% 50%;
+    --chart-2: 35 50% 50%;
+    --chart-3: 180 35% 45%;
+    --chart-4: 30 50% 50%;
+    --chart-5: 12 55% 55%;
+    --brand: 0 65% 45%;
+    --brand-light: 0 60% 60%;
+    --brand-dark: 0 70% 30%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    background-color: var(--paper);
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(138, 28, 28, 0.04), transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba(92, 66, 38, 0.06), transparent 50%),
+      repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(26, 18, 11, 0.015) 2px, rgba(26, 18, 11, 0.015) 4px),
+      linear-gradient(135deg, var(--paper) 0%, var(--paper-3) 100%);
+    background-attachment: fixed;
+    filter: sepia(0.08) contrast(1.03);
+    min-height: 100vh;
+  }
+
+  /* SVG 噪点叠加层：纸张质感 */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
+    opacity: 0.35;
+    pointer-events: none;
+    mix-blend-mode: multiply;
+    z-index: -1;
+  }
+}
+
+/** Ant Design 样式隔离 - 仅在 antd 容器内生效 */
+.ant-design-wrapper {
+  /* 重置 Tailwind 全局样式对 Ant Design 组件的干扰 */
+  * {
+    box-sizing: border-box;
+  }
+
+  /* 确保 Ant Design 组件的字号不受影响 */
+  font-size: 14px;
+
+  /* Ant Design 表单元素样式恢复 */
+  input,
+  textarea,
+  select,
+  button {
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  /* ===================== 印章 ===================== */
+  .seal {
+    font-family: "ZCOOL XiaoWei", serif;
+    font-size: 11px;
+    color: var(--paper-light);
+    background: var(--blood);
+    padding: 2px 8px;
+    border-radius: 2px;
+    letter-spacing: 0.15em;
+    transform: rotate(-2deg);
+    box-shadow: 1px 2px 6px rgba(60, 10, 10, 0.35);
+    display: inline-block;
+  }
+
+  /* ===================== 通用卡片 ===================== */
+  .card {
+    background: rgba(253, 248, 240, 0.72);
+    border: 1px solid rgba(122, 92, 58, 0.22);
+    border-radius: 4px;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+  }
+
+  /* ===================== 按钮 ===================== */
+  .btn-primary {
+    background: linear-gradient(135deg, var(--blood) 0%, #6b1515 100%);
+    color: var(--paper-light);
+    border: 1px solid rgba(243, 233, 219, 0.25);
+    box-shadow: 0 4px 12px rgba(60, 10, 10, 0.3);
+    padding: 7px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.18s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .btn-primary:hover {
+    filter: brightness(1.12);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(60, 10, 10, 0.4);
+  }
+
+  .btn-ghost {
+    background: rgba(243, 233, 219, 0.5);
+    color: var(--char);
+    border: 1px solid rgba(26, 18, 11, 0.2);
+    padding: 7px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.18s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .btn-ghost:hover {
+    background: rgba(243, 233, 219, 0.8);
+    border-color: var(--blood);
+    color: var(--blood);
+  }
+
+  .btn-dark {
+    background: var(--noir-bg);
+    color: var(--paper-light);
+    border: 1px solid var(--noir-line);
+    padding: 7px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.18s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .btn-dark:hover {
+    background: var(--noir-bg-2);
+  }
+
+  /* ===================== 幕分隔符 ❖ ===================== */
+  .act-divider {
+    border: none;
+    text-align: center;
+    margin: 30px 0 26px;
+    height: 0;
+    position: relative;
+  }
+  .act-divider::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    border-top: 1px dashed rgba(122, 92, 58, 0.35);
+  }
+  .act-divider::after {
+    content: "❖";
+    position: relative;
+    top: -11px;
+    background: rgba(253, 248, 240, 0.96);
+    color: var(--blood);
+    padding: 0 14px;
+    font-size: 15px;
+  }
+
+  /* ===================== 古风排版基础 ===================== */
+  .act-section {
+    margin-bottom: 4px;
+  }
+  .act-section:last-child {
+    margin-bottom: 0;
+  }
+  .act-section h2 {
+    margin-top: 2px;
+    margin-bottom: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(122, 92, 58, 0.22);
+  }
+
+  /* 朱砂幕次标签 */
+  .act-num {
+    font-family: "ZCOOL XiaoWei", serif;
+    color: var(--paper-light);
+    background: var(--blood);
+    font-size: 13px;
+    padding: 2px 10px;
+    border-radius: 2px;
+    letter-spacing: 0.08em;
+    display: inline-block;
+  }
+
+  .act-section p {
+    margin-bottom: 14px;
+    text-indent: 2em;
+    text-align: justify;
+    text-justify: inter-ideograph;
+  }
+  .act-section p:first-of-type {
+    text-indent: 0;
+  }
+  /* 首字下沉（仅限 .act-section 内首段） */
+  .act-section p:first-of-type::first-letter {
+    font-family: "ZCOOL XiaoWei", "Noto Serif SC", serif;
+    font-size: 2.1em;
+    font-weight: 900;
+    color: var(--blood);
+    float: left;
+    line-height: 0.95;
+    margin: 5px 8px 0 0;
+    padding: 2px 4px;
+  }
+
+  /* ===================== 滚动条（细窄、棕褐色）===================== */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: rgba(26, 18, 11, 0.04);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(138, 28, 28, 0.3);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(138, 28, 28, 0.5);
+    background-clip: padding-box;
+  }
+
+  /* ===================== 全局状态视图（T200）===================== */
+  .state-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 36px 20px;
+    color: var(--ink);
+    font-family: "Noto Serif SC", serif;
+    text-align: center;
+  }
+  .state-view.state-fullscreen {
+    min-height: 60vh;
+  }
+  .state-spin {
+    color: var(--blood);
+    animation: state-spin 1s linear infinite;
+  }
+  @keyframes state-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  .state-tip {
+    font-size: 13.5px;
+    color: var(--sepia);
+    letter-spacing: 0.06em;
+  }
+  .state-icon-wrap {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px dashed rgba(138, 28, 28, 0.35);
+    background: rgba(253, 248, 240, 0.6);
+  }
+  .state-icon-err { color: var(--blood); border-color: rgba(138, 28, 28, 0.55); }
+  .state-icon-empty { color: var(--sepia); border-color: rgba(122, 92, 58, 0.4); }
+  .state-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .state-desc {
+    font-size: 12.5px;
+    color: var(--sepia);
+    line-height: 1.65;
+    max-width: 360px;
+  }
+  .state-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, var(--blood) 0%, #6b1515 100%);
+    color: var(--paper-light);
+    border: 1px solid rgba(243, 233, 219, 0.25);
+    box-shadow: 0 4px 12px rgba(60, 10, 10, 0.3);
+    padding: 7px 16px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: "Noto Serif SC", serif;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    transition: all 0.18s;
+  }
+  .state-btn:hover {
+    filter: brightness(1.12);
+    transform: translateY(-1px);
+  }
+  .state-btn.state-btn-ghost {
+    background: rgba(243, 233, 219, 0.5);
+    color: var(--char);
+    border: 1px solid rgba(26, 18, 11, 0.2);
+    box-shadow: none;
+  }
+  .state-btn.state-btn-ghost:hover {
+    background: rgba(243, 233, 219, 0.85);
+    border-color: var(--blood);
+    color: var(--blood);
+  }
+}

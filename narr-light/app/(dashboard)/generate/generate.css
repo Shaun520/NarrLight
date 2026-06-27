@@ -1,0 +1,374 @@
+/* =========================================================
+   剧本 AI 生成页样式
+   对齐 docs/prototype/workbench2.html #view-generate
+   仅含生成页相关样式；通用 .card / .btn-* / .seal 见 globals.css
+   ========================================================= */
+
+/* ===================== 页头 ===================== */
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.page-title {
+  font-family: "Noto Serif SC", serif;
+  font-weight: 900;
+  font-size: 22px;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+.page-desc {
+  font-family: "Courier Prime", monospace;
+  font-size: 12px;
+  color: var(--sepia);
+  margin-top: 5px;
+  letter-spacing: 0.04em;
+}
+.page-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ===================== 卡片头/体（生成页表单用） ===================== */
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.16);
+}
+.card-head h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.card-head h3 svg {
+  width: 16px;
+  height: 16px;
+  color: var(--blood);
+}
+.card-body {
+  padding: 16px;
+}
+
+/* ===================== 双栏布局 ===================== */
+.gen-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+/* ===================== 表单 ===================== */
+.form-group {
+  margin-bottom: 16px;
+}
+.form-label {
+  display: block;
+  font-family: "Courier Prime", monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--sepia);
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+.form-label .req {
+  color: var(--blood);
+}
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: 9px 12px;
+  background: rgba(253, 248, 240, 0.85);
+  border: 1px solid rgba(122, 92, 58, 0.3);
+  border-radius: 3px;
+  font-size: 13px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  border-color: var(--blood);
+  box-shadow: 0 0 0 3px rgba(138, 28, 28, 0.12);
+}
+.form-textarea {
+  resize: vertical;
+  min-height: 70px;
+  line-height: 1.6;
+}
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ===================== Chip 单选 ===================== */
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.chip {
+  padding: 6px 12px;
+  font-size: 12px;
+  border: 1px solid rgba(122, 92, 58, 0.3);
+  border-radius: 14px;
+  background: rgba(253, 248, 240, 0.6);
+  color: var(--char);
+  cursor: pointer;
+  transition: all 0.16s;
+  user-select: none;
+}
+.chip:hover {
+  border-color: var(--blood);
+  color: var(--blood);
+}
+.chip.active {
+  background: var(--blood);
+  color: var(--paper-light);
+  border-color: var(--blood);
+  box-shadow: 0 3px 8px rgba(60, 10, 10, 0.3);
+}
+
+/* ===================== 开关 ===================== */
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+.switch-row .sr-label {
+  font-size: 13px;
+  color: var(--char);
+}
+.switch {
+  position: relative;
+  width: 38px;
+  height: 21px;
+  background: rgba(26, 18, 11, 0.2);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border: 1px solid rgba(26, 18, 11, 0.15);
+  flex-shrink: 0;
+}
+.switch:focus-visible {
+  outline: 2px solid var(--blood);
+  outline-offset: 2px;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 15px;
+  height: 15px;
+  background: var(--paper-light);
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.switch.on {
+  background: var(--blood);
+}
+.switch.on::after {
+  transform: translateX(17px);
+}
+
+/* ===================== 表单提示与操作区 ===================== */
+.form-hint {
+  font-size: 12px;
+  color: var(--warn);
+  background: rgba(184, 132, 28, 0.1);
+  border-left: 3px solid var(--warn);
+  padding: 7px 10px;
+  border-radius: 2px;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.form-actions .btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.spin {
+  animation: gen-spin 0.9s linear infinite;
+}
+@keyframes gen-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ===================== 生成面板 ===================== */
+.gen-panel {
+  background: rgba(28, 25, 21, 0.92);
+  border: 1px solid var(--noir-line);
+  border-radius: 4px;
+  color: var(--noir-text);
+  overflow: hidden;
+  min-height: 560px;
+  display: flex;
+  flex-direction: column;
+}
+.gen-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.25);
+  border-bottom: 1px solid var(--noir-line);
+  font-family: "Courier Prime", monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--gold-soft);
+}
+.gen-dots {
+  display: flex;
+  gap: 6px;
+}
+.gen-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--noir-line);
+}
+.gen-dots span:nth-child(1) {
+  background: #8a3a3a;
+}
+.gen-dots span:nth-child(2) {
+  background: #8a7a3a;
+}
+.gen-dots span:nth-child(3) {
+  background: #3a7a4a;
+}
+
+/* ===================== 进度条 ===================== */
+.gen-progress {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--noir-line);
+  background: rgba(138, 28, 28, 0.06);
+}
+.gen-progress-bar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 8px;
+  position: relative;
+}
+.gen-progress-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--blood) 0%, var(--blood-soft) 100%);
+  border-radius: 3px;
+  position: relative;
+  transition: width 0.3s ease;
+  animation: progressShimmer 2s linear infinite;
+}
+.gen-progress-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: shimmer 1.6s linear infinite;
+}
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+@keyframes progressShimmer {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+.gen-progress-text {
+  display: flex;
+  justify-content: space-between;
+  font-family: "Courier Prime", monospace;
+  font-size: 11px;
+  color: var(--gold-soft);
+}
+.gen-progress-text b {
+  color: var(--paper-light);
+}
+
+/* ===================== 流式输出区 ===================== */
+.gen-stream {
+  flex: 1;
+  padding: 16px;
+  font-family: "Courier Prime", "Noto Serif SC", monospace;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--noir-text);
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+.gen-stream::-webkit-scrollbar {
+  width: 6px;
+}
+.gen-stream::-webkit-scrollbar-thumb {
+  background: var(--noir-line);
+}
+.gen-stream .label-line {
+  color: var(--gold-soft);
+  font-weight: 700;
+  margin-top: 10px;
+}
+.gen-stream .label-line:first-child {
+  margin-top: 0;
+}
+.gen-stream .content-line {
+  color: var(--noir-text);
+  opacity: 0.9;
+}
+.gen-stream .cursor {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background: var(--blood-soft);
+  vertical-align: text-bottom;
+  animation: blink 1s steps(2) infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ===================== 响应式 ===================== */
+@media (max-width: 960px) {
+  .gen-layout {
+    grid-template-columns: 1fr;
+  }
+  .page-head {
+    flex-direction: column;
+  }
+}

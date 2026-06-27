@@ -1,0 +1,19 @@
+# 叙光 (NarrLight) - Supabase 项目配置
+project_id = "narrlight-local"
+
+[api]
+enabled = true
+port = 54321
+db_port = 54322
+studio_port = 54323
+
+[db]
+major_version = 15
+
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000/auth/callback"]
+jwt_expiry = 3600
+
+[storage]
+file_size_limit = "50MiB"
