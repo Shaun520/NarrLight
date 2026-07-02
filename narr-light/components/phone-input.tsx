@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
  * 手机号 + 验证码共用输入组件
  * 用于登录/注册表单，对齐项目古风视觉（朱砂红主色、纸张背景）
  * - PhoneInput: +86 前缀 + 11 位中国手机号
- * - VerificationCodeInput: 6 位验证码 + 发送按钮 + 60 秒倒计时
+ * - VerificationCodeInput: 8 位验证码 + 发送按钮 + 60 秒倒计时
  */
 
 /** 中国大陆手机号正则：1[3-9] 开头，共 11 位 */
@@ -71,7 +71,7 @@ interface VerificationCodeInputProps {
 
 /**
  * 验证码输入框
- * 6 位数字 + 「发送验证码」按钮 + 60 秒倒计时
+ * 8 位数字 + 「发送验证码」按钮 + 60 秒倒计时
  * 倒计时通过 useEffect + setInterval 实现，组件卸载时清理定时器
  */
 export function VerificationCodeInput({
@@ -81,7 +81,7 @@ export function VerificationCodeInput({
   sendDisabled = false,
   disabled = false,
   id = "code",
-  placeholder = "6 位验证码",
+  placeholder = "8 位验证码",
   countdownSeconds = 60,
 }: VerificationCodeInputProps) {
   const [countdown, setCountdown] = useState(0);
@@ -126,7 +126,7 @@ export function VerificationCodeInput({
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 8);
     onChange(digits);
   };
 
@@ -145,7 +145,7 @@ export function VerificationCodeInput({
         value={value}
         onChange={handleChange}
         disabled={disabled}
-        maxLength={6}
+        maxLength={8}
         className="code-input__field"
       />
       <button

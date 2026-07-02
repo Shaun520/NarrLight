@@ -2,66 +2,47 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
-  PHONE_REGEX,
-  PhoneInput,
-  VerificationCodeInput,
-} from "@/components/phone-input";
+  EMAIL_REGEX,
+  EmailInput,
+} from "@/components/email-input";
+import { PasswordInput, PASSWORD_MIN_LENGTH } from "@/components/password-input";
 
 /**
- * 注册表单 - 手机号 + 短信验证码 + 昵称
- * 流程:
- *   1. 发送验证码: supabase.auth.signInWithOtp({ phone, options: { channel: 'sms' } })
- *   2. 验证码校验: supabase.auth.verifyOtp({ phone, token, type: 'sms' })
- *      （校验通过后会建立会话，auth.uid() 即可用）
- *   3. 在 public.users 表创建用户记录（写入 id / phone / nickname）
- * 注册成功后跳转 /
+ * 注册表单 - 邮箱 + 密码 + 昵称
+ * 使用 Supabase Auth Email/Password Provider:
+ *   - 注册: supabase.auth.signUp({ email, password, options: { data: { nickname } } })
+ *   - 成功后在 public.users 表创建用户记录
+ * 注册成功后跳转 /dashboard
  */
 export function SignUpForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
-  const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [nickname, setNickname] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
-  // Supabase Phone Provider 需要 E.164 格式：+86 + 11 位手机号
-  const fullPhone = `+86${phone}`;
-  const phoneValid = PHONE_REGEX.test(phone);
-
-  const handleSendCode = async (): Promise<boolean> => {
-    setError(null);
-    if (!phoneValid) {
-      setError("请输入正确的 11 位手机号");
-      return false;
-    }
-    const supabase = createClient();
-    const { error: sendError } = await supabase.auth.signInWithOtp({
-      phone: fullPhone,
-      options: { channel: "sms" },
-    });
-    if (sendError) {
-      setError(sendError.message);
-      return false;
-    }
-    return true;
-  };
+  const emailValid = EMAIL_REGEX.test(email);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!phoneValid) {
-      setError("请输入正确的 11 位手机号");
+    if (!emailValid) {
+      setError("请输入正确的邮箱地址");
       return;
     }
-    if (code.length !== 6) {
-      setError("请输入 6 位验证码");
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      setError("密码至少 6 位");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("两次输入的密码不一致");
       return;
     }
     if (!nickname.trim()) {
@@ -71,13 +52,13 @@ export function SignUpForm({
     const supabase = createClient();
     setLoading(true);
     try {
-      // 1. 校验验证码并建立会话
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        phone: fullPhone,
-        token: code,
-        type: "sms",
+      // 1. 注册并建立会话
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { nickname: nickname.trim() } },
       });
-      if (verifyError) throw verifyError;
+      if (signUpError) throw signUpError;
 
       // 2. 在 public.users 表创建用户记录
       //    id 必须等于 auth.uid()，以便后续 RLS 的 SELECT/UPDATE 策略放行
@@ -89,21 +70,36 @@ export function SignUpForm({
           .from("users")
           .insert({
             id: user.id,
-            phone: fullPhone,
+            email: email,
             nickname: nickname.trim(),
           });
-        // 23505 = unique_violation，手机号已存在记录（重复注册）时忽略，保证登录顺畅
+        // 23505 = unique_violation，邮箱已存在记录（重复注册）时忽略，保证登录顺畅
         if (insertError && insertError.code !== "23505") {
           throw insertError;
         }
       }
-      router.push("/dashboard");
+      // signUp 成功后会话已建立，但 cookie 写入是异步的
+      // 用完整页面导航确保 cookie 写入后再跳转，避免 middleware 判定未登录
+      window.location.assign("/dashboard");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "注册失败，请稍后重试");
+      setError(mapSignUpError(err));
     } finally {
       setLoading(false);
     }
   };
+
+/**
+ * 将 Supabase Auth 常见英文注册错误提示映射为中文
+ */
+function mapSignUpError(err: unknown): string {
+  if (!(err instanceof Error)) return "注册失败，请稍后重试";
+  const msg = err.message;
+  if (msg.includes("User already registered")) return "该邮箱已注册";
+  if (msg.includes("Password should be at least")) return "密码至少 6 位";
+  if (msg.includes("Unable to validate")) return "邮箱格式不正确";
+  if (msg.includes("Rate limit")) return "操作过于频繁，请稍后再试";
+  return msg || "注册失败，请稍后重试";
+}
 
   return (
     <div className={cn("auth-card", className)} {...props}>
@@ -115,27 +111,39 @@ export function SignUpForm({
       </div>
       <form onSubmit={handleSignUp} className="auth-form">
         <div className="auth-field">
-          <label htmlFor="su-phone" className="auth-label">
-            手机号
+          <label htmlFor="su-email" className="auth-label">
+            邮箱
           </label>
-          <PhoneInput
-            id="su-phone"
-            value={phone}
-            onChange={setPhone}
+          <EmailInput
+            id="su-email"
+            value={email}
+            onChange={setEmail}
             disabled={loading}
           />
         </div>
         <div className="auth-field">
-          <label htmlFor="su-code" className="auth-label">
-            验证码
+          <label htmlFor="su-password" className="auth-label">
+            密码
           </label>
-          <VerificationCodeInput
-            id="su-code"
-            value={code}
-            onChange={setCode}
-            onSend={handleSendCode}
-            sendDisabled={!phoneValid}
+          <PasswordInput
+            id="su-password"
+            value={password}
+            onChange={setPassword}
             disabled={loading}
+            autoComplete="new-password"
+          />
+        </div>
+        <div className="auth-field">
+          <label htmlFor="su-confirm-password" className="auth-label">
+            确认密码
+          </label>
+          <PasswordInput
+            id="su-confirm-password"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            disabled={loading}
+            placeholder="请再次输入密码"
+            autoComplete="new-password"
           />
         </div>
         <div className="auth-field">

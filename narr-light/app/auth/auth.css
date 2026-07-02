@@ -107,6 +107,64 @@
   cursor: not-allowed;
 }
 
+/* ===================== 密码输入：输入框 + 眼睛切换 ===================== */
+.password-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.password-input__field {
+  padding-right: 40px;
+}
+.password-input__toggle {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  color: var(--sepia);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.18s, background 0.18s;
+}
+.password-input__toggle:hover {
+  color: var(--blood);
+  background: rgba(138, 28, 28, 0.06);
+}
+
+/* ===================== 登录模式 Tab ===================== */
+.auth-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.28);
+}
+.auth-tab {
+  flex: 1;
+  padding: 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--sepia);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.18s, border-color 0.18s;
+  margin-bottom: -1px;
+}
+.auth-tab:hover {
+  color: var(--char);
+}
+.auth-tab--active {
+  color: var(--blood);
+  border-bottom-color: var(--blood);
+}
+
 /* ===================== 手机号输入：+86 前缀 + 11 位 ===================== */
 .phone-input {
   display: flex;
