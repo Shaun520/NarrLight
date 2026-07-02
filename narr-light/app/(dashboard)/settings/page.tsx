@@ -5,7 +5,7 @@
  *
  * 服务端组件：
  *   - 获取 user + profile（users 表 nickname / avatar_url）
- *   - 展示头像、昵称、手机号、邮箱
+ *   - 展示头像、昵称、邮箱
  *   - 顶部标签导航：账号设置（当前）/ 额度管理（/settings/quota）
  *   - 昵称编辑表单：内联 server action 写回 users 表后重定向回本页
  *
@@ -13,7 +13,7 @@
  */
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { CreditCard, Mail, Phone, User, UserCog } from 'lucide-react';
+import { CreditCard, Mail, User, UserCog } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import './settings.css';
 
@@ -65,7 +65,6 @@ export default async function SettingsPage({
   const nickname = profile?.nickname || user.email || '创作者';
   const avatarChar = nickname.charAt(0).toUpperCase();
   const avatarUrl = profile?.avatar_url ?? null;
-  const phone = user.phone ?? null;
   const email = user.email ?? null;
   const showSavedBanner = saved === '1';
 
@@ -142,16 +141,7 @@ export default async function SettingsPage({
                 邮箱
               </dt>
               <dd className="settings-info-value">
-                {email ?? '—'}
-              </dd>
-            </div>
-            <div className="settings-info-row">
-              <dt>
-                <Phone size={14} />
-                手机号
-              </dt>
-              <dd className="settings-info-value">
-                {phone ?? <span className="settings-muted">未绑定</span>}
+                {email ?? <span className="settings-muted">未绑定</span>}
               </dd>
             </div>
           </dl>
