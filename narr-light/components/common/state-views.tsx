@@ -17,6 +17,7 @@ import {
   RefreshCw,
   type LucideIcon,
 } from 'lucide-react';
+import Link from 'next/link';
 
 /** LoadingStateProps */
 export interface LoadingStateProps {
@@ -58,6 +59,8 @@ export interface EmptyStateProps {
   actionText?: string;
   /** 操作按钮回调 */
   onAction?: () => void;
+  /** 操作按钮跳转地址（用于服务端组件无法传函数的场景） */
+  actionHref?: string;
   /** 额外 className */
   className?: string;
 }
@@ -132,6 +135,7 @@ export function EmptyState({
   Icon = Inbox,
   actionText,
   onAction,
+  actionHref,
   className,
 }: EmptyStateProps) {
   return (
@@ -145,15 +149,25 @@ export function EmptyState({
       </div>
       <div className="state-title">{title}</div>
       {description ? <div className="state-desc">{description}</div> : null}
-      {actionText && onAction ? (
-        <button
-          type="button"
-          className="state-btn state-btn-ghost"
-          onClick={onAction}
-          aria-label={actionText}
-        >
-          {actionText}
-        </button>
+      {actionText && (onAction || actionHref) ? (
+        actionHref ? (
+          <Link
+            href={actionHref}
+            className="state-btn state-btn-ghost"
+            aria-label={actionText}
+          >
+            {actionText}
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className="state-btn state-btn-ghost"
+            onClick={onAction}
+            aria-label={actionText}
+          >
+            {actionText}
+          </button>
+        )
       ) : null}
     </div>
   );

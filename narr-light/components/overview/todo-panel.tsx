@@ -7,6 +7,7 @@
 import Link from 'next/link';
 import { CheckSquare } from 'lucide-react';
 import type { OverviewTodoGroup } from '@/lib/services/overview-service';
+import { EmptyState } from '@/components/common';
 
 interface TodoPanelProps {
   groups: OverviewTodoGroup[];
@@ -40,7 +41,10 @@ export function TodoPanel({ groups, total }: TodoPanelProps) {
           </div>
         ))}
         {groups.length === 0 ? (
-          <div className="tg-label">暂无待办</div>
+          <EmptyState
+            title="暂无待办"
+            description="创建剧本后这里会显示校验待办"
+          />
         ) : null}
       </div>
     </div>

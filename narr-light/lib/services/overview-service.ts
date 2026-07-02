@@ -5,13 +5,13 @@
  * （`app/(dashboard)/page.tsx`）渲染。
  *
  * 数据来源：scripts、validation_reports、generation_tasks 三张表。
- * 开发期允许返回与原型一致的 Mock 数据，避免空库场景下页面空白。
+ * 无剧本时返回空状态数据引导新用户创作；有剧本但局部数据缺失时回落 Mock 数据。
  *
  * 设计要点：
  * - 服务端方法（getOverviewData）通过动态导入 @/lib/supabase/server
  *   获取客户端，避免 next/headers 被打包进客户端 bundle（对齐
  *   generation-task-service.ts 的写法）；
- * - 当用户尚无剧本或聚合失败时，回落到 Mock 数据，保证页面可渲染。
+ * - 当用户无剧本时返回空结构（EMPTY_DATA）；有剧本但聚合局部失败时回落到 Mock 数据。
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Json } from '@/lib/supabase/types';
@@ -161,7 +161,7 @@ export interface OverviewQuickAction {
 
 /** 概览页聚合数据 */
 export interface OverviewData {
-  currentScript: OverviewCurrentScript;
+  currentScript: OverviewCurrentScript | null;
   progress: number;
   stats: OverviewStats;
   statCards: OverviewStatCard[];
@@ -179,6 +179,33 @@ export interface OverviewData {
 
 /** 空库场景的安全跳转：所有 Mock 编辑器链接统一指向新建剧本页，避免 /editor/mock-* 404 */
 const MOCK_EDITOR_BASE = '/scripts/new';
+
+/**
+ * 空状态数据：用户无剧本时返回，引导新用户开始创作。
+ * 与 MOCK_DATA 不同，此数据不包含任何虚假剧本信息。
+ */
+const EMPTY_DATA: OverviewData = {
+  currentScript: null,
+  progress: 0,
+  stats: { errors: 0, warnings: 0, success: 0, info: 0 },
+  statCards: [
+    { icon: 'err', label: '待处理问题', value: '0', unit: '项', trend: '', href: '/scripts/new' },
+    { icon: 'warn', label: '今日待办', value: '0', unit: '项', trend: '', href: '/scripts/new' },
+    { icon: 'ok', label: '本月已交付', value: '0', unit: '部', trend: '', href: '/scripts/new' },
+    { icon: 'info', label: '平均完成度', value: '0', unit: '%', trend: '', href: '/scripts/new' },
+  ],
+  workflows: [],
+  todos: [],
+  activities: [],
+  aiSuggestion: { tip: '创建你的第一部剧本，开启 AI 辅助创作之旅', applyHref: '/scripts/new' },
+  quickActions: [
+    { icon: 'generate', title: '剧本生成', desc: 'AI 辅助创作', href: '/generate' },
+    { icon: 'timeline', title: '时间线校验', desc: '校验时间逻辑', href: '/scripts/new' },
+    { icon: 'logic', title: '逻辑校验', desc: '检查剧情漏洞', href: '/scripts/new' },
+    { icon: 'clues', title: '线索卡管理', desc: '管理线索卡片', href: '/scripts/new' },
+    { icon: 'illust', title: '插画生成', desc: 'AI 生成插画', href: '/scripts/new' },
+  ],
+};
 
 const MOCK_DATA: OverviewData = {
   currentScript: {
@@ -494,7 +521,7 @@ export class OverviewService {
       // 1) 剧本列表：优先复用外部传入数据，避免与 layout 重复查询 scripts 表
       let scriptRows: ScriptRow[];
       if (scripts) {
-        if (scripts.length === 0) return MOCK_DATA;
+        if (scripts.length === 0) return EMPTY_DATA;
         scriptRows = scripts.map((s) => ({
           id: s.id,
           author_id: s.authorId,
@@ -519,7 +546,7 @@ export class OverviewService {
           .order('updated_at', { ascending: false });
 
         if (sErr || !rows || rows.length === 0) {
-          return MOCK_DATA;
+          return EMPTY_DATA;
         }
         scriptRows = rows as unknown as ScriptRow[];
       }

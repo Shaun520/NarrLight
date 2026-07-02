@@ -29,7 +29,7 @@ export default async function EditorRedirectPage() {
   if (scripts && scripts.length > 0) {
     redirect(`/editor/${scripts[0].id}`);
   } else {
-    // 无剧本时进入 Demo 模式，所有子页面（时间线/逻辑/线索卡/关系图/插画）均可 Mock 展示
-    redirect('/editor/demo');
+    // 无剧本时引导新用户去新建剧本页
+    redirect('/scripts/new');
   }
 }

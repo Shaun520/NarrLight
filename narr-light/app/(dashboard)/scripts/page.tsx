@@ -14,6 +14,7 @@
 import Link from 'next/link';
 import { Plus, FileText, Users, Clock, BarChart3 } from 'lucide-react';
 import { useDashboard } from '@/lib/contexts/dashboard-context';
+import { EmptyState } from '@/components/common';
 import type { ScriptDifficulty, ScriptGenre, ScriptStatus } from '@/types';
 import './scripts.css';
 
@@ -70,15 +71,13 @@ export default function ScriptsPage() {
 
       {/* ===== 卡片网格 ===== */}
       {list.length === 0 ? (
-        <div className="scripts-empty">
-          <FileText size={42} />
-          <h3>尚未创建剧本</h3>
-          <p>点击"新建剧本"开始你的第一部作品</p>
-          <Link href="/scripts/new" className="btn btn-primary">
-            <Plus size={14} />
-            新建剧本
-          </Link>
-        </div>
+        <EmptyState
+          Icon={FileText}
+          title="尚未创建剧本"
+          description={'点击"新建剧本"开始你的第一部作品'}
+          actionText="新建剧本"
+          actionHref="/scripts/new"
+        />
       ) : (
         <div className="scripts-grid">
           {list.map((s) => {

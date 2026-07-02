@@ -5,13 +5,14 @@
  * | .resume-ai (AI 下一步建议)。
  *
  * 服务端组件：所有跳转通过 next/link 完成，无需客户端交互。
+ * current 为 null 时渲染新用户欢迎引导（空状态）。
  */
 import Link from 'next/link';
 import { Play, CheckSquare, Sparkles, PenLine } from 'lucide-react';
 import type { OverviewCurrentScript, OverviewAiSuggestion } from '@/lib/services/overview-service';
 
 interface ResumeHeroProps {
-  current: OverviewCurrentScript;
+  current: OverviewCurrentScript | null;
   aiSuggestion: OverviewAiSuggestion;
   /** 待办总数（"先处理待办 (N)" 按钮展示） */
   todoCount: number;
@@ -70,6 +71,37 @@ function ProgressRing({ progress }: { progress: number }) {
 }
 
 export function ResumeHero({ current, aiSuggestion, todoCount }: ResumeHeroProps) {
+  if (current === null) {
+    return (
+      <div className="resume-hero resume-hero--empty">
+        <div className="resume-body resume-body--empty">
+          <div className="resume-tag">欢迎来到叙光</div>
+          <h2 className="resume-title">欢迎使用叙光</h2>
+          <div className="resume-loc">
+            <PenLine />
+            <span>开始你的第一部剧本创作</span>
+          </div>
+          <div className="resume-cta">
+            <Link href="/scripts/new" className="btn btn-primary btn-lg">
+              <Play />
+              新建剧本
+            </Link>
+          </div>
+        </div>
+        <div className="resume-ai">
+          <div className="ai-badge">
+            <Sparkles />
+            AI 下一步建议
+          </div>
+          <div className="ai-tip">{aiSuggestion.tip}</div>
+          <Link href={aiSuggestion.applyHref} className="ai-apply">
+            应用建议 →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const pills = current.issuePills;
   const pillClass = (kind: 'err' | 'warn' | 'ok') => `ri-pill ri-${kind}`;
 
