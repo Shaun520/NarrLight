@@ -82,7 +82,7 @@ export function ResumeHero({ current, aiSuggestion, todoCount }: ResumeHeroProps
             <span>开始你的第一部剧本创作</span>
           </div>
           <div className="resume-cta">
-            <Link href="/scripts/new" className="btn btn-primary btn-lg">
+            <Link href="/generate" className="btn btn-primary btn-lg">
               <Play />
               新建剧本
             </Link>

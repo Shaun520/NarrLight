@@ -62,7 +62,7 @@ export default function ScriptsPage() {
           </div>
         </div>
         <div className="page-actions">
-          <Link href="/scripts/new" className="btn btn-primary">
+          <Link href="/generate" className="btn btn-primary">
             <Plus size={14} />
             新建剧本
           </Link>
@@ -76,7 +76,7 @@ export default function ScriptsPage() {
           title="尚未创建剧本"
           description={'点击"新建剧本"开始你的第一部作品'}
           actionText="新建剧本"
-          actionHref="/scripts/new"
+          actionHref="/generate"
         />
       ) : (
         <div className="scripts-grid">

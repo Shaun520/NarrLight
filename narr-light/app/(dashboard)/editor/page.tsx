@@ -1,12 +1,12 @@
 /**
- * 编辑器重定向页 - /editor 自动跳转到最近剧本或 Demo 展示
+ * 编辑器重定向页 - /editor 自动跳转到最近剧本或生成页
  *
  * 路由：/editor
  *
  * 服务端组件：解决侧栏「剧本编辑」链接 /editor 的 404 问题。
  *   - 未登录跳转 /auth/login
  *   - 查询用户最近编辑的剧本（按 updated_at 倒序），命中则跳转 /editor/[scriptId]
- *   - 无剧本则跳转 /editor/demo（Mock 展示，便于预览所有编辑器子页面）
+ *   - 无剧本则跳转 /generate 引导用户创建
  */
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -29,7 +29,7 @@ export default async function EditorRedirectPage() {
   if (scripts && scripts.length > 0) {
     redirect(`/editor/${scripts[0].id}`);
   } else {
-    // 无剧本时引导新用户去新建剧本页
-    redirect('/scripts/new');
+    // 无剧本时引导用户去生成页创建
+    redirect('/generate');
   }
 }

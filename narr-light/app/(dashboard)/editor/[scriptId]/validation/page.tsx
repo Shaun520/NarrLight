@@ -12,13 +12,13 @@
  *
  * 客户端组件：管理 activeSev / 标记 / 排除 / 修复中状态。
  *
- * Mock 数据：沿用原型样例（朱砂私章 / 乌头碱 / 沈墨尘 / 祠堂祭器），
- * 后续由 ValidationService 注入真实校验结果。
+ * 初始数据为空，用户点击「全量校验」后通过 Edge Function 拉取真实结果。
  */
 'use client';
 
 import { useEffect, useMemo, useState, use } from 'react';
-import { Eye, RefreshCw } from 'lucide-react';
+import { Eye, FlaskConical, RefreshCw } from 'lucide-react';
+import { EmptyState } from '@/components/common';
 import { VulnItem } from '@/components/validation/vuln-item';
 import { DifficultyCard } from '@/components/validation/difficulty-card';
 import { StaleValidationBanner } from '@/components/common/stale-validation-banner';
@@ -55,203 +55,6 @@ interface PageProps {
   params: Promise<{ scriptId: string }>;
 }
 
-// ===== Mock 数据（对齐原型样例） =====
-
-const MOCK_ISSUES: AiValidationIssue[] = [
-  {
-    id: 'iss-001',
-    severity: 'CRITICAL',
-    type: '伏笔未回收',
-    title: '"朱砂私章"线索无后续回收',
-    description:
-      '第一幕沈墨白收到的匿名信落款为父亲惯用朱砂私章，但全本后续均未对该印章来源、流转做任何解释，构成核心伏笔悬挂。',
-    location: '第一幕 · 沈墨白剧本 第2段',
-    suggestion:
-      '在真相复盘新增段落：说明私章实为沈墨尘早年窃取，用于伪造信件诱使沈墨白归乡，构成凶手预谋链条的关键一环。',
-    autoFixable: true,
-  },
-  {
-    id: 'iss-002',
-    severity: 'CRITICAL',
-    type: '诡计可行性',
-    title: '乌头碱下毒手法存在物理逻辑硬伤',
-    description:
-      '剧本描述凶手以乌头碱混入死者茶水中毒杀，但乌头碱有显著麻舌感，死者饮茶后必然察觉异样。当前描写死者"安然饮尽"违背常识。',
-    location: '第二幕 · 真相复盘 · 凶案手法',
-    suggestion:
-      '将下毒载体改为蜜渍蜜饯（甜味可掩盖麻舌感），或调整死者设定为久病味觉迟钝者，使手法成立。',
-    autoFixable: true,
-  },
-  {
-    id: 'iss-003',
-    severity: 'WARNING',
-    type: '动机薄弱',
-    title: '沈墨尘杀人动机驱动力不足',
-    description:
-      '沈墨尘的动机仅以"债务缠身"概括，与其此前铺垫的兄弟情谊形成强烈反差，缺乏足够的心理转折，易让玩家觉得突兀。',
-    location: '人物剧本 · 沈墨尘 · 动机段落',
-    suggestion:
-      '补入沈墨尘被高利贷威胁性命、且发现沈墨白归乡后将剥夺其继承权的双重压力，强化行为驱动力。',
-    autoFixable: true,
-  },
-  {
-    id: 'iss-004',
-    severity: 'WARNING',
-    type: '线索无真相对应',
-    title: '"祠堂祭器缺口"线索未被复盘解释',
-    description:
-      '祠堂搜证可获一条"祭器架缺一空位"的线索，但真相复盘未提及该祭器去向，线索无对应真相解释，构成无效线索。',
-    location: '第二幕 · 线索卡 #C-12',
-    suggestion:
-      '于复盘中补充：空位原置玉琮，被沈墨尘窃取典当还债，与借据线索形成呼应链。',
-    autoFixable: true,
-  },
-  {
-    id: 'iss-005',
-    severity: 'WARNING',
-    type: '动机薄弱',
-    title: '沈墨白归乡时机略显牵强',
-    description:
-      '沈墨白收到匿名信后立即归乡，缺乏对其在外地事务的交代，动机链略显单薄。',
-    location: '第一幕 · 沈墨白剧本 第1段',
-    suggestion:
-      '补充沈墨白在外地生意受挫、恰逢来信的时点巧合，使归乡更具合理性。',
-    autoFixable: false,
-  },
-  {
-    id: 'iss-006',
-    severity: 'SUGGESTION',
-    type: 'OOC',
-    title: '沈墨尘对兄弟态度转折过快',
-    description:
-      '沈墨尘在第一幕对沈墨白仍表现关切，第二幕却迅速转为冷漠，缺乏过渡铺垫。',
-    location: '第二幕 · 沈墨尘剧本 第3段',
-    suggestion: '在第一幕末尾增加一处微小疏离细节，为后续转折埋下心理伏笔。',
-    autoFixable: false,
-  },
-  {
-    id: 'iss-007',
-    severity: 'SUGGESTION',
-    type: '伏笔未回收',
-    title: '"祖训牌匾"提及后无下文',
-    description: '开篇提及祖训牌匾内容，但后续未再呼应，构成轻微悬挂。',
-    location: '第一幕 · 公共线 第1段',
-    suggestion: '可在终幕由沈墨白引用祖训作为指认凶手的关键依据。',
-    autoFixable: true,
-  },
-];
-
-const MOCK_TRICKS: AiNarrativeTrick[] = [
-  {
-    id: 'trick-001',
-    type: 'IDENTITY',
-    description: '沈墨白"养子"身份',
-    location: '人物剧本 · 沈墨白',
-  },
-  {
-    id: 'trick-002',
-    type: 'PERSPECTIVE',
-    description: '第一幕死者视角倒置',
-    location: '第一幕 · 公共线',
-  },
-];
-
-/** Mock 剧本数据（用于难度评估算法输入） */
-const MOCK_SCRIPT: GeneratedScriptJson = {
-  characters: [
-    {
-      name: '沈墨白',
-      roleIdentity: '养子',
-      gender: 'male',
-      age: 28,
-      personality: '内敛克制',
-      backgroundStory:
-        '幼年被沈家收养，与沈墨尘一同长大，远赴他乡经商多年，因一封匿名信归乡。',
-      personalTask: '查清生父死因',
-      isMurderer: false,
-    },
-    {
-      name: '沈墨尘',
-      roleIdentity: '亲子',
-      gender: 'male',
-      age: 30,
-      personality: '表面温和，内心阴鸷',
-      backgroundStory:
-        '沈家长子，因债务缠身对父亲心生怨恨，与兄长沈墨白关系微妙。',
-      personalTask: '掩盖罪行',
-      isMurderer: true,
-    },
-  ],
-  acts: [
-    {
-      title: '第一幕 · 风雨欲来',
-      sortOrder: 1,
-      content: '沈家老宅风雨欲来，归乡的沈墨白收到匿名信，众人齐聚祠堂。',
-      scenes: [],
-    },
-    {
-      title: '第二幕 · 真相复盘',
-      sortOrder: 2,
-      content: '凶案发生，众人搜证并指认真凶。',
-      scenes: [],
-    },
-  ],
-  clues: [
-    {
-      title: '朱砂私章',
-      content: '匿名信落款为父亲惯用朱砂私章',
-      clueType: 'physical',
-      searchRound: 1,
-      location: '沈墨白书房',
-      relatedCharacterNames: ['沈墨白', '沈墨尘'],
-      isDistractor: false,
-      isKeyClue: true,
-      unlockCondition: '第一幕搜证',
-    },
-    {
-      title: '祠堂祭器缺口',
-      content: '祭器架缺一空位',
-      clueType: 'physical',
-      searchRound: 2,
-      location: '祠堂',
-      relatedCharacterNames: ['沈墨尘'],
-      isDistractor: false,
-      isKeyClue: true,
-      unlockCondition: '第二幕搜证',
-    },
-    {
-      title: '借据',
-      content: '高利贷借据一纸',
-      clueType: 'physical',
-      searchRound: 2,
-      location: '沈墨尘卧房',
-      relatedCharacterNames: ['沈墨尘'],
-      isDistractor: false,
-      isKeyClue: true,
-      unlockCondition: '第二幕搜证',
-    },
-    {
-      title: '祖训牌匾拓片',
-      content: '祖训牌匾内容拓片',
-      clueType: 'testimony',
-      searchRound: 1,
-      location: '祠堂',
-      relatedCharacterNames: [],
-      isDistractor: true,
-      isKeyClue: false,
-      unlockCondition: '第一幕搜证',
-    },
-  ],
-  truth: {
-    summary: '沈墨尘因债务与继承权纷争，毒杀生父并伪造信件诱兄归乡。',
-    murdererMethod:
-      '沈墨尘以蜜渍蜜饯为载体，混入乌头碱令父亲食下，甜味掩盖麻舌感，毒发身亡。',
-    motive: '债务缠身且恐继承权被剥夺',
-    timeline: '亥时下毒，子时毒发',
-    foreshadowing: ['朱砂私章', '祖训牌匾', '祠堂祭器缺口'],
-  },
-};
-
 const SEV_TAB_ORDER: IssueSeverity[] = [
   'CRITICAL',
   'WARNING',
@@ -273,27 +76,6 @@ interface ToastState {
   icon: string;
 }
 
-/** 增量复检 Mock 延迟（ms） */
-const INCREMENTAL_MOCK_DELAY = 1500;
-/** 全量校验 Mock 延迟（ms） */
-const FULL_VALIDATE_MOCK_DELAY = 3000;
-
-/**
- * 全量校验 Mock 返回结果：在原 Mock 基础上追加 1 条新漏洞，模拟 AI 重新跑完后
- * 发现的新问题。真实场景下由 supabase/functions/validate/logic.ts 返回。
- */
-const MOCK_FULL_VALIDATE_NEW_ISSUE: AiValidationIssue = {
-  id: 'iss-full-new',
-  severity: 'WARNING',
-  type: '逻辑闭环',
-  title: '全量校验：真相复盘时间链与柳如烟行踪存在 10 分钟空窗',
-  description:
-    '全量校验重新跑通时间线后，发现真相复盘中"亥时下毒 → 子时毒发"与柳如烟 22:40 归家的时间窗存在 10 分钟空窗未被解释，建议补一处过渡。',
-  location: '第二幕 · 真相复盘 · 时间链',
-  suggestion: '在复盘中补一句"柳如烟归家途中绕道药铺后院，与下毒时间错开"。',
-  autoFixable: true,
-};
-
 export default function ValidationPage({ params }: PageProps) {
   const { scriptId } = use(params);
 
@@ -305,9 +87,12 @@ export default function ValidationPage({ params }: PageProps) {
   const [fixedIds, setFixedIds] = useState<Set<string>>(new Set());
   const [validatedAt, setValidatedAt] = useState<number>(Date.now() - 60 * 60 * 1000); // 1 小时前
 
-  // 漏洞 / 叙诡数据（可由校验流程刷新；初始沿用 MOCK）
-  const [issues, setIssues] = useState<AiValidationIssue[]>(MOCK_ISSUES);
-  const [tricks, setTricks] = useState<AiNarrativeTrick[]>(MOCK_TRICKS);
+  // 剧本数据（后续由真实接口填充；当前保持 null）
+  const [scriptData, setScriptData] = useState<GeneratedScriptJson | null>(null);
+
+  // 漏洞 / 叙诡数据（由校验流程刷新；初始为空）
+  const [issues, setIssues] = useState<AiValidationIssue[]>([]);
+  const [tricks, setTricks] = useState<AiNarrativeTrick[]>([]);
 
   // 校验中状态
   const [incrementalValidating, setIncrementalValidating] = useState(false);
@@ -350,35 +135,33 @@ export default function ValidationPage({ params }: PageProps) {
     [flatIssues],
   );
 
-  // 叙诡识别（右侧卡）
-  const detectedTricks: DetectedTrick[] = useMemo(
-    () =>
-      narrativeTrickDetector.detect(
-        {
-          scriptId,
-          title: '沈府风云',
-          genre: 'hardcore',
-          difficulty: 'intermediate',
-          script: MOCK_SCRIPT,
-        },
-        tricks,
-      ),
-    [scriptId, tricks],
-  );
-
-  // 难度评估
-  const assessment: DifficultyAssessment = useMemo(
-    () =>
-      difficultyAssessor.assess({
+  // 叙诡识别（右侧卡）：无真实剧本数据时保持为空
+  const detectedTricks: DetectedTrick[] = useMemo(() => {
+    if (!scriptData) return [];
+    return narrativeTrickDetector.detect(
+      {
         scriptId,
+        title: '沈府风云',
         genre: 'hardcore',
-        script: MOCK_SCRIPT,
-        playerCount: 6,
-        grouped,
-        trickCount: detectedTricks.length,
-      }),
-    [scriptId, grouped, detectedTricks.length],
-  );
+        difficulty: 'intermediate',
+        script: scriptData,
+      },
+      tricks,
+    );
+  }, [scriptId, scriptData, tricks]);
+
+  // 难度评估：无真实剧本数据时不进行评估
+  const assessment: DifficultyAssessment | null = useMemo(() => {
+    if (!scriptData) return null;
+    return difficultyAssessor.assess({
+      scriptId,
+      genre: 'hardcore',
+      script: scriptData,
+      playerCount: 6,
+      grouped,
+      trickCount: detectedTricks.length,
+    });
+  }, [scriptId, scriptData, grouped, detectedTricks.length]);
 
   // 动作
   const locate = useIssueLocator(scriptId);
@@ -420,15 +203,7 @@ export default function ValidationPage({ params }: PageProps) {
   /**
    * 增量复检：仅校验变更区域，合并新旧结果。
    *
-   * 真实调用流程：
-   *   1. 上层（编辑器 / 线索页）上报 changedAreas；
-   *   2. 注入 incrementalValidateFn（调 AI 仅校验受影响区域）；
-   *   3. incrementalValidationService.revalidate 内部完成
-   *      "受影响集筛选 → AI 校验 → mergeResults 合并"；
-   *   4. 用合并后的 issues/tricks 刷新 UI。
-   *
-   * 开发期 Mock：注入 mock validateFn（setTimeout 模拟异步），返回
-   * 略有差异的 issues 集合以演示合并效果。
+   * 当前未注入真实增量校验函数，服务会 dry-run 返回旧结果，保持空状态。
    */
   const handleRevalidate = async () => {
     if (incrementalValidating || fullValidating) return;
@@ -440,23 +215,6 @@ export default function ValidationPage({ params }: PageProps) {
       { module: 'editor', actIndex: 2 },
       { module: 'truth' },
     ];
-
-    // 注入 Mock 校验函数（真实场景由 route handler 调 AI 后注入）
-    incrementalValidationService.setValidateFn(
-      async (_sid: string, _areas: ChangedArea[]) => {
-        await new Promise<void>((resolve) =>
-          window.setTimeout(resolve, INCREMENTAL_MOCK_DELAY),
-        );
-        // Mock：返回受影响区域重新校验后的 issues（含 1 条新增 + 复用 tricks）
-        return {
-          issues: [
-            ...MOCK_ISSUES.slice(0, 3),
-            MOCK_FULL_VALIDATE_NEW_ISSUE,
-          ],
-          tricks: MOCK_TRICKS,
-        };
-      },
-    );
 
     try {
       const merged = await incrementalValidationService.revalidate(
@@ -483,18 +241,6 @@ export default function ValidationPage({ params }: PageProps) {
 
   /**
    * 全量校验：触发 LOGIC(FULL) Edge Function，重跑伏笔 / 动机 / 诡计 / 时间线 / 难度。
-   *
-   * 真实调用：
-   *   const res = await fetch('/functions/validate/logic', {
-   *     method: 'POST',
-   *     headers: { 'Content-Type': 'application/json' },
-   *     body: JSON.stringify({ scriptId, reportType: 'FULL' }),
-   *   });
-   *   const data: LogicValidationResponse = await res.json();
-   *   setIssues(data.issues as AiValidationIssue[]);
-   *   setTricks(data.tricks as AiNarrativeTrick[]);
-   *
-   * 开发期 Mock：setTimeout 3 秒模拟，返回带 1 条新漏洞的 Mock 结果。
    */
   const handleFullValidate = async () => {
     if (incrementalValidating || fullValidating) return;
@@ -502,27 +248,27 @@ export default function ValidationPage({ params }: PageProps) {
     showToast('全量校验中（伏笔 / 动机 / 诡计 / 时间线 / 难度）…', '◌');
 
     try {
-      await new Promise<void>((resolve) =>
-        window.setTimeout(resolve, FULL_VALIDATE_MOCK_DELAY),
-      );
-
-      // Mock 全量结果：在原 Mock 基础上追加 1 条新漏洞，模拟 AI 重新发现的问题
-      const freshIssues: AiValidationIssue[] = [
-        ...MOCK_ISSUES,
-        MOCK_FULL_VALIDATE_NEW_ISSUE,
-      ];
-      const freshTricks: AiNarrativeTrick[] = MOCK_TRICKS.slice();
-
-      setIssues(freshIssues);
-      setTricks(freshTricks);
+      const res = await fetch('/functions/validate/logic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scriptId, reportType: 'FULL' }),
+      });
+      if (!res.ok) throw new Error(`校验失败：${res.status}`);
+      const data = await res.json();
+      setIssues(data.issues ?? []);
+      setTricks(data.tricks ?? []);
       setValidatedAt(Date.now());
       setActiveSev('CRITICAL');
+      const issueCount = (data.issues ?? []).length;
+      const trickCount = (data.tricks ?? []).length;
       showToast(
-        `全量校验完成 · 漏洞 ${freshIssues.length} 条 · 叙诡 ${freshTricks.length} 条 · 难度与叙诡识别已刷新`,
+        `全量校验完成 · 漏洞 ${issueCount} 条 · 叙诡 ${trickCount} 条 · 难度与叙诡识别已刷新`,
         '✓',
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : '未知错误';
+      setIssues([]);
+      setTricks([]);
       showToast(`全量校验失败：${msg}`, '✗');
     } finally {
       setFullValidating(false);
@@ -606,11 +352,13 @@ export default function ValidationPage({ params }: PageProps) {
           </div>
 
           {currentList.length === 0 ? (
-            <div className="vuln-empty">
-              {isTrickTab
-                ? '◇ 暂无识别到的叙诡设计'
-                : '◇ 当前等级无漏洞，剧本结构良好'}
-            </div>
+            <EmptyState
+              Icon={FlaskConical}
+              title="暂无校验结果"
+              description="点击全量校验，AI 将分析伏笔回收、动机合理性与诡计可行性"
+              actionText="全量校验"
+              onAction={handleFullValidate}
+            />
           ) : (
             currentList.map((issue) => (
               <VulnItem

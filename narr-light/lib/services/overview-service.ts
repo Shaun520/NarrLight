@@ -177,8 +177,8 @@ export interface OverviewData {
  * 与原型 docs/prototype/workbench2.html #view-overview 一致
  * ============================================================ */
 
-/** 空库场景的安全跳转：所有 Mock 编辑器链接统一指向新建剧本页，避免 /editor/mock-* 404 */
-const MOCK_EDITOR_BASE = '/scripts/new';
+/** 空库场景的安全跳转：所有 Mock 编辑器链接统一指向生成页，避免 /editor/mock-* 404 */
+const MOCK_EDITOR_BASE = '/generate';
 
 /**
  * 空状态数据：用户无剧本时返回，引导新用户开始创作。
@@ -189,21 +189,21 @@ const EMPTY_DATA: OverviewData = {
   progress: 0,
   stats: { errors: 0, warnings: 0, success: 0, info: 0 },
   statCards: [
-    { icon: 'err', label: '待处理问题', value: '0', unit: '项', trend: '', href: '/scripts/new' },
-    { icon: 'warn', label: '今日待办', value: '0', unit: '项', trend: '', href: '/scripts/new' },
-    { icon: 'ok', label: '本月已交付', value: '0', unit: '部', trend: '', href: '/scripts/new' },
-    { icon: 'info', label: '平均完成度', value: '0', unit: '%', trend: '', href: '/scripts/new' },
+    { icon: 'err', label: '待处理问题', value: '0', unit: '项', trend: '', href: '/generate' },
+    { icon: 'warn', label: '今日待办', value: '0', unit: '项', trend: '', href: '/generate' },
+    { icon: 'ok', label: '本月已交付', value: '0', unit: '部', trend: '', href: '/generate' },
+    { icon: 'info', label: '平均完成度', value: '0', unit: '%', trend: '', href: '/generate' },
   ],
   workflows: [],
   todos: [],
   activities: [],
-  aiSuggestion: { tip: '创建你的第一部剧本，开启 AI 辅助创作之旅', applyHref: '/scripts/new' },
+  aiSuggestion: { tip: '创建你的第一部剧本，开启 AI 辅助创作之旅', applyHref: '/generate' },
   quickActions: [
     { icon: 'generate', title: '剧本生成', desc: 'AI 辅助创作', href: '/generate' },
-    { icon: 'timeline', title: '时间线校验', desc: '校验时间逻辑', href: '/scripts/new' },
-    { icon: 'logic', title: '逻辑校验', desc: '检查剧情漏洞', href: '/scripts/new' },
-    { icon: 'clues', title: '线索卡管理', desc: '管理线索卡片', href: '/scripts/new' },
-    { icon: 'illust', title: '插画生成', desc: 'AI 生成插画', href: '/scripts/new' },
+    { icon: 'timeline', title: '时间线校验', desc: '校验时间逻辑', href: '/generate' },
+    { icon: 'logic', title: '逻辑校验', desc: '检查剧情漏洞', href: '/generate' },
+    { icon: 'clues', title: '线索卡管理', desc: '管理线索卡片', href: '/generate' },
+    { icon: 'illust', title: '插画生成', desc: 'AI 生成插画', href: '/generate' },
   ],
 };
 

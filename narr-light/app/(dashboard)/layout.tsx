@@ -36,6 +36,7 @@ import {
   DashboardProvider,
 } from '@/lib/contexts/dashboard-context';
 import { GlobalSearch } from '@/components/common/global-search';
+import { NavItem } from '@/components/common/nav-item';
 import { NotificationPanel } from '@/components/common/notification-panel';
 import { ScriptSwitcher } from '@/components/common/script-switcher';
 import { SettingsMenu } from '@/components/common/settings-menu';
@@ -70,14 +71,10 @@ export default async function DashboardLayout({
   const quotaUsed = profile?.free_quota_used ?? 0;
   const quotaLimit = profile?.free_quota_limit ?? 10;
   const currentScript = scriptsTyped[0] ?? null;
-  // currentScript 为空时编辑器子功能链接指向 demo 路径（/editor/demo），
-  // 这样侧栏的时间线/逻辑校验/线索卡/人物关系/插画生成均可直接访问 Mock 展示。
-  // /editor/page.tsx 也会在无剧本时重定向到 /editor/demo。
-  const editorBase = currentScript
-    ? `/editor/${currentScript.id}`
-    : '/editor/demo';
-  /** 拼接编辑器子路径；无剧本时使用 /editor/demo 作为 scriptId，子页面均为 Mock 展示 */
-  const navHref = (sub: string) => `${editorBase}/${sub}`;
+  // 无剧本时，编辑器子功能统一引导到生成页；有剧本时指向当前剧本对应子页。
+  const hasScript = currentScript != null;
+  const editorBase = hasScript ? `/editor/${currentScript.id}` : '/generate';
+  const navHref = (sub: string) => (hasScript ? `${editorBase}/${sub}` : '/generate');
 
   return (
     <div className="app">
@@ -114,28 +111,38 @@ export default async function DashboardLayout({
           </Link>
 
           <div className="nav-section-title">校验</div>
-          <Link href={navHref('timeline')} className="nav-item">
-            <Clock />
-            <span>时间线校验</span>
-          </Link>
-          <Link href={navHref('validation')} className="nav-item">
-            <FlaskConical />
-            <span>逻辑校验</span>
-          </Link>
+          <NavItem
+            href={navHref('timeline')}
+            icon={<Clock />}
+            label="时间线校验"
+            disabled={!hasScript}
+          />
+          <NavItem
+            href={navHref('validation')}
+            icon={<FlaskConical />}
+            label="逻辑校验"
+            disabled={!hasScript}
+          />
 
           <div className="nav-section-title">物料</div>
-          <Link href={navHref('clues')} className="nav-item">
-            <CreditCard />
-            <span>线索卡管理</span>
-          </Link>
-          <Link href={navHref('relations')} className="nav-item">
-            <Users />
-            <span>人物关系</span>
-          </Link>
-          <Link href={navHref('illustrations')} className="nav-item">
-            <ImageIcon />
-            <span>插画生成</span>
-          </Link>
+          <NavItem
+            href={navHref('clues')}
+            icon={<CreditCard />}
+            label="线索卡管理"
+            disabled={!hasScript}
+          />
+          <NavItem
+            href={navHref('relations')}
+            icon={<Users />}
+            label="人物关系"
+            disabled={!hasScript}
+          />
+          <NavItem
+            href={navHref('illustrations')}
+            icon={<ImageIcon />}
+            label="插画生成"
+            disabled={!hasScript}
+          />
 
           <div className="nav-section-title">社区</div>
           <Link href="/community" className="nav-item">

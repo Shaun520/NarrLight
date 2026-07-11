@@ -5,7 +5,7 @@
  *   - 点击展开下拉列表（标题 + 题材标签 + 状态标签）
  *   - 当前剧本高亮
  *   - 点击切换：更新 useScriptStore.currentScript，收起列表，router.refresh()
- *   - 底部「新建剧本」→ /scripts/new
+ *   - 底部「新建剧本」→ /generate
  *   - 点击外部或 ESC 收起
  *
  * 数据来源：优先使用 props（由服务端 layout 注入），无 props 时回退 Mock。
@@ -42,58 +42,6 @@ const STATUS_COLOR: Record<ScriptStatus, string> = {
   archived: 'var(--noir-muted)',
 };
 
-/** 开发期 Mock 剧本列表 */
-const MOCK_SCRIPTS: Script[] = [
-  {
-    id: 'mock-1',
-    authorId: '',
-    title: '古镇迷案',
-    description: '',
-    genre: 'hardcore',
-    playerCount: 6,
-    durationHours: 4,
-    difficulty: 'advanced',
-    backgroundSetting: '',
-    coreTheme: '',
-    status: 'completed',
-    wordCount: 12000,
-    createdAt: '',
-    updatedAt: '',
-  },
-  {
-    id: 'mock-2',
-    authorId: '',
-    title: '夜雨长安',
-    description: '',
-    genre: 'emotion',
-    playerCount: 5,
-    durationHours: 3,
-    difficulty: 'intermediate',
-    backgroundSetting: '',
-    coreTheme: '',
-    status: 'generating',
-    wordCount: 8000,
-    createdAt: '',
-    updatedAt: '',
-  },
-  {
-    id: 'mock-3',
-    authorId: '',
-    title: '雾中行人',
-    description: '',
-    genre: 'horror',
-    playerCount: 6,
-    durationHours: 5,
-    difficulty: 'advanced',
-    backgroundSetting: '',
-    coreTheme: '',
-    status: 'draft',
-    wordCount: 0,
-    createdAt: '',
-    updatedAt: '',
-  },
-];
-
 interface ScriptSwitcherProps {
   /** 由服务端 layout 注入的剧本列表（按 updated_at 倒序） */
   scripts?: Script[];
@@ -108,7 +56,7 @@ export function ScriptSwitcher({ scripts, currentScriptId }: ScriptSwitcherProps
   const setCurrentScript = useScriptStore((s) => s.setCurrentScript);
   const storeCurrent = useScriptStore((s) => s.currentScript);
 
-  const list = scripts && scripts.length > 0 ? scripts : MOCK_SCRIPTS;
+  const list = scripts && scripts.length > 0 ? scripts : [];
   const activeId = storeCurrent?.id ?? currentScriptId ?? list[0]?.id;
   const activeScript = list.find((s) => s.id === activeId) ?? list[0] ?? null;
 
@@ -255,7 +203,7 @@ export function ScriptSwitcher({ scripts, currentScriptId }: ScriptSwitcherProps
           )}
 
           <Link
-            href="/scripts/new"
+            href="/generate"
             onClick={(e) => e.stopPropagation()}
             style={{
               display: 'flex',

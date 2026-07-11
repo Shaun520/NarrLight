@@ -165,6 +165,15 @@
   border-left: 2px solid transparent;
   position: relative;
 }
+
+button.nav-item {
+  border: none;
+  border-left: 2px solid transparent;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+}
+
 .nav-item:hover {
   background: rgba(255, 255, 255, 0.05);
   color: var(--paper-light);

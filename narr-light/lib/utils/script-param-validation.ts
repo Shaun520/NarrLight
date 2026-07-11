@@ -2,7 +2,7 @@
  * 剧本创作参数合理性校验（T503）
  *
  * 从 components/generate/param-form.tsx 中提取的共享校验逻辑，
- * 供 generate 页与 scripts/new 页复用。
+ * 供 generate 页复用。
  *
  * 校验规则：
  *   - 标题为空 → 提示填写标题

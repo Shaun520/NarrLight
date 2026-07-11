@@ -93,7 +93,7 @@ function GeneratePageInner() {
 
   const timerRef = useRef<number | null>(null);
 
-  // ===== query string 预填参数（来自 /scripts/new AI 模式跳转） =====
+  // ===== query string 预填参数（来自外部跳转，如概览页快捷入口） =====
   const searchParams = useSearchParams();
 
   useEffect(() => {

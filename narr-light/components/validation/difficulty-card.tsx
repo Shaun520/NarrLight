@@ -19,7 +19,7 @@
 import type { DifficultyAssessment } from '@/lib/validation/difficulty/assessor';
 
 interface DifficultyCardProps {
-  assessment: DifficultyAssessment;
+  assessment: DifficultyAssessment | null;
 }
 
 /** 维度展示文案（对齐原型 .diff-bar-label） */
@@ -48,34 +48,50 @@ function barWidth(name: string, score: number): string {
 }
 
 export function DifficultyCard({ assessment }: DifficultyCardProps) {
-  const { overallScore, overallLevel, dimensions, note } = assessment;
-
   return (
     <div className="difficulty-card">
       <div className="diff-label">难度评估</div>
-      <div className="diff-grade">{overallLevel}</div>
+      <div className="diff-grade">{assessment ? assessment.overallLevel : '—'}</div>
       <div className="diff-score">
-        综合评分 <b>{overallScore.toFixed(1)}</b> / 10
+        {assessment ? (
+          <>
+            综合评分 <b>{assessment.overallScore.toFixed(1)}</b> / 10
+          </>
+        ) : (
+          '综合评分 — / 10'
+        )}
       </div>
 
-      {dimensions.map((dim) => (
-        <div className="diff-bar" key={dim.name}>
-          <div className="diff-bar-label">
-            <span>{DIMENSION_LABELS[dim.name] ?? dim.name}</span>
-            <b>{formatScore(dim.name, dim.score)}</b>
-          </div>
-          <div className="diff-bar-track">
-            <div
-              className="diff-bar-fill"
-              style={{ width: barWidth(dim.name, dim.score) }}
-            />
-          </div>
-        </div>
-      ))}
+      {assessment
+        ? assessment.dimensions.map((dim) => (
+            <div className="diff-bar" key={dim.name}>
+              <div className="diff-bar-label">
+                <span>{DIMENSION_LABELS[dim.name] ?? dim.name}</span>
+                <b>{formatScore(dim.name, dim.score)}</b>
+              </div>
+              <div className="diff-bar-track">
+                <div
+                  className="diff-bar-fill"
+                  style={{ width: barWidth(dim.name, dim.score) }}
+                />
+              </div>
+            </div>
+          ))
+        : Object.keys(DIMENSION_LABELS).map((name) => (
+            <div className="diff-bar" key={name}>
+              <div className="diff-bar-label">
+                <span>{name}</span>
+                <b>—</b>
+              </div>
+              <div className="diff-bar-track">
+                <div className="diff-bar-fill" style={{ width: '0%' }} />
+              </div>
+            </div>
+          ))}
 
       <div className="diff-note">
         <div className="diff-note-label">EVALUATION NOTE</div>
-        {note}
+        {assessment ? assessment.note : '尚未执行校验，暂无评估数据。'}
       </div>
     </div>
   );

@@ -44,7 +44,7 @@ export function WorkflowList({ workflows, tabs = DEFAULT_TABS }: WorkflowListPro
             title="还没有剧本"
             description="点击新建开始创作"
             actionText="新建剧本"
-            actionHref="/scripts/new"
+            actionHref="/generate"
           />
         ) : (
           workflows.map((wf) => (
