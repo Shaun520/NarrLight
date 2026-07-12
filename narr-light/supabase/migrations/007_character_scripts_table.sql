@@ -63,5 +63,8 @@ ALTER TABLE public.generation_tasks
       'STORY_BIBLE',
       'CHARACTER_PROFILES',
       'ACT_STRUCTURE',
-      'CHARACTER_SCRIPT'
+      'CHARACTER_SCRIPT',
+      'CLUES',
+      'ORGANIZER_MANUAL',
+      'TRUTH_REVIEW'
     ));

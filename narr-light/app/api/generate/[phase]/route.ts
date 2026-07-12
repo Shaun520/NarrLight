@@ -24,7 +24,8 @@ import {
   buildTruthReviewPrompt,
   type TruthReviewJson,
 } from '@/lib/ai/prompts/truth-review';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createClient as createServerSupabaseClient } from '@/lib/supabase/server';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const GENERATION_MODE = process.env.AI_GENERATION_MODE ?? 'mock';
@@ -40,6 +41,37 @@ interface GenerateRequestBody {
   actStructure?: ActStructureJson;
   characterScripts?: CharacterScriptJson[];
   clues?: CluesJson;
+}
+
+async function createGenerationDbClient() {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const hasValidServiceRoleKey =
+    typeof serviceRoleKey === 'string' &&
+    serviceRoleKey.startsWith('eyJ') &&
+    ![...serviceRoleKey].some((char) => char.codePointAt(0)! > 127);
+
+  if (SUPABASE_URL && hasValidServiceRoleKey) {
+    return createSupabaseClient(SUPABASE_URL, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+  }
+
+  console.warn(
+    'SUPABASE_SERVICE_ROLE_KEY is missing or invalid; generation persistence may be blocked by RLS. Use the Supabase service_role JWT, not a placeholder.',
+  );
+  return createServerSupabaseClient();
+}
+
+function isMissingTableError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return Boolean(
+    error.code === 'PGRST205' ||
+      error.message?.includes('Could not find the table') ||
+      error.message?.includes('schema cache'),
+  );
 }
 
 function buildError(message: string, status = 500): Response {
@@ -219,7 +251,7 @@ async function persistStoryBible(
   json: StoryBibleJson,
   startedAt: Date,
 ): Promise<string | null> {
-  const supabase = await createClient();
+  const supabase = await createGenerationDbClient();
   const { data: upsertedData, error: upsertError } = await supabase
     .from('story_bibles')
     .upsert(
@@ -339,7 +371,7 @@ async function getStoryBibleForPhase(body: GenerateRequestBody): Promise<StoryBi
     return body.storyBible;
   }
 
-  const supabase = await createClient();
+  const supabase = await createGenerationDbClient();
   const { data, error } = await supabase
     .from('story_bibles')
     .select(
@@ -369,7 +401,7 @@ async function getCharacterProfilesForPhase(body: GenerateRequestBody): Promise<
     return body.characterProfiles;
   }
 
-  const supabase = await createClient();
+  const supabase = await createGenerationDbClient();
   const { data, error } = await supabase
     .from('characters')
     .select('name, role_identity, gender, age, personality, background_story, personal_task, is_murderer')
@@ -404,7 +436,7 @@ async function getActStructureForPhase(body: GenerateRequestBody): Promise<ActSt
     return body.actStructure;
   }
 
-  const supabase = await createClient();
+  const supabase = await createGenerationDbClient();
   const { data: acts, error } = await supabase
     .from('acts')
     .select('id, title, sort_order, content, scenes(title, location, content, sort_order)')
@@ -460,6 +492,7 @@ async function runJsonPhase<T>(
   systemPrompt: string,
   userPrompt: string,
   temperature = 0.6,
+  onComplete?: (result: T) => Promise<void>,
 ): Promise<Response> {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -496,6 +529,7 @@ async function runJsonPhase<T>(
 
         controller.enqueue(encodeSse(encoder, 'progress', { percent: 100, stage: 'parsing' }));
         const result = await parseOrRepairJson<T>(accumulated, phase);
+        await onComplete?.(result);
         controller.enqueue(encodeSse(encoder, 'completed', { scriptId, result }));
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
@@ -520,7 +554,7 @@ async function persistCharacterProfiles(
   params: ScriptGenerationParams,
   json: CharacterProfilesJson,
 ): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await createGenerationDbClient();
   const { error: deleteError } = await supabase.from('characters').delete().eq('script_id', scriptId);
   if (deleteError) {
     console.warn(`Character cleanup failed; continuing without persistence: ${deleteError.message}`);
@@ -564,7 +598,7 @@ async function persistActStructure(
   params: ScriptGenerationParams,
   json: ActStructureJson,
 ): Promise<number> {
-  const supabase = await createClient();
+  const supabase = await createGenerationDbClient();
   const { error: deleteError } = await supabase.from('acts').delete().eq('script_id', scriptId);
   if (deleteError) {
     console.warn(`Act cleanup failed; continuing without persistence: ${deleteError.message}`);
@@ -850,16 +884,58 @@ async function persistCharacterScript(
   character: CharacterProfile,
   json: CharacterScriptJson,
 ): Promise<void> {
-  if (!body.characterId || body.characterId.startsWith('mock-character-')) {
+  if (!body.characterId) {
     return;
   }
 
-  const supabase = await createClient();
+  const supabase = await createGenerationDbClient();
+  let characterId = body.characterId;
+  if (characterId.startsWith('mock-character-')) {
+    const sortOrder = Number(characterId.match(/^mock-character-(\d+)$/)?.[1] ?? 1) - 1;
+    const { data, error } = await supabase
+      .from('characters')
+      .select('id')
+      .eq('script_id', body.scriptId)
+      .eq('name', character.name)
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data?.id) {
+      const { data: insertedCharacter, error: insertError } = await supabase
+        .from('characters')
+        .insert({
+          script_id: body.scriptId,
+          name: character.name,
+          role_identity: character.roleIdentity,
+          gender: character.gender,
+          age: character.age,
+          personality: character.personality,
+          background_story: character.backgroundStory,
+          personal_task: character.personalTask,
+          is_murderer: character.isMurderer,
+          sort_order: Math.max(0, sortOrder),
+        })
+        .select('id')
+        .single();
+
+      if (insertError || !insertedCharacter?.id) {
+        throw new Error(
+          `Character script persistence failed; character row not found for ${character.name}: ${
+            error?.message ?? insertError?.message ?? 'unknown error'
+          }`,
+        );
+      }
+      characterId = insertedCharacter.id;
+    } else {
+      characterId = data.id;
+    }
+  }
+
   const wordCount = JSON.stringify(json.actScripts).length;
   const { error } = await supabase.from('character_scripts').upsert(
     {
       script_id: body.scriptId,
-      character_id: body.characterId,
+      character_id: characterId,
       act_scripts: json.actScripts,
       personal_arc: json.personalArc,
       visible_clue_titles: json.visibleClueTitles,
@@ -872,8 +948,192 @@ async function persistCharacterScript(
   );
 
   if (error) {
-    console.warn(`Character script upsert failed; continuing without persistence: ${error.message}`);
+    if (isMissingTableError(error)) {
+      console.warn(
+        `character_scripts table is missing; storing character script in generation_tasks fallback: ${error.message}`,
+      );
+      await persistFallbackGenerationResult(body.scriptId, `character-script:${character.name}`, body.params, {
+        characterId,
+        characterName: character.name,
+        script: json,
+      });
+      return;
+    }
+    throw new Error(`Character script upsert failed: ${error.message}`);
   }
+}
+
+function normalizeClueType(clueType: string): 'physical' | 'testimony' | 'deep' | 'hidden' {
+  if (clueType === 'testimony' || clueType === 'deep' || clueType === 'hidden') return clueType;
+  return 'physical';
+}
+
+async function persistClues(
+  scriptId: string,
+  params: ScriptGenerationParams,
+  json: CluesJson,
+): Promise<void> {
+  const supabase = await createGenerationDbClient();
+  const { data: characters, error: characterError } = await supabase
+    .from('characters')
+    .select('id, name')
+    .eq('script_id', scriptId);
+
+  if (characterError) {
+    throw new Error(`Clue character lookup failed: ${characterError.message}`);
+  }
+
+  const characterIdsByName = new Map((characters ?? []).map((character) => [character.name, character.id]));
+
+  const { error: deleteError } = await supabase.from('clues').delete().eq('script_id', scriptId);
+  if (deleteError) {
+    throw new Error(`Clue cleanup failed: ${deleteError.message}`);
+  }
+
+  if (json.clues.length > 0) {
+    const { error: insertError } = await supabase.from('clues').insert(
+      json.clues.map((clue, index) => ({
+        script_id: scriptId,
+        title: clue.title,
+        content: clue.content,
+        clue_type: normalizeClueType(clue.clueType),
+        search_round: clue.searchRound,
+        location: clue.location,
+        related_character_ids: clue.relatedCharacterNames
+          .map((name) => characterIdsByName.get(name))
+          .filter((id): id is string => Boolean(id)),
+        is_distractor: clue.isDistractor,
+        is_key_clue: clue.isKeyClue,
+        unlock_condition: clue.unlockCondition,
+        sort_order: index,
+      })),
+    );
+
+    if (insertError) {
+      throw new Error(`Clue insert failed: ${insertError.message}`);
+    }
+  }
+
+  const { error: taskError } = await supabase.from('generation_tasks').insert({
+    script_id: scriptId,
+    task_type: 'CLUES',
+    status: 'completed',
+    params,
+    progress_percent: 100,
+    result_data: { clueCount: json.clues.length },
+    started_at: new Date().toISOString(),
+    completed_at: new Date().toISOString(),
+  });
+
+  if (taskError) console.warn(`Clue task insert failed; continuing: ${taskError.message}`);
+}
+
+async function persistFallbackGenerationResult(
+  scriptId: string,
+  phase: string,
+  params: ScriptGenerationParams,
+  result: unknown,
+): Promise<void> {
+  const supabase = await createGenerationDbClient();
+  const { error } = await supabase.from('generation_tasks').insert({
+    script_id: scriptId,
+    task_type: 'FULL_SCRIPT',
+    status: 'completed',
+    params,
+    progress_percent: 100,
+    result_data: { phase, result },
+    started_at: new Date().toISOString(),
+    completed_at: new Date().toISOString(),
+  });
+
+  if (error) {
+    console.warn(`Fallback generation task insert failed for ${phase}; continuing: ${error.message}`);
+  }
+}
+
+async function persistOrganizerManual(
+  scriptId: string,
+  params: ScriptGenerationParams,
+  json: OrganizerManualJson,
+): Promise<void> {
+  const supabase = await createGenerationDbClient();
+  const { error } = await supabase.from('organizer_manuals').upsert(
+    {
+      script_id: scriptId,
+      opening_flow: json.openingFlow,
+      duration_control: json.durationControl,
+      pacing_hints: json.pacingHints,
+      npc_guide: json.npcGuide,
+      mechanism_rules: json.mechanismRules,
+    },
+    { onConflict: 'script_id' },
+  );
+
+  if (error) {
+    if (isMissingTableError(error)) {
+      console.warn(
+        `organizer_manuals table is missing; storing organizer manual in generation_tasks fallback: ${error.message}`,
+      );
+      await persistFallbackGenerationResult(scriptId, 'organizer-manual', params, json);
+      return;
+    }
+    throw new Error(`Organizer manual upsert failed: ${error.message}`);
+  }
+
+  const { error: taskError } = await supabase.from('generation_tasks').insert({
+    script_id: scriptId,
+    task_type: 'ORGANIZER_MANUAL',
+    status: 'completed',
+    params,
+    progress_percent: 100,
+    result_data: { openingFlowCount: json.openingFlow.length },
+    started_at: new Date().toISOString(),
+    completed_at: new Date().toISOString(),
+  });
+
+  if (taskError) console.warn(`Organizer manual task insert failed; continuing: ${taskError.message}`);
+}
+
+async function persistTruthReview(
+  scriptId: string,
+  params: ScriptGenerationParams,
+  json: TruthReviewJson,
+): Promise<void> {
+  const supabase = await createGenerationDbClient();
+  const { error } = await supabase.from('truth_reviews').upsert(
+    {
+      script_id: scriptId,
+      full_summary: json.fullSummary,
+      method_detail: json.methodDetail,
+      motive_detail: json.motiveDetail,
+      character_endings: json.characterEndings,
+      foreshadowing_resolution: json.foreshadowingResolution,
+      timeline_full: json.timelineFull,
+    },
+    { onConflict: 'script_id' },
+  );
+
+  if (error) {
+    if (isMissingTableError(error)) {
+      console.warn(`truth_reviews table is missing; storing truth review in generation_tasks fallback: ${error.message}`);
+      await persistFallbackGenerationResult(scriptId, 'truth-review', params, json);
+      return;
+    }
+    throw new Error(`Truth review upsert failed: ${error.message}`);
+  }
+
+  const { error: taskError } = await supabase.from('generation_tasks').insert({
+    script_id: scriptId,
+    task_type: 'TRUTH_REVIEW',
+    status: 'completed',
+    params,
+    progress_percent: 100,
+    result_data: { characterEndingCount: json.characterEndings.length },
+    started_at: new Date().toISOString(),
+    completed_at: new Date().toISOString(),
+  });
+
+  if (taskError) console.warn(`Truth review task insert failed; continuing: ${taskError.message}`);
 }
 
 async function handleCharacterScript(body: GenerateRequestBody): Promise<Response> {
@@ -995,7 +1255,9 @@ async function handleClues(body: GenerateRequestBody): Promise<Response> {
     storyBible,
     actStructure,
   });
-  return runJsonPhase<CluesJson>('clues', body.scriptId, systemPrompt, userPrompt, 0.6);
+  return runJsonPhase<CluesJson>('clues', body.scriptId, systemPrompt, userPrompt, 0.6, (json) =>
+    persistClues(body.scriptId, body.params, json),
+  );
 }
 
 async function handleOrganizerManual(body: GenerateRequestBody): Promise<Response> {
@@ -1008,7 +1270,14 @@ async function handleOrganizerManual(body: GenerateRequestBody): Promise<Respons
     storyBible,
     actStructure,
   });
-  return runJsonPhase<OrganizerManualJson>('organizer-manual', body.scriptId, systemPrompt, userPrompt, 0.5);
+  return runJsonPhase<OrganizerManualJson>(
+    'organizer-manual',
+    body.scriptId,
+    systemPrompt,
+    userPrompt,
+    0.5,
+    (json) => persistOrganizerManual(body.scriptId, body.params, json),
+  );
 }
 
 async function handleTruthReview(body: GenerateRequestBody): Promise<Response> {
@@ -1024,7 +1293,14 @@ async function handleTruthReview(body: GenerateRequestBody): Promise<Response> {
     characterScripts: body.characterScripts ?? [],
     clues,
   });
-  return runJsonPhase<TruthReviewJson>('truth-review', body.scriptId, systemPrompt, userPrompt, 0.5);
+  return runJsonPhase<TruthReviewJson>(
+    'truth-review',
+    body.scriptId,
+    systemPrompt,
+    userPrompt,
+    0.5,
+    (json) => persistTruthReview(body.scriptId, body.params, json),
+  );
 }
 
 async function handleStoryBible(body: GenerateRequestBody): Promise<Response> {

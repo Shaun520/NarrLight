@@ -38,13 +38,11 @@ import {
   SCRIPT_DATA,
   DEFAULT_NODE_ID,
   type CharacterNode,
-  type CharacterPage,
   type SimpleNode,
   type ClueOverviewNode,
   type ScriptNodeData,
   type TreeGroup,
 } from '@/components/editor/script-data';
-import { createClient } from '@/lib/supabase/client';
 import { exportEditorPdf } from '@/lib/export/editor-pdf-export';
 import './editor.css';
 
@@ -79,143 +77,15 @@ interface EditorDataBundle {
   defaultNodeId: string;
 }
 
-function escapeHtml(value: unknown): string {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-function paragraphsFromText(value: unknown): string[] {
-  const text = String(value ?? '').trim();
-  if (!text) return ['No content yet.'];
-  return text
-    .split(/\n{2,}|\r?\n/)
-    .map((line) => escapeHtml(line.trim()))
-    .filter(Boolean);
-}
-
-function htmlBlock(title: string, value: unknown): string {
-  return `<h2><span class="act-num">Full</span>${escapeHtml(title)}</h2>${paragraphsFromText(value)
-    .map((p) => `<p>${p}</p>`)
-    .join('')}`;
-}
-
 async function loadEditorData(scriptId: string): Promise<EditorDataBundle | null> {
-  const supabase = createClient();
-  const [{ data: characters }, { data: characterScripts }, { data: clues }, { data: truthRows }] =
-    await Promise.all([
-      supabase
-        .from('characters')
-        .select('id, name, role_identity, is_murderer, sort_order')
-        .eq('script_id', scriptId)
-        .order('sort_order'),
-      supabase
-        .from('character_scripts')
-        .select('character_id, act_scripts, personal_arc, perspective_note')
-        .eq('script_id', scriptId),
-      supabase
-        .from('clues')
-        .select('title, clue_type, search_round, location, is_distractor, is_key')
-        .eq('script_id', scriptId)
-        .order('search_round'),
-      supabase
-        .from('truth_reviews')
-        .select('full_summary, method_detail, motive_detail, timeline_full')
-        .eq('script_id', scriptId)
-        .limit(1),
-    ]);
-
-  if (!characters?.length && !characterScripts?.length && !clues?.length && !truthRows?.length) {
+  const response = await fetch(`/api/editor/${scriptId}`, { cache: 'no-store' });
+  if (response.status === 404) {
     return null;
   }
-
-  const dataMap: Record<string, ScriptNodeData> = {};
-  const labels: Record<string, string> = {};
-  const charNodeIds: string[] = [];
-  const scriptsByCharacter = new Map<string, Record<string, unknown>>();
-  for (const row of (characterScripts ?? []) as Array<Record<string, unknown>>) {
-    scriptsByCharacter.set(String(row.character_id), row);
+  if (!response.ok) {
+    throw new Error(`Editor data request failed: ${response.status}`);
   }
-
-  const colors = ['#8a1c1c', '#b08d57', '#4a7c59', '#3a5a7a', '#7a5c3a', '#6a4a8a', '#8a4a6a'];
-  for (const [index, character] of ((characters ?? []) as Array<Record<string, unknown>>).entries()) {
-    const nodeId = `char-${character.id}`;
-    const script = scriptsByCharacter.get(String(character.id));
-    const actScripts = Array.isArray(script?.act_scripts) ? (script.act_scripts as Array<Record<string, unknown>>) : [];
-    const pages: CharacterPage[] = actScripts.length
-      ? actScripts.map((act, actIndex) => ({
-          act: String(act.actTitle ?? `Act ${actIndex + 1}`),
-          title: String(act.actTitle ?? `Act ${actIndex + 1}`),
-          subtitle: String(script?.perspective_note ?? ''),
-          paragraphs: paragraphsFromText(act.content),
-        }))
-      : [
-          {
-            act: 'Full',
-            title: 'Profile',
-            subtitle: String(character.role_identity ?? ''),
-            paragraphs: paragraphsFromText(script?.personal_arc ?? character.role_identity ?? 'No character script yet.'),
-          },
-        ];
-
-    dataMap[nodeId] = {
-      type: 'character',
-      id: nodeId,
-      name: String(character.name ?? `Character ${index + 1}`),
-      role: `${character.is_murderer ? 'Murderer' : 'Character'} · ${String(character.role_identity ?? '')}`,
-      color: colors[index % colors.length],
-      pages,
-    };
-    labels[nodeId] = `${String(character.name ?? `Character ${index + 1}`)}${character.is_murderer ? ' (murderer)' : ''}`;
-    charNodeIds.push(nodeId);
-  }
-
-  const clueItems = ((clues ?? []) as Array<Record<string, unknown>>).map((clue, index) => ({
-    no: `#${String(index + 1).padStart(3, '0')}`,
-    title: String(clue.title ?? `Clue ${index + 1}`),
-    tag: clue.is_key ? 'Key' : clue.is_distractor ? 'Red herring' : String(clue.clue_type ?? 'Clue'),
-    tagType: clue.is_key ? ('blood' as const) : clue.is_distractor ? ('ok' as const) : undefined,
-    loc: String(clue.location ?? ''),
-  }));
-
-  dataMap['clues-overview'] = {
-    type: 'clue-overview',
-    id: 'clues-overview',
-    title: 'Clues',
-    actNum: `${clueItems.length}`,
-    fullTitle: `Clues · ${clueItems.length}`,
-    clues: clueItems,
-  };
-  labels['clues-overview'] = 'Clues';
-
-  const truth = (truthRows?.[0] ?? {}) as Record<string, unknown>;
-  dataMap.truth = {
-    type: 'simple',
-    id: 'truth',
-    title: 'Truth',
-    actNum: 'Final',
-    fullTitle: 'Truth Review',
-    html: [
-      htmlBlock('Summary', truth.full_summary),
-      htmlBlock('Method', truth.method_detail),
-      htmlBlock('Motive', truth.motive_detail),
-      htmlBlock('Timeline', truth.timeline_full),
-    ].join(''),
-  };
-  labels.truth = 'Truth Review';
-
-  return {
-    dataMap,
-    labels,
-    groups: [
-      { group: 'chars', label: 'Character Scripts', children: charNodeIds },
-      { group: 'clues-overview', label: 'Clues', children: ['clues-overview'] },
-      { group: 'truth', label: 'Truth Review', children: ['truth'] },
-    ],
-    defaultNodeId: charNodeIds[0] ?? 'clues-overview',
-  };
+  return (await response.json()) as EditorDataBundle;
 }
 
 /** Toast 提示状态 */
@@ -565,11 +435,10 @@ export default function EditorPage({ params }: PageProps) {
       <div className="page-head">
         <div>
           <h1 className="page-title">
-            剧本编辑器 <span className="seal">结构化</span>
+            {'\u5267\u672c\u7f16\u8f91\u5668'} <span className="seal">{'\u7ed3\u6784\u5316'}</span>
           </h1>
           <div className="page-desc">
-            ??????????? ? ?????????? ? ??{' '}
-            {versions[0]?.version ?? 'v1'}
+            {'\u6309\u6a21\u5757\u5206\u533a\u6216\u8868\u5355\u5f0f\u7f16\u8f91 \u00b7 \u5f53\u524d'} {versions[0]?.version ?? 'v1'}
           </div>
         </div>
         <div className="page-actions">
@@ -679,6 +548,9 @@ export default function EditorPage({ params }: PageProps) {
           activeNodeId={currentNodeId}
           onJump={handleSelectNode}
           onClose={() => setShowOutline(false)}
+          dataMap={activeDataMap}
+          groups={editorData?.groups}
+          labels={editorData?.labels}
         />
       )}
 

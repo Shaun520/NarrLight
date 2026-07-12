@@ -82,6 +82,8 @@ export interface TreeGroup {
   label: string;
   /** 子节点 ID 列表 */
   children: string[];
+  /** Optional display count override. */
+  count?: number;
 }
 
 /** 6 人物配色（对齐原型 scriptData.*.color） */

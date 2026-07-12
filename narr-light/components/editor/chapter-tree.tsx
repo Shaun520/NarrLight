@@ -90,7 +90,7 @@ export function ChapterTree({
       {groups.map((group) => {
         const Icon = GROUP_ICON[group.group] ?? List;
         const isExpanded = expanded[group.group] ?? true;
-        const count = group.children.length || GROUP_COUNT[group.group] || 0;
+        const count = group.count ?? (group.children.length || GROUP_COUNT[group.group] || 0);
 
         return (
           <div key={group.group}>

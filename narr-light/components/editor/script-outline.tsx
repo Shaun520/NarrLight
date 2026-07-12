@@ -19,6 +19,8 @@ import {
   type CharacterNode,
   type SimpleNode,
   type ClueOverviewNode,
+  type ScriptNodeData,
+  type TreeGroup,
 } from './script-data';
 
 interface ScriptOutlineProps {
@@ -28,6 +30,9 @@ interface ScriptOutlineProps {
   onJump: (nodeId: string) => void;
   /** 关闭面板 */
   onClose: () => void;
+  dataMap?: Record<string, ScriptNodeData>;
+  groups?: TreeGroup[];
+  labels?: Record<string, string>;
 }
 
 /** 搜索命中条目 */
@@ -48,8 +53,9 @@ function stripHtml(html: string): string {
 /** 收集单个节点的纯文本与可搜索段落列表 */
 function collectNodeSearchable(
   nodeId: string,
+  dataMap: Record<string, ScriptNodeData>,
 ): { paragraphs: string[] } | null {
-  const data = SCRIPT_DATA[nodeId];
+  const data = dataMap[nodeId];
   if (!data) return null;
 
   if (data.type === 'character') {
@@ -81,12 +87,16 @@ function collectNodeSearchable(
 }
 
 /** 在所有节点中搜索关键词，返回命中条目（最多 50 条） */
-function searchKeyword(keyword: string): SearchHit[] {
+function searchKeyword(
+  keyword: string,
+  dataMap: Record<string, ScriptNodeData>,
+  labels: Record<string, string>,
+): SearchHit[] {
   if (!keyword.trim()) return [];
   const kw = keyword.trim();
   const hits: SearchHit[] = [];
-  for (const nodeId of Object.keys(SCRIPT_DATA)) {
-    const searchable = collectNodeSearchable(nodeId);
+  for (const nodeId of Object.keys(dataMap)) {
+    const searchable = collectNodeSearchable(nodeId, dataMap);
     if (!searchable) continue;
     for (const para of searchable.paragraphs) {
       let idx = para.toLowerCase().indexOf(kw.toLowerCase());
@@ -96,7 +106,7 @@ function searchKeyword(keyword: string): SearchHit[] {
         const snippet = `${start > 0 ? '…' : ''}${para.slice(start, end)}${end < para.length ? '…' : ''}`;
         hits.push({
           nodeId,
-          nodeLabel: NODE_LABELS[nodeId] ?? nodeId,
+          nodeLabel: labels[nodeId] ?? nodeId,
           snippet,
           offset: idx,
         });
@@ -116,11 +126,14 @@ export function ScriptOutline({
   activeNodeId,
   onJump,
   onClose,
+  dataMap = SCRIPT_DATA,
+  groups = TREE_GROUPS,
+  labels = NODE_LABELS,
 }: ScriptOutlineProps) {
   const [keyword, setKeyword] = useState('');
   const [query, setQuery] = useState('');
 
-  const hits = useMemo(() => searchKeyword(query), [query]);
+  const hits = useMemo(() => searchKeyword(query, dataMap, labels), [dataMap, labels, query]);
 
   const handleSearch = () => {
     setQuery(keyword);
@@ -219,7 +232,7 @@ export function ScriptOutline({
             <div className="so-section">
               <div className="so-section-head">章节跳转</div>
               <div className="so-outline">
-                {TREE_GROUPS.map((group) => (
+                {groups.map((group) => (
                   <div key={group.group} className="so-group">
                     <div className="so-group-title">{group.label}</div>
                     {group.children.map((nodeId) => (
@@ -242,7 +255,7 @@ export function ScriptOutline({
                           }
                         }}
                       >
-                        {NODE_LABELS[nodeId] ?? nodeId}
+                          {labels[nodeId] ?? nodeId}
                       </div>
                     ))}
                   </div>
