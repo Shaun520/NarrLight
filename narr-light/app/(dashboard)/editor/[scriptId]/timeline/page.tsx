@@ -9,17 +9,21 @@
  *   3. .timeline-wrap     时间轴（TimelineChart 组件，可横滚 min-width 760px）
  *   4. .conflict-list     冲突列表（TimelineConflictList 组件，含"前往修正"按钮）
  *
+ * 数据加载：
+ *   - 页面 mount 时 POST /api/validate { scriptId } 加载真实事件与冲突
+ *   - 并行 fetch /api/editor/{scriptId} 获取剧本标题
+ *   - 422 响应视为"内容不足"空状态，非 2xx 视为错误
+ *
  * 手动修正（T150）：
  *   - 点击冲突项"前往修正"按钮 → 跳转到编辑器对应位置
  *     URL: /editor/[scriptId]?act=N&char=charId&event=eventId
- *   - 点击"重新校验"按钮 → 重新执行 ConflictDetector.detect(events)
- *   - 修正后冲突消除，剧本对应原文更新（在编辑器侧完成）
+ *   - 点击"重新校验"按钮 → 重新调用 Edge Function 拉取最新数据
  *
  * 客户端组件：管理 selectedChars / selectedAct / onlyConflicts 状态。
  */
 'use client';
 
-import { use, useEffect, useMemo, useState } from 'react';
+import { use, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { RefreshCw, Download } from 'lucide-react';
 import {
@@ -32,30 +36,25 @@ import {
   type ConflictItem,
 } from '@/lib/validation/timeline/conflict-detector';
 import type { TimelineEvent } from '@/lib/validation/timeline/extractor';
+import { computeTimeWindow } from '@/lib/validation/timeline/time-window';
 import { exportTimelineReportPdf } from '@/lib/export/timeline-report-pdf';
 import './timeline.css';
+
+/** 时间线维度：按角色 / 按地点 / 按幕次 */
+type TimelineDimension = 'character' | 'location' | 'act';
 
 interface PageProps {
   params: Promise<{ scriptId: string }>;
 }
 
 /* =========================================================
- * 角色元信息（6 角色配色与编辑器一致）
+ * 角色元信息（由 events 派生，不再硬编码）
  * ========================================================= */
 interface CharacterMeta {
   id: string;
   name: string;
   color: string;
 }
-
-const CHARACTERS: readonly CharacterMeta[] = [
-  { id: 'char-1', name: '沈墨白', color: '#8a1c1c' },
-  { id: 'char-2', name: '沈墨尘', color: '#b08d57' },
-  { id: 'char-3', name: '柳如烟', color: '#4a7c59' },
-  { id: 'char-4', name: '陈守义', color: '#3a5a7a' },
-  { id: 'char-5', name: '小翠', color: '#7a5c3a' },
-  { id: 'char-6', name: '周半仙', color: '#6a4a8a' },
-];
 
 /** 幕次选项 */
 const ACT_OPTIONS: readonly (number | 'all')[] = ['all', 1, 2, 3];
@@ -67,12 +66,6 @@ function actLabel(act: number | 'all'): string {
   return labels[act - 1] ?? `第${act}幕`;
 }
 
-/**
- * 演示期剧本标题（与 validation 页 MOCK 一致）。
- * 真实场景下应从 scriptService.getScript(scriptId) 读取。
- */
-const SCRIPT_TITLE = '沈府风云';
-
 /** Toast 提示状态（对齐编辑器页 save-toast 模式） */
 interface ToastState {
   visible: boolean;
@@ -80,109 +73,62 @@ interface ToastState {
   icon: string;
 }
 
-/** 重新校验的 Mock 延迟（ms），模拟 Edge Function 调用 */
-const REVALIDATE_MOCK_DELAY = 2000;
+/** /api/validate 成功响应体 */
+interface ValidateResponse {
+  scriptId: string;
+  events: TimelineEvent[];
+  conflicts: ConflictItem[];
+  stats: {
+    totalEvents: number;
+    totalConflicts: number;
+    severeCount: number;
+    warningCount: number;
+    hintCount: number;
+    narrativeTrickCount: number;
+  };
+  reportId: string | null;
+  createdAt: string;
+}
 
-/* =========================================================
- * 演示事件数据（基于原型 #view-timeline）
- * 时间窗口 18:00–次日01:00，分钟数 1080–1500
- * ========================================================= */
-const DEMO_EVENTS: TimelineEvent[] = [
-  // 沈墨白
-  {
-    id: 'tl-char-1-1', scriptId: 'demo', characterId: 'char-1', characterName: '沈墨白', characterColor: '#8a1c1c',
-    eventName: '抵沈宅', startTime: '18:10', endTime: '19:10', startMinutes: 1090, endMinutes: 1150,
-    location: '沈宅', actOrder: 2, sortOrder: 0, isNarrativeTrick: false, trickType: '', sourceText: '18:10 沈墨白抵达沈宅',
-  },
-  {
-    id: 'tl-char-1-2', scriptId: 'demo', characterId: 'char-1', characterName: '沈墨白', characterColor: '#8a1c1c',
-    eventName: '书房会墨尘', startTime: '19:25', endTime: '20:50', startMinutes: 1165, endMinutes: 1250,
-    location: '书房', actOrder: 2, sortOrder: 1, isNarrativeTrick: false, trickType: '', sourceText: '19:25 沈墨白在书房与墨尘长谈',
-  },
-  {
-    id: 'tl-char-1-3', scriptId: 'demo', characterId: 'char-1', characterName: '沈墨白', characterColor: '#8a1c1c',
-    eventName: '独往祠堂', startTime: '20:40', endTime: '22:10', startMinutes: 1240, endMinutes: 1330,
-    location: '祠堂', actOrder: 2, sortOrder: 2, isNarrativeTrick: false, trickType: '', sourceText: '20:40 沈墨白独自前往祠堂',
-  },
-  {
-    id: 'tl-char-1-4', scriptId: 'demo', characterId: 'char-1', characterName: '沈墨白', characterColor: '#8a1c1c',
-    eventName: '回房歇息', startTime: '23:00', endTime: '00:00', startMinutes: 1380, endMinutes: 1440,
-    location: '卧房', actOrder: 2, sortOrder: 3, isNarrativeTrick: false, trickType: '', sourceText: '23:00 沈墨白回房歇息',
-  },
-  {
-    id: 'tl-char-1-5', scriptId: 'demo', characterId: 'char-1', characterName: '沈墨白', characterColor: '#8a1c1c',
-    eventName: '被发现身亡', startTime: '00:05', endTime: '00:55', startMinutes: 1445, endMinutes: 1495,
-    location: '祠堂', actOrder: 2, sortOrder: 4, isNarrativeTrick: false, trickType: '', sourceText: '00:05 沈墨白被发现身亡',
-  },
-  // 沈墨尘
-  {
-    id: 'tl-char-2-1', scriptId: 'demo', characterId: 'char-2', characterName: '沈墨尘', characterColor: '#b08d57',
-    eventName: '迎兄归', startTime: '18:10', endTime: '19:00', startMinutes: 1090, endMinutes: 1140,
-    location: '门口', actOrder: 2, sortOrder: 0, isNarrativeTrick: false, trickType: '', sourceText: '18:10 沈墨尘迎兄归来',
-  },
-  {
-    id: 'tl-char-2-2', scriptId: 'demo', characterId: 'char-2', characterName: '沈墨尘', characterColor: '#b08d57',
-    eventName: '书房长谈', startTime: '19:10', endTime: '20:50', startMinutes: 1150, endMinutes: 1250,
-    location: '书房', actOrder: 2, sortOrder: 1, isNarrativeTrick: false, trickType: '', sourceText: '19:10 沈墨尘在书房长谈',
-  },
-  {
-    id: 'tl-char-2-3', scriptId: 'demo', characterId: 'char-2', characterName: '沈墨尘', characterColor: '#b08d57',
-    eventName: '称病在卧房', startTime: '20:50', endTime: '22:00', startMinutes: 1250, endMinutes: 1320,
-    location: '卧房', actOrder: 2, sortOrder: 2, isNarrativeTrick: false, trickType: '', sourceText: '20:50 沈墨尘称病在卧房不出',
-  },
-  {
-    id: 'tl-char-2-4', scriptId: 'demo', characterId: 'char-2', characterName: '沈墨尘', characterColor: '#b08d57',
-    eventName: '院中踱步', startTime: '20:30', endTime: '21:30', startMinutes: 1230, endMinutes: 1290,
-    location: '院中', actOrder: 2, sortOrder: 3, isNarrativeTrick: false, trickType: '', sourceText: '20:30 沈墨尘在院中踱步',
-  },
-  {
-    id: 'tl-char-2-5', scriptId: 'demo', characterId: 'char-2', characterName: '沈墨尘', characterColor: '#b08d57',
-    eventName: '报官', startTime: '23:45', endTime: '00:50', startMinutes: 1425, endMinutes: 1490,
-    location: '衙门', actOrder: 2, sortOrder: 4, isNarrativeTrick: false, trickType: '', sourceText: '23:45 沈墨尘前往报官',
-  },
-  // 柳如烟
-  {
-    id: 'tl-char-3-1', scriptId: 'demo', characterId: 'char-3', characterName: '柳如烟', characterColor: '#4a7c59',
-    eventName: '茶楼候客', startTime: '18:25', endTime: '19:25', startMinutes: 1105, endMinutes: 1165,
-    location: '茶楼', actOrder: 2, sortOrder: 0, isNarrativeTrick: false, trickType: '', sourceText: '18:25 柳如烟在茶楼候客',
-  },
-  {
-    id: 'tl-char-3-2', scriptId: 'demo', characterId: 'char-3', characterName: '柳如烟', characterColor: '#4a7c59',
-    eventName: '沈宅送药', startTime: '19:40', endTime: '21:30', startMinutes: 1180, endMinutes: 1290,
-    location: '沈宅', actOrder: 2, sortOrder: 1, isNarrativeTrick: false, trickType: '', sourceText: '19:40 柳如烟前往沈宅送药',
-  },
-  {
-    id: 'tl-char-3-3', scriptId: 'demo', characterId: 'char-3', characterName: '柳如烟', characterColor: '#4a7c59',
-    eventName: '药铺后院', startTime: '21:20', endTime: '22:20', startMinutes: 1280, endMinutes: 1340,
-    location: '药铺', actOrder: 2, sortOrder: 2, isNarrativeTrick: false, trickType: '', sourceText: '21:20 柳如烟在药铺后院取药',
-  },
-  {
-    id: 'tl-char-3-4', scriptId: 'demo', characterId: 'char-3', characterName: '柳如烟', characterColor: '#4a7c59',
-    eventName: '归家未出', startTime: '22:40', endTime: '23:55', startMinutes: 1360, endMinutes: 1435,
-    location: '家', actOrder: 2, sortOrder: 3, isNarrativeTrick: false, trickType: '', sourceText: '22:40 柳如烟归家未出',
-  },
-  // 周半仙
-  {
-    id: 'tl-char-6-1', scriptId: 'demo', characterId: 'char-6', characterName: '周半仙', characterColor: '#6a4a8a',
-    eventName: '药铺坐诊', startTime: '18:15', endTime: '19:40', startMinutes: 1095, endMinutes: 1180,
-    location: '药铺', actOrder: 2, sortOrder: 0, isNarrativeTrick: false, trickType: '', sourceText: '18:15 周半仙在药铺坐诊',
-  },
-  {
-    id: 'tl-char-6-2', scriptId: 'demo', characterId: 'char-6', characterName: '周半仙', characterColor: '#6a4a8a',
-    eventName: '收摊打烊', startTime: '19:50', endTime: '20:55', startMinutes: 1190, endMinutes: 1255,
-    location: '药铺', actOrder: 2, sortOrder: 1, isNarrativeTrick: false, trickType: '', sourceText: '19:50 周半仙收摊打烊',
-  },
-  {
-    id: 'tl-char-6-3', scriptId: 'demo', characterId: 'char-6', characterName: '周半仙', characterColor: '#6a4a8a',
-    eventName: '后院制草药', startTime: '21:05', endTime: '22:45', startMinutes: 1265, endMinutes: 1365,
-    location: '后院', actOrder: 2, sortOrder: 2, isNarrativeTrick: false, trickType: '', sourceText: '21:05 周半仙在后院制草药',
-  },
-  {
-    id: 'tl-char-6-4', scriptId: 'demo', characterId: 'char-6', characterName: '周半仙', characterColor: '#6a4a8a',
-    eventName: '早歇', startTime: '22:55', endTime: '23:50', startMinutes: 1375, endMinutes: 1430,
-    location: '卧房', actOrder: 2, sortOrder: 3, isNarrativeTrick: false, trickType: '', sourceText: '22:55 周半仙早歇',
-  },
-];
+/** /api/validate 错误响应体（422 与 5xx 共用） */
+interface ValidateErrorResponse {
+  error: string;
+  scriptId: string;
+  events?: TimelineEvent[];
+  conflicts?: ConflictItem[];
+}
+
+/** /api/editor/[scriptId] 响应体（仅关心 scriptTitle 字段） */
+interface EditorBundleWithTitle {
+  scriptTitle?: string;
+  dataMap?: Record<string, unknown>;
+  groups?: unknown[];
+  labels?: Record<string, string>;
+  defaultNodeId?: string;
+}
+
+/** loadTimeline 返回值：成功时携带最新 events 与 conflicts */
+interface LoadTimelineResult {
+  events: TimelineEvent[];
+  conflicts: ConflictItem[];
+}
+
+/**
+ * 从 events 派生角色列表（按 characterId 聚合去重）。
+ * 保留 events 中的原始 characterColor（已由 TimelineExtractor 按 sort_order 取模生成）。
+ */
+function deriveCharacters(events: TimelineEvent[]): CharacterMeta[] {
+  const map = new Map<string, CharacterMeta>();
+  for (const e of events) {
+    if (map.has(e.characterId)) continue;
+    map.set(e.characterId, {
+      id: e.characterId,
+      name: e.characterName,
+      color: e.characterColor,
+    });
+  }
+  return Array.from(map.values());
+}
 
 /**
  * 时间线校验页
@@ -191,18 +137,23 @@ export default function TimelinePage({ params }: PageProps) {
   const { scriptId } = use(params);
   const router = useRouter();
 
-  // 状态：选中角色（多选）/ 选中幕次（单选）/ 仅看冲突
-  const [selectedChars, setSelectedChars] = useState<Set<string>>(
-    new Set(CHARACTERS.map((c) => c.id)),
-  );
+  // 状态：选中角色（多选）/ 选中幕次（单选）/ 仅看冲突 / 维度切换
+  const [selectedChars, setSelectedChars] = useState<Set<string>>(new Set());
   const [selectedAct, setSelectedAct] = useState<number | 'all'>('all');
   const [onlyConflicts, setOnlyConflicts] = useState(false);
+  const [dimension, setDimension] = useState<TimelineDimension>('character');
 
-  // 事件数据（演示阶段直接使用 DEMO_EVENTS，后续可由 Edge Function 注入）
-  // setEvents 用于"重新校验"后刷新冲突列表
-  const [events, setEvents] = useState<TimelineEvent[]>(DEMO_EVENTS);
+  // 事件数据 / 角色列表 / 剧本标题（由真实接口加载）
+  const [events, setEvents] = useState<TimelineEvent[]>([]);
+  const [characters, setCharacters] = useState<CharacterMeta[]>([]);
+  const [scriptTitle, setScriptTitle] = useState('');
 
-  // 重新校验中（loading）
+  // 加载状态：loading=首次加载 / loadError=加载失败 / emptyHint=422 友好提示
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [emptyHint, setEmptyHint] = useState<string | null>(null);
+
+  // 重新校验中（按钮 loading）
   const [validating, setValidating] = useState(false);
 
   // Toast 反馈
@@ -211,6 +162,9 @@ export default function TimelinePage({ params }: PageProps) {
     message: '',
     icon: '✓',
   });
+
+  // ref 同步存储最新加载错误信息，供 handleRevalidate 即时读取
+  const loadErrorRef = useRef<string | null>(null);
 
   // Toast 自动消失
   useEffect(() => {
@@ -237,24 +191,165 @@ export default function TimelinePage({ params }: PageProps) {
     [conflicts],
   );
 
-  // 筛选后的事件
+  // 筛选后的事件（按维度裁剪：角色维度应用角色+幕次筛选；地点维度仅幕次；幕次维度不筛选）
   const filteredEvents = useMemo(() => {
     return events.filter((e) => {
+      // 按幕次维度：不应用任何筛选
+      if (dimension === 'act') return true;
+      // 按地点维度：只应用幕次筛选，忽略角色筛选
+      if (dimension === 'location') {
+        if (selectedAct !== 'all' && e.actOrder !== selectedAct) return false;
+        return true;
+      }
+      // 按角色维度：应用角色 + 幕次筛选
       if (!selectedChars.has(e.characterId)) return false;
       if (selectedAct !== 'all' && e.actOrder !== selectedAct) return false;
       return true;
     });
-  }, [events, selectedChars, selectedAct]);
+  }, [events, dimension, selectedChars, selectedAct]);
 
-  // 按角色分组成轨道
+  // 自适应时间窗口（从全量 events 计算，客户端安全）
+  const timeWindow = useMemo(() => computeTimeWindow(events), [events]);
+
+  // 按维度分组成轨道
   const lanes: TimelineLane[] = useMemo(() => {
-    return CHARACTERS.filter((c) => selectedChars.has(c.id)).map((c) => ({
+    // 按地点分组：从 filteredEvents 提取唯一 location（非空）
+    if (dimension === 'location') {
+      const locationMap = new Map<string, TimelineEvent[]>();
+      filteredEvents.forEach((e) => {
+        if (!e.location) return;
+        const arr = locationMap.get(e.location) ?? [];
+        arr.push(e);
+        locationMap.set(e.location, arr);
+      });
+      return Array.from(locationMap.entries()).map(([location, evts], idx) => ({
+        characterId: `loc-${idx}`,
+        characterName: location,
+        characterColor: '#666',
+        events: evts,
+      }));
+    }
+    // 按幕次分组：从 filteredEvents 提取唯一 actOrder
+    if (dimension === 'act') {
+      const actMap = new Map<number, TimelineEvent[]>();
+      filteredEvents.forEach((e) => {
+        const arr = actMap.get(e.actOrder) ?? [];
+        arr.push(e);
+        actMap.set(e.actOrder, arr);
+      });
+      return Array.from(actMap.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([actOrder, evts]) => ({
+          characterId: `act-${actOrder}`,
+          characterName: `第${actOrder}幕`,
+          characterColor: '#666',
+          events: evts,
+        }));
+    }
+    // 按角色分组（现有逻辑）
+    return characters.filter((c) => selectedChars.has(c.id)).map((c) => ({
       characterId: c.id,
       characterName: c.name,
       characterColor: c.color,
       events: filteredEvents.filter((e) => e.characterId === c.id),
     }));
-  }, [filteredEvents, selectedChars]);
+  }, [filteredEvents, characters, selectedChars, dimension]);
+
+  /**
+   * 加载时间线数据：POST /api/validate 携带 { scriptId }
+   * 并行 fetch /api/editor/${scriptId} 获取剧本标题。
+   *
+   * - 422 响应：设置 emptyHint 友好提示，清空 events，不视为错误
+   * - 非 2xx 响应：解析 error 字段，设置 loadError
+   * - 成功：setEvents + 派生 characters，清空 loadError/emptyHint
+   *
+   * 返回最新的 { events, conflicts }，供调用方（如重新校验）即时使用；
+   * 失败时返回 null（loadError 同步写入 loadErrorRef 供即时读取）。
+   */
+  const loadTimeline = async (id: string): Promise<LoadTimelineResult | null> => {
+    loadErrorRef.current = null;
+
+    // 并行：校验接口 + 编辑器接口（取 scriptTitle）
+    const [validateRes, editorRes] = await Promise.all([
+      fetch('/api/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scriptId: id }),
+      }),
+      fetch(`/api/editor/${id}`, { cache: 'no-store' }).catch(() => null),
+    ]);
+
+    // 解析剧本标题（容错：失败不影响时间线展示）
+    if (editorRes && editorRes.ok) {
+      try {
+        const editorData = (await editorRes.json()) as EditorBundleWithTitle;
+        if (editorData.scriptTitle) {
+          setScriptTitle(editorData.scriptTitle);
+        }
+      } catch {
+        // 忽略 JSON 解析失败
+      }
+    }
+
+    // 解析校验响应
+    let validateData: ValidateResponse | ValidateErrorResponse;
+    try {
+      validateData = (await validateRes.json()) as ValidateResponse | ValidateErrorResponse;
+    } catch {
+      const msg = '校验响应解析失败';
+      setLoadError(msg);
+      loadErrorRef.current = msg;
+      setEvents([]);
+      setCharacters([]);
+      setLoading(false);
+      return null;
+    }
+
+    // 422：内容不足，友好提示（不视为错误）
+    if (validateRes.status === 422) {
+      const errBody = validateData as ValidateErrorResponse;
+      setEmptyHint(errBody.error || '未提取到时间线事件，请先在剧本中标注时间点');
+      setEvents([]);
+      setCharacters([]);
+      setLoadError(null);
+      setLoading(false);
+      return { events: [], conflicts: [] };
+    }
+
+    // 非 2xx：错误
+    if (!validateRes.ok) {
+      const errBody = validateData as ValidateErrorResponse;
+      const msg = errBody.error || `校验失败（${validateRes.status}）`;
+      setLoadError(msg);
+      loadErrorRef.current = msg;
+      setEvents([]);
+      setCharacters([]);
+      setLoading(false);
+      return null;
+    }
+
+    // 成功
+    const okBody = validateData as ValidateResponse;
+    const newEvents = okBody.events ?? [];
+    const newConflicts = okBody.conflicts ?? detector.detect(newEvents);
+    setEvents(newEvents);
+    setCharacters(deriveCharacters(newEvents));
+    setLoadError(null);
+    setEmptyHint(null);
+    setLoading(false);
+    return { events: newEvents, conflicts: newConflicts };
+  };
+
+  // 页面 mount 时加载真实数据
+  useEffect(() => {
+    loadTimeline(scriptId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scriptId]);
+
+  // 角色列表派生后默认全选
+  useEffect(() => {
+    setSelectedChars(new Set(characters.map((c) => c.id)));
+  }, [characters]);
 
   /* ===== 事件处理 ===== */
 
@@ -295,19 +390,17 @@ export default function TimelinePage({ params }: PageProps) {
     router.push(`/editor/${scriptId}?${params.toString()}`);
   };
 
+  /** 重试加载（点击错误态重试按钮） */
+  const handleRetry = () => {
+    setLoading(true);
+    setLoadError(null);
+    loadErrorRef.current = null;
+    loadTimeline(scriptId);
+  };
+
   /**
-   * 重新校验：调用时间线校验 Edge Function 重新提取事件并检测冲突。
-   *
-   * 真实调用（部署后启用）：
-   *   const res = await fetch('/functions/validate', {
-   *     method: 'POST',
-   *     headers: { 'Content-Type': 'application/json' },
-   *     body: JSON.stringify({ scriptId }),
-   *   });
-   *   const data = await res.json();
-   *   setEvents(data.events);
-   *
-   * 开发期 Mock：setTimeout 2 秒模拟异步，刷新 events 触发冲突重新计算。
+   * 重新校验：调用 loadTimeline 复用同一加载逻辑，
+   * 成功后用返回值即时计算冲突数并显示 Toast。
    */
   const handleRevalidate = async () => {
     if (validating) return;
@@ -315,20 +408,16 @@ export default function TimelinePage({ params }: PageProps) {
     showToast('正在重新校验时间线…', '◌');
 
     try {
-      // 开发期 Mock：模拟 Edge Function 异步返回
-      await new Promise<void>((resolve) =>
-        window.setTimeout(resolve, REVALIDATE_MOCK_DELAY),
-      );
-
-      // 真实场景下由 Edge Function 返回最新 events；此处刷新本地副本以触发 useMemo 重算
-      setEvents((prev) => prev.slice());
-
-      const newConflicts = detector.detect(events);
-      const severeCount = newConflicts.filter((c) => c.severity === 'severe').length;
-      showToast(
-        `校验完成 · 共 ${newConflicts.length} 条冲突（严重 ${severeCount}）`,
-        severeCount > 0 ? '!' : '✓',
-      );
+      const result = await loadTimeline(scriptId);
+      if (result === null) {
+        showToast(`校验失败：${loadErrorRef.current ?? '未知错误'}`, '✗');
+      } else {
+        const severeCount = result.conflicts.filter((c) => c.severity === 'severe').length;
+        showToast(
+          `校验完成 · 共 ${result.conflicts.length} 条冲突（严重 ${severeCount}）`,
+          severeCount > 0 ? '!' : '✓',
+        );
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : '未知错误';
       showToast(`校验失败：${msg}`, '✗');
@@ -345,10 +434,10 @@ export default function TimelinePage({ params }: PageProps) {
     try {
       exportTimelineReportPdf({
         scriptId,
-        scriptTitle: SCRIPT_TITLE,
+        scriptTitle: scriptTitle || '未命名剧本',
         events,
         conflicts,
-        characters: CHARACTERS.map((c) => ({
+        characters: characters.map((c) => ({
           id: c.id,
           name: c.name,
           color: c.color,
@@ -395,7 +484,7 @@ export default function TimelinePage({ params }: PageProps) {
             type="button"
             className={`btn btn-primary ${validating ? 'is-loading' : ''}`}
             onClick={handleRevalidate}
-            disabled={validating}
+            disabled={validating || loading}
           >
             <RefreshCw size={15} />
             {validating ? '校验中…' : '重新校验'}
@@ -405,43 +494,79 @@ export default function TimelinePage({ params }: PageProps) {
 
       {/* ===== 工具栏 ===== */}
       <div className="timeline-toolbar">
-        <span className="tb-label">按角色筛选：</span>
-        {CHARACTERS.map((c) => (
-          <div
-            key={c.id}
-            className={`filter-chip ${selectedChars.has(c.id) ? 'active' : ''}`}
-            role="button"
-            tabIndex={0}
-            onClick={() => toggleChar(c.id)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                toggleChar(c.id);
-              }
-            }}
-          >
-            <span className="swatch" style={{ background: c.color }} aria-hidden />
-            {c.name}
-          </div>
-        ))}
-        <div className="tb-right">
-          {ACT_OPTIONS.map((act) => (
-            <div
-              key={String(act)}
-              className={`filter-chip ${selectedAct === act ? 'active' : ''}`}
-              role="button"
-              tabIndex={0}
-              onClick={() => selectAct(act)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  selectAct(act);
-                }
+        {/* 维度切换器：按角色 / 按地点 / 按幕次 */}
+        <div
+          className="tl-dimension-switcher"
+          style={{ display: 'inline-flex', gap: 4, marginRight: 12 }}
+        >
+          {([
+            { key: 'character', label: '按角色' },
+            { key: 'location', label: '按地点' },
+            { key: 'act', label: '按幕次' },
+          ] as const).map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => setDimension(opt.key)}
+              style={{
+                padding: '4px 10px',
+                fontSize: 13,
+                cursor: 'pointer',
+                border: '1px solid var(--sepia, #7a5c3a)',
+                borderRadius: 4,
+                background:
+                  dimension === opt.key ? 'var(--sepia, #7a5c3a)' : 'transparent',
+                color: dimension === opt.key ? '#fff' : 'var(--sepia, #7a5c3a)',
               }}
             >
-              {actLabel(act)}
-            </div>
+              {opt.label}
+            </button>
           ))}
+        </div>
+        {/* 角色筛选：仅按角色维度显示 */}
+        {dimension === 'character' && (
+          <>
+            <span className="tb-label">按角色筛选：</span>
+            {characters.map((c) => (
+              <div
+                key={c.id}
+                className={`filter-chip ${selectedChars.has(c.id) ? 'active' : ''}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => toggleChar(c.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleChar(c.id);
+                  }
+                }}
+              >
+                <span className="swatch" style={{ background: c.color }} aria-hidden />
+                {c.name}
+              </div>
+            ))}
+          </>
+        )}
+        <div className="tb-right">
+          {/* 幕次筛选：按幕次维度下不显示（因为就是按幕次分组） */}
+          {dimension !== 'act' &&
+            ACT_OPTIONS.map((act) => (
+              <div
+                key={String(act)}
+                className={`filter-chip ${selectedAct === act ? 'active' : ''}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => selectAct(act)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    selectAct(act);
+                  }
+                }}
+              >
+                {actLabel(act)}
+              </div>
+            ))}
           <div
             className={`filter-chip chip-conflict ${onlyConflicts ? 'active' : ''}`}
             role="button"
@@ -459,16 +584,46 @@ export default function TimelinePage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* ===== 时间轴 ===== */}
-      <TimelineChart
-        lanes={lanes}
-        conflictEventIds={conflictEventIds}
-        onlyConflicts={onlyConflicts}
-        onSelectEvent={handleSelectEvent}
-      />
+      {/* ===== 主体：根据加载状态条件渲染 ===== */}
+      {loading ? (
+        <div
+          className="timeline-wrap"
+          style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--sepia, #7a5c3a)' }}
+        >
+          正在加载时间线…
+        </div>
+      ) : loadError ? (
+        <div className="timeline-wrap" style={{ textAlign: 'center', padding: '40px 20px' }}>
+          <p style={{ color: 'var(--blood, #8a1c1c)', marginBottom: '12px' }}>
+            加载失败：{loadError}
+          </p>
+          <button type="button" className="btn btn-ghost" onClick={handleRetry}>
+            <RefreshCw size={15} />
+            重试
+          </button>
+        </div>
+      ) : emptyHint ? (
+        <div
+          className="timeline-wrap"
+          style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--sepia, #7a5c3a)' }}
+        >
+          ◇ {emptyHint}
+        </div>
+      ) : (
+        <>
+          {/* ===== 时间轴 ===== */}
+          <TimelineChart
+            lanes={lanes}
+            conflictEventIds={conflictEventIds}
+            onlyConflicts={onlyConflicts}
+            onSelectEvent={handleSelectEvent}
+            timeWindow={timeWindow}
+          />
 
-      {/* ===== 冲突列表 ===== */}
-      <TimelineConflictList conflicts={conflicts} onJumpToFix={handleJumpToFix} />
+          {/* ===== 冲突列表 ===== */}
+          <TimelineConflictList conflicts={conflicts} onJumpToFix={handleJumpToFix} />
+        </>
+      )}
 
       {/* ===== Toast ===== */}
       {toast.visible && (

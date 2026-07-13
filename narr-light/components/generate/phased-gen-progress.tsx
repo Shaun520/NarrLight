@@ -31,6 +31,7 @@ const PHASE_DISPLAY_ORDER: PhaseId[] = [
   'clues',
   'organizer_manual',
   'truth_review',
+  'timeline_structure',
 ];
 
 const PHASE_LABELS: Record<PhaseId, string> = {
@@ -41,6 +42,7 @@ const PHASE_LABELS: Record<PhaseId, string> = {
   clues: '线索卡',
   organizer_manual: '组织者手册',
   truth_review: '真相复盘',
+  timeline_structure: '时间线结构化',
 };
 
 function getStatusIcon(status: PhaseState['status']): string {

@@ -35,8 +35,6 @@ import { AiAdjustPanel } from '@/components/editor/ai-adjust-panel';
 import { VersionDiff } from '@/components/editor/version-diff';
 import { ScriptOutline } from '@/components/editor/script-outline';
 import {
-  SCRIPT_DATA,
-  DEFAULT_NODE_ID,
   type CharacterNode,
   type SimpleNode,
   type ClueOverviewNode,
@@ -102,8 +100,8 @@ function formatNow(): string {
 }
 
 /** 提取节点纯文本用于版本对比 */
-function getNodePlainText(nodeId: string): string {
-  const data = SCRIPT_DATA[nodeId];
+function getNodePlainText(nodeId: string, dataMap: Record<string, ScriptNodeData>): string {
+  const data = dataMap[nodeId];
   if (!data) return '';
   if (data.type === 'character') {
     const c = data as CharacterNode;
@@ -125,8 +123,8 @@ function getNodePlainText(nodeId: string): string {
 }
 
 /** 根据角色名查找人物剧本节点 ID（用于高亮跳转的 char 参数） */
-function findCharacterNodeId(name: string): string | null {
-  for (const [id, data] of Object.entries(SCRIPT_DATA)) {
+function findCharacterNodeId(name: string, dataMap: Record<string, ScriptNodeData>): string | null {
+  for (const [id, data] of Object.entries(dataMap)) {
     if (data.type === 'character' && data.name === name) {
       return id;
     }
@@ -156,7 +154,7 @@ export default function EditorPage({ params }: PageProps) {
   const [snapshots, setSnapshots] = useState<Record<string, string>>({});
   const [showCompare, setShowCompare] = useState(false);
   const [showOutline, setShowOutline] = useState(false);
-  const [editorData, setEditorData] = useState<EditorDataBundle | null>(null);
+  const [editorData, setEditorData] = useState<EditorDataBundle | null>();
   const [toast, setToast] = useState<ToastState>({
     visible: false,
     message: '',
@@ -167,11 +165,13 @@ export default function EditorPage({ params }: PageProps) {
   // ===== 高亮跳转参数（来自 IssueLocator 漏洞定位） =====
   const searchParams = useSearchParams();
   const highlightInitialized = useRef(false);
-  const activeDataMap = editorData?.dataMap ?? SCRIPT_DATA;
-  const activeDefaultNodeId = editorData?.defaultNodeId ?? DEFAULT_NODE_ID;
+  const isEditorDataLoading = editorData === undefined;
+  const activeDataMap = useMemo(() => editorData?.dataMap ?? {}, [editorData]);
+  const activeDefaultNodeId = editorData?.defaultNodeId ?? null;
 
   useEffect(() => {
     let cancelled = false;
+    setEditorData(undefined);
     loadEditorData(scriptId)
       .then((data) => {
         if (cancelled) return;
@@ -188,10 +188,11 @@ export default function EditorPage({ params }: PageProps) {
 
   // ===== 初始化默认节点 =====
   useEffect(() => {
-    if (!currentNodeId) {
+    if (!activeDefaultNodeId) return;
+    if (!currentNodeId || !activeDataMap[currentNodeId]) {
       setCurrentNode(activeDefaultNodeId);
     }
-  }, [activeDefaultNodeId, currentNodeId, setCurrentNode]);
+  }, [activeDataMap, activeDefaultNodeId, currentNodeId, setCurrentNode]);
 
   // ===== 高亮跳转（消费 sessionStorage payload，切换幕次/角色并滚动高亮） =====
   useEffect(() => {
@@ -217,7 +218,7 @@ export default function EditorPage({ params }: PageProps) {
 
     // 切换到对应角色节点
     if (char) {
-      const nodeId = findCharacterNodeId(char);
+      const nodeId = findCharacterNodeId(char, activeDataMap);
       if (nodeId) {
         setCurrentNode(nodeId);
       }
@@ -241,7 +242,7 @@ export default function EditorPage({ params }: PageProps) {
     }, 500);
 
     return () => window.clearTimeout(scrollTimer);
-  }, [searchParams, setActIdx, setCurrentNode]);
+  }, [activeDataMap, searchParams, setActIdx, setCurrentNode]);
 
   // ===== 当前节点数据 =====
   const currentNode = currentNodeId ? activeDataMap[currentNodeId] : null;
@@ -415,13 +416,13 @@ export default function EditorPage({ params }: PageProps) {
   const diffContent = useMemo(() => {
     if (!currentNodeId) return { a: '', b: '' };
     return {
-      a: getNodePlainText(currentNodeId),
+      a: getNodePlainText(currentNodeId, activeDataMap),
       b:
         snapshots[currentNodeId] ??
         (activeDataMap[currentNodeId]
           ? activeDataMap[currentNodeId].type === 'simple'
             ? (activeDataMap[currentNodeId] as SimpleNode).html.replace(/<[^>]+>/g, ' ')
-            : getNodePlainText(currentNodeId)
+            : getNodePlainText(currentNodeId, activeDataMap)
           : ''),
     };
   }, [activeDataMap, currentNodeId, snapshots]);
@@ -482,13 +483,17 @@ export default function EditorPage({ params }: PageProps) {
       <div className="editor-layout">
         {/* 左：章节树 */}
         <div className="card" style={{ padding: '4px 0' }}>
-          {currentNodeId && (
+          {isEditorDataLoading ? (
+            <div style={{ padding: 24, color: 'var(--sepia)' }}>加载剧本结构中...</div>
+          ) : editorData && currentNodeId && currentNode ? (
             <ChapterTree
               activeNodeId={currentNodeId}
               onSelect={handleSelectNode}
-              groups={editorData?.groups}
-              labels={editorData?.labels}
+              groups={editorData.groups}
+              labels={editorData.labels}
             />
+          ) : (
+            <div style={{ padding: 24, color: 'var(--sepia)' }}>暂无真实剧本数据</div>
           )}
         </div>
 
@@ -510,13 +515,21 @@ export default function EditorPage({ params }: PageProps) {
               overflow: 'hidden',
             }}
           >
-            {currentNodeId && (
+            {isEditorDataLoading ? (
+              <div className="editor-content" id="editorContent">
+                <p style={{ color: 'var(--sepia)' }}>加载剧本内容中...</p>
+              </div>
+            ) : editorData && currentNodeId && currentNode ? (
               <EditorContent
                 nodeId={currentNodeId}
                 snapshots={snapshots}
                 onInput={handleContentInput}
                 dataMap={activeDataMap}
               />
+            ) : (
+              <div className="editor-content" id="editorContent">
+                <p style={{ color: 'var(--sepia)' }}>暂无真实剧本内容，请先完成生成。</p>
+              </div>
             )}
           </div>
         </div>
@@ -543,14 +556,14 @@ export default function EditorPage({ params }: PageProps) {
       )}
 
       {/* ===== 章节跳转搜索弹层 ===== */}
-      {showOutline && currentNodeId && (
+      {showOutline && editorData && currentNodeId && (
         <ScriptOutline
           activeNodeId={currentNodeId}
           onJump={handleSelectNode}
           onClose={() => setShowOutline(false)}
           dataMap={activeDataMap}
-          groups={editorData?.groups}
-          labels={editorData?.labels}
+          groups={editorData.groups}
+          labels={editorData.labels}
         />
       )}
 

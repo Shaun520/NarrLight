@@ -11,6 +11,8 @@ interface EditorDataBundle {
   groups: TreeGroup[];
   labels: Record<string, string>;
   defaultNodeId: string;
+  /** 剧本标题（从 scripts 表查询，供时间线校验页等下游模块复用） */
+  scriptTitle: string;
 }
 
 function escapeHtml(value: unknown): string {
@@ -76,7 +78,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ scr
   const { scriptId } = await params;
   const supabase = createAdminClient();
 
-  const [characters, characterScripts, clues, organizerRows, truthRows, fallbacks] = await Promise.all([
+  const [characters, characterScripts, clues, organizerRows, truthRows, fallbacks, scriptRows] = await Promise.all([
     safeQuery(
       supabase
         .from('characters')
@@ -112,7 +114,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ scr
         .limit(1),
     ),
     loadFallbackTasks(scriptId),
+    safeQuery(
+      supabase
+        .from('scripts')
+        .select('title')
+        .eq('id', scriptId)
+        .limit(1),
+    ),
   ]);
+
+  // 提取剧本标题（容错：查询失败或无记录时回退为空字符串）
+  const scriptTitle = ((scriptRows as Array<Record<string, unknown>> | null)?.[0]?.title as string | undefined) ?? '';
 
   const dataMap: Record<string, ScriptNodeData> = {};
   const labels: Record<string, string> = {};
@@ -290,6 +302,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ scr
     labels,
     groups,
     defaultNodeId: groups.find((group) => group.group === 'organizer')?.children[0] ?? charNodeIds[0] ?? 'clues-overview',
+    scriptTitle,
   };
 
   if (!Object.keys(dataMap).length) {

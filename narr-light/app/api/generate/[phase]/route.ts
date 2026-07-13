@@ -24,6 +24,11 @@ import {
   buildTruthReviewPrompt,
   type TruthReviewJson,
 } from '@/lib/ai/prompts/truth-review';
+import {
+  buildTimelineStructurePrompt,
+  type TimelineStructureJson,
+  type TimelineStructureEvent,
+} from '@/lib/ai/prompts/timeline-structure';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createClient as createServerSupabaseClient } from '@/lib/supabase/server';
 
@@ -41,6 +46,8 @@ interface GenerateRequestBody {
   actStructure?: ActStructureJson;
   characterScripts?: CharacterScriptJson[];
   clues?: CluesJson;
+  /** truth_reviews.timeline_full 原文（timeline-structure 阶段使用） */
+  timelineFull?: string;
 }
 
 async function createGenerationDbClient() {
@@ -1136,6 +1143,103 @@ async function persistTruthReview(
   if (taskError) console.warn(`Truth review task insert failed; continuing: ${taskError.message}`);
 }
 
+/**
+ * 持久化 timeline-structure 阶段产出的结构化时间线事件。
+ *
+ * 字段映射：AI 输出的 characterName 需先查 characters 表转成 character_id；
+ * 找不到对应角色则跳过该事件。character_scripts 表缺失（isMissingTableError）
+ * 时仅 console.warn 不抛错，保证阶段不因表缺失而失败。
+ */
+async function persistTimelineEvents(
+  scriptId: string,
+  params: ScriptGenerationParams,
+  json: TimelineStructureJson,
+): Promise<void> {
+  const supabase = await createGenerationDbClient();
+
+  // 1. 查 characters 表，构建 name → id 映射
+  const { data: characterRows, error: characterError } = await supabase
+    .from('characters')
+    .select('id, name')
+    .eq('script_id', scriptId);
+
+  if (characterError) {
+    if (isMissingTableError(characterError)) {
+      console.warn(
+        `characters table is missing; cannot resolve character_id for timeline_events: ${characterError.message}`,
+      );
+      return;
+    }
+    throw new Error(`Timeline event character lookup failed: ${characterError.message}`);
+  }
+
+  const characterIdByName = new Map(
+    (characterRows ?? []).map((row) => [row.name, row.id]),
+  );
+
+  // 2. 删除该 scriptId 的旧 timeline_events 数据
+  const { error: deleteError } = await supabase
+    .from('timeline_events')
+    .delete()
+    .eq('script_id', scriptId);
+  if (deleteError) {
+    if (isMissingTableError(deleteError)) {
+      console.warn(
+        `timeline_events table is missing; skipping timeline structure persistence: ${deleteError.message}`,
+      );
+      return;
+    }
+    throw new Error(`Timeline event cleanup failed: ${deleteError.message}`);
+  }
+
+  // 3. 批量 insert（characterName 找不到 id 的事件跳过）
+  const rowsToInsert = json.events
+    .map((event: TimelineStructureEvent, index: number) => {
+      const characterId = characterIdByName.get(event.characterName);
+      if (!characterId) return null;
+      return {
+        script_id: scriptId,
+        character_id: characterId,
+        event_time: event.time,
+        event_description: event.description,
+        location: event.location,
+        act_order: event.actOrder,
+        is_narrative_trick: event.isNarrativeTrick,
+        trick_type: event.trickType,
+        sort_order: index,
+        day: event.day ?? 1,
+        event_type: event.eventType ?? 'normal',
+        participants: event.participants ?? [],
+        thread: event.thread ?? 'main',
+        causes: event.causes ?? [],
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+
+  if (rowsToInsert.length > 0) {
+    const { error: insertError } = await supabase
+      .from('timeline_events')
+      .insert(rowsToInsert);
+    if (insertError) {
+      throw new Error(`Timeline event insert failed: ${insertError.message}`);
+    }
+  }
+
+  // 4. 写入 generation_tasks 记录
+  const { error: taskError } = await supabase.from('generation_tasks').insert({
+    script_id: scriptId,
+    task_type: 'TIMELINE_STRUCTURE',
+    status: 'completed',
+    params,
+    progress_percent: 100,
+    result_data: { eventCount: rowsToInsert.length, totalEmitted: json.events.length },
+    started_at: new Date().toISOString(),
+    completed_at: new Date().toISOString(),
+  });
+
+  if (taskError) console.warn(`Timeline structure task insert failed; continuing: ${taskError.message}`);
+}
+
 async function handleCharacterScript(body: GenerateRequestBody): Promise<Response> {
   const { scriptId, params } = body;
 
@@ -1301,6 +1405,149 @@ async function handleTruthReview(body: GenerateRequestBody): Promise<Response> {
     0.5,
     (json) => persistTruthReview(body.scriptId, body.params, json),
   );
+}
+
+/**
+ * 获取 timeline-structure 阶段所需的 timeline_full 文本。
+ * 优先用 body.timelineFull；为空则查 truth_reviews 表的 timeline_full 字段。
+ */
+async function getTimelineFullForPhase(body: GenerateRequestBody): Promise<string> {
+  if (body.timelineFull && body.timelineFull.trim().length > 0) {
+    return body.timelineFull;
+  }
+  const supabase = await createGenerationDbClient();
+  const { data, error } = await supabase
+    .from('truth_reviews')
+    .select('timeline_full')
+    .eq('script_id', body.scriptId)
+    .maybeSingle();
+  if (error || !data) {
+    throw new Error('timeline_full is required for timeline-structure phase');
+  }
+  return (data as { timeline_full: string | null }).timeline_full ?? '';
+}
+
+async function handleTimelineStructure(body: GenerateRequestBody): Promise<Response> {
+  const [characterProfiles, actStructure, timelineFull] = await Promise.all([
+    getCharacterProfilesForPhase(body),
+    getActStructureForPhase(body),
+    getTimelineFullForPhase(body),
+  ]);
+  const { systemPrompt, userPrompt } = buildTimelineStructurePrompt({
+    timelineFull,
+    characters: characterProfiles.characters.map((c) => ({
+      name: c.name,
+      roleIdentity: c.roleIdentity,
+    })),
+    acts: actStructure.acts.map((a) => ({
+      title: a.title,
+      sortOrder: a.sortOrder,
+    })),
+  });
+  return runJsonPhase<TimelineStructureJson>(
+    'timeline-structure',
+    body.scriptId,
+    systemPrompt,
+    userPrompt,
+    0.4,
+    (json) => persistTimelineEvents(body.scriptId, body.params, json),
+  );
+}
+
+/**
+ * timeline-structure 阶段的 mock 实现。
+ * 从 body.timelineFull 文本按 → / 换行分段，每段生成一个占位事件；
+ * 时间用 18:00 起步递增 30 分钟（上限 24:30）；characterName 取 characters[0].name（占位）。
+ */
+async function handleTimelineStructureMock(body: GenerateRequestBody): Promise<Response> {
+  const { scriptId, params } = body;
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const encoder = new TextEncoder();
+      try {
+        controller.enqueue(
+          encodeSse(encoder, 'start', { scriptId, stage: 'timeline-structure-init', ...generationMeta() }),
+        );
+
+        const supabase = await createGenerationDbClient();
+
+        // 1. 获取 timeline_full 文本（body 优先，回退查 truth_reviews 表）
+        let timelineFull = body.timelineFull ?? '';
+        if (!timelineFull.trim()) {
+          const { data } = await supabase
+            .from('truth_reviews')
+            .select('timeline_full')
+            .eq('script_id', scriptId)
+            .maybeSingle();
+          timelineFull = (data as { timeline_full: string | null } | null)?.timeline_full ?? '';
+        }
+
+        // 2. 获取角色列表（占位用第一个角色）
+        const { data: charRows } = await supabase
+          .from('characters')
+          .select('name')
+          .eq('script_id', scriptId)
+          .order('sort_order')
+          .limit(1);
+        const placeholderName =
+          charRows?.[0]?.name ?? body.characterProfiles?.characters[0]?.name ?? '角色';
+
+        // 3. 按 → / 换行分段生成事件，时间 18:00 起步递增 30 分钟（上限 24:30）
+        const segments = timelineFull
+          .split(/[→\n]/)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+
+        const events: TimelineStructureEvent[] = segments.map((segment, index) => {
+          const totalMinutes = Math.min(24 * 60 + 30, 18 * 60 + index * 30);
+          const h = Math.floor(totalMinutes / 60);
+          const m = totalMinutes % 60;
+          const time = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+          return {
+            characterName: placeholderName,
+            time,
+            description: segment.slice(0, 80),
+            location: '未指定',
+            actOrder: 1,
+            isNarrativeTrick: false,
+            trickType: '',
+          };
+        });
+
+        const json: TimelineStructureJson = { events };
+
+        // 4. 持久化（容错：表缺失不抛错）
+        try {
+          await persistTimelineEvents(scriptId, params, json);
+        } catch (persistError) {
+          const message = persistError instanceof Error ? persistError.message : 'Unknown persist error';
+          console.warn(`Timeline structure mock persist failed; continuing: ${message}`);
+        }
+
+        controller.enqueue(encodeSse(encoder, 'progress', { percent: 100, stage: 'mock' }));
+        controller.enqueue(
+          encodeSse(encoder, 'completed', {
+            scriptId,
+            eventCount: events.length,
+            result: json,
+          }),
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        controller.enqueue(encodeSse(encoder, 'error', { message }));
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+    },
+  });
 }
 
 async function handleStoryBible(body: GenerateRequestBody): Promise<Response> {
@@ -1485,6 +1732,17 @@ export async function POST(
       return handleTruthReview(body);
     }
     return handleGenericMockPhase(phase, body);
+  }
+
+  if (phase === 'timeline-structure') {
+    const body: unknown = await request.json().catch(() => null);
+    if (!validateBody(body)) {
+      return buildError('Invalid parameters', 400);
+    }
+    if (getGenerationMode() === 'real') {
+      return handleTimelineStructure(body);
+    }
+    return handleTimelineStructureMock(body);
   }
 
   const body: unknown = await request.json().catch(() => null);

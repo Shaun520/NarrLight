@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 鍒嗛樁娈靛墽鏈敓鎴愬鎴风缂栨帓鍣? *
  * 鏇挎崲 generate/page.tsx 鐨?Mock setInterval锛岀湡瀹炶皟搴?7 涓樁娈?Edge Function锛? *   闃舵 0 STORY_BIBLE 鈫?纭闂搁棬 鈫?闃舵 1锛? 骞惰锛夆啋 闃舵 2锛圢 涓垎鎵瑰苟琛岋級鈫?闃舵 3锛? 骞惰锛? *
  * 鍏抽敭鑳藉姏锛? * - 闃舵鐘舵€佹満锛歱ending 鈫?running 鈫?completed / failed锛屾敮鎸佸崟闃舵閲嶈瘯
@@ -21,7 +21,8 @@ export type PhaseId =
   | 'character_script'
   | 'clues'
   | 'organizer_manual'
-  | 'truth_review';
+  | 'truth_review'
+  | 'timeline_structure';
 
 /** 鍗曢樁娈电姸鎬?*/
 export type PhaseStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
@@ -103,6 +104,7 @@ const PHASE_ORDER: PhaseId[] = [
   'clues',
   'organizer_manual',
   'truth_review',
+  'timeline_structure',
 ];
 
 /** 闃舵涓枃鏍囩 */
@@ -114,6 +116,7 @@ const PHASE_LABELS: Record<PhaseId, string> = {
   clues: '线索卡',
   organizer_manual: '组织者手册',
   truth_review: '真相复盘',
+  timeline_structure: '时间线结构化',
 };
 
 /** 闃舵 2 瑙掕壊鍓ф湰鐨勫苟鍙戜笂闄?*/
@@ -797,6 +800,10 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
           runPhase('truth_review', params),
         ]);
 
+        // 阶段 4：时间线结构化（依赖 truth_review 完成）
+        setState((prev) => ({ ...prev, currentPhase: 'timeline_structure' }));
+        await runPhase('timeline_structure', params);
+
         // 鍏ㄩ儴瀹屾垚
         setState((prev) => ({
           ...prev,
@@ -969,6 +976,7 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
         cluesRes,
         organizerManualRes,
         truthReviewRes,
+        timelineEventsRes,
       ] = await Promise.all([
         supabase
           .from('story_bibles')
@@ -1004,6 +1012,10 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
           .select('id')
           .eq('script_id', scriptId)
           .maybeSingle(),
+        supabase
+          .from('timeline_events')
+          .select('id', { count: 'exact', head: true })
+          .eq('script_id', scriptId),
       ]);
 
       const storyBibleRow = storyBibleRes.data as {
@@ -1030,6 +1042,7 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
       const cluesExists = (cluesRes.count ?? 0) > 0;
       const organizerManualExists = !!organizerManualRes.data;
       const truthReviewExists = !!truthReviewRes.data;
+      const timelineEventsExists = (timelineEventsRes.count ?? 0) > 0;
 
       // 闃舵 0 鏈畬鎴愶細涓嶅彲鎭㈠锛屼繚鎸?idle
       if (!storyBibleExists) {
@@ -1092,6 +1105,13 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
           percent: 100,
         };
       }
+      if (timelineEventsExists) {
+        phases.timeline_structure = {
+          ...phases.timeline_structure,
+          status: 'completed',
+          percent: 100,
+        };
+      }
 
       // 回填设定本，用于闸门 UI
       const restoredStoryBible: StoryBibleJson | null = storyBibleRow
@@ -1124,7 +1144,8 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
         characterScriptsExists &&
         cluesExists &&
         organizerManualExists &&
-        truthReviewExists;
+        truthReviewExists &&
+        timelineEventsExists;
 
       let orchestrationStatus: PhasedGenerationState['orchestrationStatus'];
       if (allCompleted) {
