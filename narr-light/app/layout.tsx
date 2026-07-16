@@ -1,11 +1,4 @@
 import type { Metadata } from "next";
-import {
-  Noto_Serif_SC,
-  Courier_Prime,
-  ZCOOL_XiaoWei,
-  Ma_Shan_Zheng,
-  Special_Elite,
-} from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { ConfigProvider } from "antd";
 import zhCN from "antd/locale/zh_CN";
@@ -24,42 +17,6 @@ export const metadata: Metadata = {
     "用 AI 解决剧本杀行业「创作门槛高、生产周期长、美术成本高、逻辑校验难」四大痛点",
 };
 
-const notoSerifSC = Noto_Serif_SC({
-  variable: "--font-noto-serif-sc",
-  display: "swap",
-  subsets: ["latin"],
-  weight: ["400", "600", "700", "900"],
-});
-
-const courierPrime = Courier_Prime({
-  variable: "--font-courier-prime",
-  display: "swap",
-  subsets: ["latin"],
-  weight: ["400", "700"],
-});
-
-const zcoolXiaowei = ZCOOL_XiaoWei({
-  variable: "--font-zcool-xiaowei",
-  display: "swap",
-  subsets: ["latin"],
-  weight: "400",
-  preload: false,
-});
-
-const maShanZheng = Ma_Shan_Zheng({
-  variable: "--font-ma-shan-zheng",
-  display: "swap",
-  subsets: ["latin"],
-  weight: "400",
-  preload: false,
-});
-
-const specialElite = Special_Elite({
-  variable: "--font-special-elite",
-  display: "swap",
-  subsets: ["latin"],
-  weight: "400",
-});
 
 /** Ant Design 主题配置 - 与原型朱砂红配色对齐 */
 const antdTheme = {
@@ -77,9 +34,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
-      <body
-        className={`${notoSerifSC.variable} ${courierPrime.variable} ${zcoolXiaowei.variable} ${maShanZheng.variable} ${specialElite.variable} antialiased`}
-      >
+      <body className="font-vars antialiased">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

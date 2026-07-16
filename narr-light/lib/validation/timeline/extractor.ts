@@ -77,6 +77,8 @@ export interface TimelineEvent {
   thread: 'main' | 'subplot' | 'trick';
   /** 前置事件引用数组（格式 `${day}-${time}-${characterName}`，默认 []） */
   causes: string[];
+  /** 事件详细描述（来自 event_description 或原文片段） */
+  description?: string;
 }
 
 /** characters 表行 */
@@ -259,6 +261,7 @@ export class TimelineExtractor {
             sortOrder: row.sort_order ?? idx,
             location: row.location,
             sourceText: row.event_description,
+            description: row.event_description,
             isNarrativeTrick: row.is_narrative_trick,
             trickType: row.trick_type,
             day: row.day ?? 1,
@@ -335,6 +338,7 @@ export class TimelineExtractor {
                 sortOrder,
                 location,
                 sourceText: textSlice,
+                description: textSlice,
               }),
             );
             sortOrder += 1;
@@ -427,6 +431,7 @@ export class TimelineExtractor {
     sortOrder: number;
     location: string;
     sourceText: string;
+    description?: string;
     isNarrativeTrick?: boolean;
     trickType?: string;
     day?: number;
@@ -456,6 +461,7 @@ export class TimelineExtractor {
       isNarrativeTrick: args.isNarrativeTrick ?? false,
       trickType: args.trickType ?? '',
       sourceText: args.sourceText,
+      description: args.description || args.text,
       day: args.day ?? 1,
       eventType: args.eventType ?? 'normal',
       participants: args.participants ?? [],

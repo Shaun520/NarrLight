@@ -39,6 +39,13 @@
     --shadow-md: 0 8px 24px rgba(26, 18, 11, 0.18);
     --shadow-lg: 0 16px 40px rgba(26, 18, 11, 0.28);
 
+    /* ===== 字体栈（绕过 next/font/google + Turbopack 离线无法解析问题）===== */
+    --font-noto-serif-sc: "Noto Serif SC", "Source Han Serif SC", "SimSun", "STSong", serif;
+    --font-courier-prime: "Courier Prime", "Courier New", Consolas, monospace;
+    --font-zcool-xiaowei: "ZCOOL XiaoWei", "Ma Shan Zheng", "STKaiti", "KaiTi", serif;
+    --font-ma-shan-zheng: "Ma Shan Zheng", "STKaiti", "KaiTi", cursive;
+    --font-special-elite: "Special Elite", "Courier New", Consolas, monospace;
+
     /* ===== Tailwind shadcn 兼容变量（HSL，朱砂红体系）===== */
     --background: 40 30% 92%;
     --foreground: 30 20% 10%;

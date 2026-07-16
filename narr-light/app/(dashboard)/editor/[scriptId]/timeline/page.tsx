@@ -25,7 +25,7 @@
 
 import { use, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { RefreshCw, Download } from 'lucide-react';
+import { RefreshCw, Download, Sparkles, X, MapPin, Users, Clock, AlertCircle, AlertTriangle } from 'lucide-react';
 import {
   TimelineChart,
   type TimelineLane,
@@ -155,6 +155,8 @@ export default function TimelinePage({ params }: PageProps) {
 
   // 重新校验中（按钮 loading）
   const [validating, setValidating] = useState(false);
+  // 时间线结构重新生成中（422 空态时触发）
+  const [regenerating, setRegenerating] = useState(false);
 
   // Toast 反馈
   const [toast, setToast] = useState<ToastState>({
@@ -162,6 +164,9 @@ export default function TimelinePage({ params }: PageProps) {
     message: '',
     icon: '✓',
   });
+
+  // 选中查看详情的事件
+  const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null);
 
   // ref 同步存储最新加载错误信息，供 handleRevalidate 即时读取
   const loadErrorRef = useRef<string | null>(null);
@@ -427,6 +432,54 @@ export default function TimelinePage({ params }: PageProps) {
   };
 
   /**
+   * 重新生成时间线结构：当 /api/validate 返回 422（timeline_events 表为空且
+   * acts/scenes 文本无 HH:MM 时间点）时，调用 /api/timeline/regenerate 触发
+   * timeline-structure 阶段，把 truth_reviews.timeline_full 的自然语言时间描述
+   * 结构化为 timeline_events 行；成功后自动重新校验。
+   */
+  const handleRegenerate = async () => {
+    if (regenerating) return;
+    setRegenerating(true);
+    showToast('正在生成时间线结构…', '◌');
+
+    try {
+      const res = await fetch('/api/timeline/regenerate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scriptId }),
+      });
+      const data = (await res.json()) as {
+        success?: boolean;
+        eventCount?: number;
+        mode?: string;
+        error?: string;
+      };
+
+      if (!res.ok || !data.success) {
+        const msg = data.error ?? `生成失败（${res.status}）`;
+        showToast(`生成失败：${msg}`, '✗');
+        setRegenerating(false);
+        return;
+      }
+
+      showToast(
+        `时间线结构生成完成 · ${data.eventCount} 条事件（${data.mode === 'real' ? 'AI' : '占位'}）`,
+        '✓',
+      );
+
+      // 生成成功后清空 emptyHint 并重新校验
+      setEmptyHint(null);
+      setLoading(true);
+      setRegenerating(false);
+      await loadTimeline(scriptId);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '未知错误';
+      showToast(`生成失败：${msg}`, '✗');
+      setRegenerating(false);
+    }
+  };
+
+  /**
    * 导出报告：通过隐藏 iframe 打印方案生成 PDF（浏览器打印对话框另存为 PDF）。
    * 内容包含时间线图、冲突列表、角色时间表。
    */
@@ -451,9 +504,13 @@ export default function TimelinePage({ params }: PageProps) {
     }
   };
 
-  /** 点击事件块 */
+  /** 点击事件块：打开详情弹窗 */
   const handleSelectEvent = (event: TimelineEvent) => {
-    // 跳转到编辑器对应事件位置
+    setSelectedEvent(event);
+  };
+
+  /** 从详情弹窗跳转到编辑器对应位置 */
+  const handleEditEvent = (event: TimelineEvent) => {
     const params = new URLSearchParams({
       act: String(event.actOrder),
       char: event.characterId,
@@ -484,7 +541,7 @@ export default function TimelinePage({ params }: PageProps) {
             type="button"
             className={`btn btn-primary ${validating ? 'is-loading' : ''}`}
             onClick={handleRevalidate}
-            disabled={validating || loading}
+            disabled={validating || loading || regenerating}
           >
             <RefreshCw size={15} />
             {validating ? '校验中…' : '重新校验'}
@@ -494,61 +551,58 @@ export default function TimelinePage({ params }: PageProps) {
 
       {/* ===== 工具栏 ===== */}
       <div className="timeline-toolbar">
-        {/* 维度切换器：按角色 / 按地点 / 按幕次 */}
-        <div
-          className="tl-dimension-switcher"
-          style={{ display: 'inline-flex', gap: 4, marginRight: 12 }}
-        >
-          {([
-            { key: 'character', label: '按角色' },
-            { key: 'location', label: '按地点' },
-            { key: 'act', label: '按幕次' },
-          ] as const).map((opt) => (
-            <button
-              key={opt.key}
-              type="button"
-              onClick={() => setDimension(opt.key)}
-              style={{
-                padding: '4px 10px',
-                fontSize: 13,
-                cursor: 'pointer',
-                border: '1px solid var(--sepia, #7a5c3a)',
-                borderRadius: 4,
-                background:
-                  dimension === opt.key ? 'var(--sepia, #7a5c3a)' : 'transparent',
-                color: dimension === opt.key ? '#fff' : 'var(--sepia, #7a5c3a)',
-              }}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        {/* 角色筛选：仅按角色维度显示 */}
-        {dimension === 'character' && (
-          <>
-            <span className="tb-label">按角色筛选：</span>
-            {characters.map((c) => (
-              <div
-                key={c.id}
-                className={`filter-chip ${selectedChars.has(c.id) ? 'active' : ''}`}
-                role="button"
-                tabIndex={0}
-                onClick={() => toggleChar(c.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    toggleChar(c.id);
-                  }
-                }}
+        {/* 第一行：维度切换 */}
+        <div className="tb-row">
+          <span className="tb-label">视图</span>
+          <div className="tl-dimension-switcher">
+            {([
+              { key: 'character', label: '按角色' },
+              { key: 'location', label: '按地点' },
+              { key: 'act', label: '按幕次' },
+            ] as const).map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                className={`filter-chip ${dimension === opt.key ? 'active' : ''}`}
+                onClick={() => setDimension(opt.key)}
               >
-                <span className="swatch" style={{ background: c.color }} aria-hidden />
-                {c.name}
-              </div>
+                {opt.label}
+              </button>
             ))}
-          </>
+          </div>
+        </div>
+
+        {/* 第二行：角色筛选（仅按角色维度显示） */}
+        {dimension === 'character' && characters.length > 0 && (
+          <div className="tb-row">
+            <span className="tb-label">角色</span>
+            <div className="tl-char-filters">
+              {characters.map((c) => (
+                <div
+                  key={c.id}
+                  className={`filter-chip ${selectedChars.has(c.id) ? 'active' : ''}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleChar(c.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleChar(c.id);
+                    }
+                  }}
+                >
+                  <span className="swatch" style={{ background: c.color }} aria-hidden />
+                  {c.name}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
-        <div className="tb-right">
-          {/* 幕次筛选：按幕次维度下不显示（因为就是按幕次分组） */}
+
+        {/* 第三行：幕次筛选 + 仅看冲突 */}
+        <div className="tb-row">
+          <span className="tb-label">过滤</span>
+          {/* 幕次筛选：按幕次维度下不显示 */}
           {dimension !== 'act' &&
             ACT_OPTIONS.map((act) => (
               <div
@@ -607,7 +661,19 @@ export default function TimelinePage({ params }: PageProps) {
           className="timeline-wrap"
           style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--sepia, #7a5c3a)' }}
         >
-          ◇ {emptyHint}
+          <p style={{ marginBottom: 16 }}>◇ {emptyHint}</p>
+          <button
+            type="button"
+            className={`btn btn-primary ${regenerating ? 'is-loading' : ''}`}
+            onClick={handleRegenerate}
+            disabled={regenerating}
+          >
+            <Sparkles size={15} />
+            {regenerating ? '生成中…' : '生成时间线结构'}
+          </button>
+          <p style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
+            将从「真相复盘」的 timeline_full 中识别时间点并按角色拆分结构化事件
+          </p>
         </div>
       ) : (
         <>
@@ -623,6 +689,110 @@ export default function TimelinePage({ params }: PageProps) {
           {/* ===== 冲突列表 ===== */}
           <TimelineConflictList conflicts={conflicts} onJumpToFix={handleJumpToFix} />
         </>
+      )}
+
+      {/* ===== 事件详情弹窗 ===== */}
+      {selectedEvent && (
+        <div
+          className="tl-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedEvent(null);
+          }}
+        >
+          <div className="tl-modal">
+            <button
+              type="button"
+              className="tl-modal-close"
+              onClick={() => setSelectedEvent(null)}
+              aria-label="关闭"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="tl-modal-head">
+              <span
+                className="tl-modal-color"
+                style={{ background: selectedEvent.characterColor }}
+              />
+              <div>
+                <h3>{selectedEvent.eventName}</h3>
+                <p>
+                  {selectedEvent.characterName} · 第{selectedEvent.actOrder}幕
+                  {selectedEvent.day && selectedEvent.day > 1 ? ` · 第${selectedEvent.day}天` : ''}
+                </p>
+              </div>
+            </div>
+
+            <div className="tl-modal-body">
+              <div className="tl-modal-row">
+                <Clock size={14} />
+                <span className="tl-modal-label">时间</span>
+                <span className="tl-modal-value">
+                  {selectedEvent.startTime} – {selectedEvent.endTime}
+                </span>
+              </div>
+
+              {selectedEvent.location && (
+                <div className="tl-modal-row">
+                  <MapPin size={14} />
+                  <span className="tl-modal-label">地点</span>
+                  <span className="tl-modal-value">{selectedEvent.location}</span>
+                </div>
+              )}
+
+              {selectedEvent.participants && selectedEvent.participants.length > 0 && (
+                <div className="tl-modal-row">
+                  <Users size={14} />
+                  <span className="tl-modal-label">参与人</span>
+                  <span className="tl-modal-value">
+                    {selectedEvent.participants.join('、')}
+                  </span>
+                </div>
+              )}
+
+              {selectedEvent.thread && (
+                <div className="tl-modal-row">
+                  <AlertCircle size={14} />
+                  <span className="tl-modal-label">线索线</span>
+                  <span className="tl-modal-value">{selectedEvent.thread}</span>
+                </div>
+              )}
+
+              {selectedEvent.description && (
+                <div className="tl-modal-desc">
+                  <span className="tl-modal-label">描述</span>
+                  <p>{selectedEvent.description}</p>
+                </div>
+              )}
+
+              {conflictEventIds.has(selectedEvent.id) && (
+                <div className="tl-modal-conflict">
+                  <AlertTriangle size={14} />
+                  <span>该事件存在时间线冲突，请在下方冲突列表中查看详情。</span>
+                </div>
+              )}
+            </div>
+
+            <div className="tl-modal-foot">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setSelectedEvent(null)}
+              >
+                关闭
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => handleEditEvent(selectedEvent)}
+              >
+                前往编辑
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ===== Toast ===== */}
