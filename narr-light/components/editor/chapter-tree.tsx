@@ -32,6 +32,7 @@ interface ChapterTreeProps {
   onSelect: (nodeId: string) => void;
   groups?: TreeGroup[];
   labels?: Record<string, string>;
+  changedNodeIds?: string[];
 }
 
 /** 分组 → 图标映射 */
@@ -66,10 +67,12 @@ export function ChapterTree({
   onSelect,
   groups = TREE_GROUPS,
   labels = NODE_LABELS,
+  changedNodeIds = [],
 }: ChapterTreeProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>(
     INITIAL_EXPANDED,
   );
+  const changedNodeSet = new Set(changedNodeIds);
 
   const toggleGroup = (group: string) => {
     setExpanded((prev) => ({ ...prev, [group]: !prev[group] }));
@@ -91,6 +94,7 @@ export function ChapterTree({
         const Icon = GROUP_ICON[group.group] ?? List;
         const isExpanded = expanded[group.group] ?? true;
         const count = group.count ?? (group.children.length || GROUP_COUNT[group.group] || 0);
+        const changedCount = group.children.filter((nodeId) => changedNodeSet.has(nodeId)).length;
 
         return (
           <div key={group.group}>
@@ -106,6 +110,7 @@ export function ChapterTree({
             >
               <Icon />
               <span>{group.label}</span>
+              {changedCount > 0 && <span className="tree-change-count">{changedCount}</span>}
               <span className="count">{count}</span>
               <span className="tree-arrow">▾</span>
             </div>
@@ -133,7 +138,10 @@ export function ChapterTree({
                     handleKeyDown(e, () => onSelect(nodeId))
                   }
                 >
-                  {labels[nodeId] ?? nodeId}
+                  <span className="tree-label">{labels[nodeId] ?? nodeId}</span>
+                  {changedNodeSet.has(nodeId) && (
+                    <span className="tree-change-badge">已修改</span>
+                  )}
                 </div>
               ))}
             </div>

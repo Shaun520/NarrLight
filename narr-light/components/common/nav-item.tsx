@@ -2,11 +2,12 @@
  * 带禁用提示的侧栏导航项
  *
  * 无剧本时点击「时间线校验」「逻辑校验」「线索卡管理」等入口，
- * 弹出 Ant Design 提示而非直接跳转新建页。
+ * 提示用户先创建剧本，并跳转到传入的引导地址。
  */
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { App } from 'antd';
 
 interface NavItemProps {
@@ -25,6 +26,7 @@ export function NavItem({
   disabledMessage = '请先创建或选择一个剧本',
 }: NavItemProps) {
   const { message } = App.useApp();
+  const router = useRouter();
 
   if (disabled) {
     return (
@@ -34,7 +36,10 @@ export function NavItem({
         data-tooltip={label}
         aria-label={label}
         title={label}
-        onClick={() => message.info(disabledMessage)}
+        onClick={() => {
+          message.info(disabledMessage);
+          if (href) router.push(href);
+        }}
       >
         {icon}
         <span>{label}</span>

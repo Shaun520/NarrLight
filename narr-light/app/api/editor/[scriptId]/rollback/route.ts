@@ -22,6 +22,40 @@ function hasRollbackPayload(payload: Record<string, unknown>): boolean {
   );
 }
 
+async function loadScriptMetadata(
+  supabase: SupabaseClient,
+  scriptId: string,
+): Promise<{ id: string; updatedAt: string; wordCount: number }> {
+  const { data, error } = await supabase
+    .from('scripts')
+    .select('id, updated_at, word_count')
+    .eq('id', scriptId)
+    .single();
+
+  if (error) throw new Error(`读取剧本元信息失败: ${error.message}`);
+  return {
+    id: String(data.id),
+    updatedAt: String(data.updated_at),
+    wordCount: Number(data.word_count ?? 0),
+  };
+}
+
+async function invalidateValidationResults(supabase: SupabaseClient, scriptId: string) {
+  const [reports, difficulty] = await Promise.all([
+    supabase.from('validation_reports').delete().eq('script_id', scriptId),
+    supabase.from('difficulty_assessments').delete().eq('script_id', scriptId),
+  ]);
+
+  if (reports.error) throw new Error(`清理旧校验报告失败: ${reports.error.message}`);
+  if (difficulty.error) throw new Error(`清理旧难度评估失败: ${difficulty.error.message}`);
+
+  return {
+    validation: true,
+    timeline: true,
+    difficulty: true,
+  };
+}
+
 export async function POST(request: Request, { params }: { params: Promise<{ scriptId: string }> }) {
   const { scriptId } = await params;
 
@@ -60,7 +94,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ scr
 
     const versionService = new VersionService(supabase);
     const snapshot = await versionService.rollback(scriptId, body.versionNumber);
-    return NextResponse.json({ snapshot });
+    const script = await loadScriptMetadata(supabase, scriptId);
+    const invalidated = await invalidateValidationResults(supabase, scriptId);
+    return NextResponse.json({ snapshot, script, invalidated });
   } catch (error) {
     const message = error instanceof Error ? error.message : '回滚失败';
     return NextResponse.json({ error: message }, { status: 500 });

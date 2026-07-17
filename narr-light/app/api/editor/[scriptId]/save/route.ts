@@ -90,23 +90,12 @@ function mapClueType(tag: string, fallback: string): string {
   return fallback || 'physical';
 }
 
-function isMissingTableError(error: { code?: string; message?: string } | null): boolean {
-  if (!error) return false;
-  return Boolean(
-    error.code === 'PGRST205' ||
-      error.message?.includes('Could not find the table') ||
-      error.message?.includes('schema cache'),
-  );
-}
-
 async function safeRows<T>(
-  query: PromiseLike<{ data: T | null; error: { code?: string; message: string } | null }>,
+  query: PromiseLike<{ data: T | null; error: { message: string } | null }>,
 ): Promise<T | null> {
   const { data, error } = await query;
-  if (error && !isMissingTableError(error)) {
-    throw new Error(error.message);
-  }
-  return error ? null : data;
+  if (error) throw new Error(error.message);
+  return data;
 }
 
 async function ensureScriptExists(supabase: SupabaseClient, scriptId: string): Promise<void> {
@@ -301,6 +290,105 @@ async function saveEditorNode(
   }
 }
 
+async function recomputeScriptWordCount(supabase: SupabaseClient, scriptId: string): Promise<number> {
+  const [characterScripts, organizer, truth, clues] = await Promise.all([
+    safeRows<Array<Record<string, unknown>>>(
+      supabase.from('character_scripts').select('word_count, personal_arc, act_scripts').eq('script_id', scriptId),
+    ),
+    safeRows<Record<string, unknown>>(
+      supabase
+        .from('organizer_manuals')
+        .select('pacing_hints, npc_guide, mechanism_rules, opening_flow, duration_control')
+        .eq('script_id', scriptId)
+        .maybeSingle(),
+    ),
+    safeRows<Record<string, unknown>>(
+      supabase
+        .from('truth_reviews')
+        .select('full_summary, method_detail, motive_detail, timeline_full')
+        .eq('script_id', scriptId)
+        .maybeSingle(),
+    ),
+    safeRows<Array<Record<string, unknown>>>(
+      supabase.from('clues').select('title, content').eq('script_id', scriptId),
+    ),
+  ]);
+
+  let total = 0;
+  for (const row of characterScripts ?? []) {
+    const stored = Number(row.word_count ?? 0);
+    if (Number.isFinite(stored) && stored > 0) {
+      total += stored;
+      continue;
+    }
+    total += wordCount(String(row.personal_arc ?? ''));
+    if (Array.isArray(row.act_scripts)) {
+      for (const act of row.act_scripts as Array<Record<string, unknown>>) {
+        total += wordCount(String(act.content ?? ''));
+      }
+    }
+  }
+
+  if (organizer) {
+    total += wordCount(String(organizer.pacing_hints ?? ''));
+    total += wordCount(String(organizer.npc_guide ?? ''));
+    total += wordCount(String(organizer.mechanism_rules ?? ''));
+    total += wordCount(JSON.stringify(organizer.opening_flow ?? []));
+    total += wordCount(JSON.stringify(organizer.duration_control ?? []));
+  }
+
+  if (truth) {
+    total += wordCount(String(truth.full_summary ?? ''));
+    total += wordCount(String(truth.method_detail ?? ''));
+    total += wordCount(String(truth.motive_detail ?? ''));
+    total += wordCount(String(truth.timeline_full ?? ''));
+  }
+
+  for (const clue of clues ?? []) {
+    total += wordCount(String(clue.title ?? ''));
+    total += wordCount(String(clue.content ?? ''));
+  }
+
+  return total;
+}
+
+async function refreshScriptMetadata(
+  supabase: SupabaseClient,
+  scriptId: string,
+): Promise<{ id: string; updatedAt: string; wordCount: number }> {
+  const wordCountValue = await recomputeScriptWordCount(supabase, scriptId);
+  const updatedAt = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('scripts')
+    .update({ word_count: wordCountValue, updated_at: updatedAt })
+    .eq('id', scriptId)
+    .select('id, updated_at, word_count')
+    .single();
+
+  if (error) throw new Error(`更新剧本元信息失败: ${error.message}`);
+  return {
+    id: String(data.id),
+    updatedAt: String(data.updated_at),
+    wordCount: Number(data.word_count ?? wordCountValue),
+  };
+}
+
+async function invalidateValidationResults(supabase: SupabaseClient, scriptId: string) {
+  const [reports, difficulty] = await Promise.all([
+    supabase.from('validation_reports').delete().eq('script_id', scriptId),
+    supabase.from('difficulty_assessments').delete().eq('script_id', scriptId),
+  ]);
+
+  if (reports.error) throw new Error(`清理旧校验报告失败: ${reports.error.message}`);
+  if (difficulty.error) throw new Error(`清理旧难度评估失败: ${difficulty.error.message}`);
+
+  return {
+    validation: true,
+    timeline: true,
+    difficulty: true,
+  };
+}
+
 async function buildSnapshotData(
   supabase: SupabaseClient,
   scriptId: string,
@@ -380,6 +468,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ scr
     const supabase = createAdminClient() as unknown as SupabaseClient;
     await ensureScriptExists(supabase, scriptId);
     await saveEditorNode(supabase, scriptId, body);
+    const script = await refreshScriptMetadata(supabase, scriptId);
+    const invalidated = await invalidateValidationResults(supabase, scriptId);
 
     const snapshotData = await buildSnapshotData(supabase, scriptId, body);
     const versionService = new VersionService(supabase);
@@ -390,7 +480,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ scr
       snapshotData,
     );
 
-    return NextResponse.json({ snapshot });
+    return NextResponse.json({ snapshot, script, invalidated });
   } catch (error) {
     const message = error instanceof Error ? error.message : '保存失败';
     return NextResponse.json({ error: message }, { status: 500 });

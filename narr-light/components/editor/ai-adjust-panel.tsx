@@ -55,23 +55,18 @@ export function AiAdjustPanel({ onExecute }: AiAdjustPanelProps) {
         AI 智能调整
       </h4>
 
-      {QUICK_PROMPTS.map((prompt) => (
-        <div
-          key={prompt}
-          className="quick-prompt"
-          role="button"
-          tabIndex={0}
-          onClick={() => handleQuickPrompt(prompt)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              handleQuickPrompt(prompt);
-            }
-          }}
-        >
-          {prompt}
-        </div>
-      ))}
+      <div className="quick-prompt-grid">
+        {QUICK_PROMPTS.map((prompt) => (
+          <button
+            type="button"
+            key={prompt}
+            className={`quick-prompt ${instruction === prompt ? 'active' : ''}`}
+            onClick={() => handleQuickPrompt(prompt)}
+          >
+            {prompt}
+          </button>
+        ))}
+      </div>
 
       <textarea
         className="ai-adjust-textarea"
@@ -84,10 +79,9 @@ export function AiAdjustPanel({ onExecute }: AiAdjustPanelProps) {
 
       <button
         type="button"
-        className="btn btn-primary btn-sm"
+        className="ai-adjust-submit"
         onClick={handleExecute}
         disabled={!instruction.trim()}
-        style={{ width: '100%', justifyContent: 'center', marginTop: '8px' }}
       >
         执行调整
       </button>

@@ -18,7 +18,6 @@
 import { useEffect, useRef } from 'react';
 import { useEditorStore } from '@/lib/stores/editor-store';
 import {
-  SCRIPT_DATA,
   type CharacterNode,
   type ClueOverviewNode,
   type SimpleNode,
@@ -33,7 +32,24 @@ interface EditorContentProps {
   snapshots: Record<string, string>;
   /** 内容变更回调（contenteditable input 事件） */
   onInput?: () => void;
-  dataMap?: Record<string, ScriptNodeData>;
+  dataMap: Record<string, ScriptNodeData>;
+  /** 只读渲染，用于历史版本预览 */
+  readOnly?: boolean;
+  /** 内容容器 id，避免页面内多个预览产生重复 id */
+  contentId?: string;
+  compareDataMap?: Record<string, ScriptNodeData>;
+  diffMode?: 'highlight' | 'side-by-side';
+}
+
+function normalizeDiffText(value: string): string {
+  return value
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function hasTextChanged(current: string, previous = ''): boolean {
+  return normalizeDiffText(current) !== normalizeDiffText(previous);
 }
 
 /**
@@ -55,14 +71,120 @@ function CharacterBook({ data }: { data: CharacterNode }) {
               {data.name} · {data.role} · {page.subtitle}
             </div>
             {page.paragraphs.map((text, pIdx) => (
-              <p
-                key={pIdx}
-                dangerouslySetInnerHTML={{ __html: text }}
-              />
+              <p key={pIdx} dangerouslySetInnerHTML={{ __html: text }} />
             ))}
           </section>
         </div>
       ))}
+    </>
+  );
+}
+
+function CharacterBookDiff({
+  data,
+  previous,
+  mode,
+}: {
+  data: CharacterNode;
+  previous?: CharacterNode;
+  mode: 'highlight' | 'side-by-side';
+}) {
+  if (mode === 'side-by-side') {
+    return (
+      <div className="preview-diff-pair-list">
+        {data.pages.map((page, idx) => {
+          const previousPage = previous?.pages[idx];
+          return (
+            <section className="act-section" data-act={idx} key={idx}>
+              <h2>
+                <span className="act-num">{page.act}</span>
+                {page.title}
+              </h2>
+              <div className="preview-diff-grid">
+                <div className="preview-diff-column">
+                  <div className="preview-diff-column-title">上一版</div>
+                  {Array.from({
+                    length: Math.max(
+                      page.paragraphs.length,
+                      previousPage?.paragraphs.length ?? 0,
+                      1,
+                    ),
+                  }).map((_, pIdx) => {
+                    const text = previousPage?.paragraphs[pIdx] ?? '';
+                    return (
+                      <p
+                        key={pIdx}
+                        className={
+                          hasTextChanged(page.paragraphs[pIdx] ?? '', text)
+                            ? 'preview-diff-paragraph is-removed'
+                            : ''
+                        }
+                        dangerouslySetInnerHTML={{ __html: text || '（无内容）' }}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="preview-diff-column">
+                  <div className="preview-diff-column-title">当前预览版</div>
+                  {Array.from({
+                    length: Math.max(
+                      page.paragraphs.length,
+                      previousPage?.paragraphs.length ?? 0,
+                      1,
+                    ),
+                  }).map((_, pIdx) => {
+                    const text = page.paragraphs[pIdx] ?? '';
+                    return (
+                      <p
+                        key={pIdx}
+                        className={
+                          hasTextChanged(text, previousPage?.paragraphs[pIdx])
+                            ? 'preview-diff-paragraph is-added'
+                            : ''
+                        }
+                        dangerouslySetInnerHTML={{ __html: text || '（无内容）' }}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {data.pages.map((page, idx) => {
+        const previousPage = previous?.pages[idx];
+        return (
+          <div key={idx}>
+            {idx > 0 && <hr className="act-divider" />}
+            <section className="act-section" data-act={idx}>
+              <h2>
+                <span className="act-num">{page.act}</span>
+                {page.title}
+              </h2>
+              <div className="page-meta">
+                {data.name} 路 {data.role} 路 {page.subtitle}
+              </div>
+              {page.paragraphs.map((text, pIdx) => (
+                <p
+                  key={pIdx}
+                  className={
+                    hasTextChanged(text, previousPage?.paragraphs[pIdx])
+                      ? 'preview-diff-paragraph is-added'
+                      : ''
+                  }
+                  dangerouslySetInnerHTML={{ __html: text }}
+                />
+              ))}
+            </section>
+          </div>
+        );
+      })}
     </>
   );
 }
@@ -72,6 +194,76 @@ function CharacterBook({ data }: { data: CharacterNode }) {
  */
 function SimpleContent({ data }: { data: SimpleNode }) {
   return <div dangerouslySetInnerHTML={{ __html: data.html }} />;
+}
+
+function splitHtmlBlocks(html: string): string[] {
+  const blocks = html.match(/<(h2|p|div)\b[\s\S]*?<\/\1>/gi);
+  return blocks?.map((block) => block.trim()).filter(Boolean) ?? [html];
+}
+
+function SimpleContentDiff({
+  data,
+  previous,
+  mode,
+}: {
+  data: SimpleNode;
+  previous?: SimpleNode;
+  mode: 'highlight' | 'side-by-side';
+}) {
+  const currentBlocks = splitHtmlBlocks(data.html);
+  const previousBlocks = splitHtmlBlocks(previous?.html ?? '');
+
+  if (mode === 'side-by-side') {
+    const length = Math.max(currentBlocks.length, previousBlocks.length);
+    return (
+      <div className="preview-diff-grid">
+        <div className="preview-diff-column">
+          <div className="preview-diff-column-title">上一版</div>
+          {Array.from({ length }).map((_, index) => (
+            <div
+              key={index}
+              className={
+                hasTextChanged(currentBlocks[index] ?? '', previousBlocks[index] ?? '')
+                  ? 'preview-diff-block is-removed'
+                  : 'preview-diff-block'
+              }
+              dangerouslySetInnerHTML={{ __html: previousBlocks[index] || '<p>（无内容）</p>' }}
+            />
+          ))}
+        </div>
+        <div className="preview-diff-column">
+          <div className="preview-diff-column-title">当前预览版</div>
+          {Array.from({ length }).map((_, index) => (
+            <div
+              key={index}
+              className={
+                hasTextChanged(currentBlocks[index] ?? '', previousBlocks[index] ?? '')
+                  ? 'preview-diff-block is-added'
+                  : 'preview-diff-block'
+              }
+              dangerouslySetInnerHTML={{ __html: currentBlocks[index] || '<p>（无内容）</p>' }}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {currentBlocks.map((block, index) => (
+        <div
+          key={index}
+          className={
+            hasTextChanged(block, previousBlocks[index] ?? '')
+              ? 'preview-diff-block is-added'
+              : 'preview-diff-block'
+          }
+          dangerouslySetInnerHTML={{ __html: block }}
+        />
+      ))}
+    </>
+  );
 }
 
 /**
@@ -101,8 +293,8 @@ function ClueOverview({ data }: { data: ClueOverviewNode }) {
           fontSize: '12.5px',
         }}
       >
-        点击任意线索卡查看完整内容 · 共 {data.clues.length} 张 · 关键线索{' '}
-        {keyCount} 张 · 伪线索 {fakeCount} 张
+        点击任意线索卡查看完整内容 · 共 {data.clues.length} 张 · 关键线索 {keyCount} 张 · 伪线索{' '}
+        {fakeCount} 张
       </p>
       <div className="clue-overview-list">
         {data.clues.map((clue) => (
@@ -132,6 +324,103 @@ function ClueOverview({ data }: { data: ClueOverviewNode }) {
   );
 }
 
+function ClueOverviewDiff({
+  data,
+  previous,
+  mode,
+}: {
+  data: ClueOverviewNode;
+  previous?: ClueOverviewNode;
+  mode: 'highlight' | 'side-by-side';
+}) {
+  const previousByNo = new Map(previous?.clues.map((clue) => [clue.no, clue]) ?? []);
+  const clueText = (clue?: ScriptClue) =>
+    clue ? `${clue.no} ${clue.title} ${clue.tag} ${clue.loc}` : '';
+
+  if (mode === 'side-by-side') {
+    return (
+      <>
+        <h2>
+          <span className="act-num">{data.actNum}</span>
+          {data.title}
+        </h2>
+        <div className="preview-diff-grid">
+          <div className="preview-diff-column">
+            <div className="preview-diff-column-title">上一版</div>
+            {data.clues.map((clue) => {
+              const oldClue = previousByNo.get(clue.no);
+              return (
+                <div
+                  key={clue.no}
+                  className={
+                    clueText(clue) !== clueText(oldClue)
+                      ? 'clue-overview-item preview-diff-block is-removed'
+                      : 'clue-overview-item preview-diff-block'
+                  }
+                >
+                  <div className="co-no">
+                    {oldClue?.no ?? clue.no} 路 {oldClue?.loc ?? '（无地点）'}
+                  </div>
+                  <div className="co-title">{oldClue?.title ?? '（无内容）'}</div>
+                  <span className={`co-tag ${oldClue?.tagType ?? ''}`}>
+                    {oldClue?.tag ?? '缺失'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="preview-diff-column">
+            <div className="preview-diff-column-title">当前预览版</div>
+            {data.clues.map((clue) => (
+              <div
+                key={clue.no}
+                className={
+                  clueText(clue) !== clueText(previousByNo.get(clue.no))
+                    ? 'clue-overview-item preview-diff-block is-added'
+                    : 'clue-overview-item preview-diff-block'
+                }
+              >
+                <div className="co-no">
+                  {clue.no} 路 {clue.loc}
+                </div>
+                <div className="co-title">{clue.title}</div>
+                <span className={`co-tag ${clue.tagType ?? ''}`}>{clue.tag}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <h2>
+        <span className="act-num">{data.actNum}</span>
+        {data.title}
+      </h2>
+      <div className="clue-overview-list">
+        {data.clues.map((clue) => (
+          <div
+            key={clue.no}
+            className={
+              clueText(clue) !== clueText(previousByNo.get(clue.no))
+                ? 'clue-overview-item preview-diff-block is-added'
+                : 'clue-overview-item'
+            }
+          >
+            <div className="co-no">
+              {clue.no} 路 {clue.loc}
+            </div>
+            <div className="co-title">{clue.title}</div>
+            <span className={`co-tag ${clue.tagType ?? ''}`}>{clue.tag}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 /**
  * 编辑器主内容区
  */
@@ -139,17 +428,22 @@ export function EditorContent({
   nodeId,
   snapshots,
   onInput,
-  dataMap = SCRIPT_DATA,
+  dataMap,
+  readOnly = false,
+  contentId = 'editorContent',
+  compareDataMap,
+  diffMode,
 }: EditorContentProps) {
   const isEditing = useEditorStore((s) => s.isEditing);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const data = dataMap[nodeId];
+  const compareData = compareDataMap?.[nodeId];
   const snapshot = snapshots[nodeId];
 
   // 进入编辑态时，光标移到末尾（对齐原型 enterEditMode）
   useEffect(() => {
-    if (!isEditing || !contentRef.current) return;
+    if (readOnly || !isEditing || !contentRef.current) return;
     const el = contentRef.current;
     el.focus();
     const sel = window.getSelection();
@@ -160,7 +454,7 @@ export function EditorContent({
       sel.removeAllRanges();
       sel.addRange(range);
     }
-  }, [isEditing, nodeId]);
+  }, [isEditing, nodeId, readOnly]);
 
   const handleInput = () => {
     onInput?.();
@@ -168,7 +462,7 @@ export function EditorContent({
 
   if (!data) {
     return (
-      <div className="editor-content" id="editorContent">
+      <div className="editor-content" id={contentId}>
         <p style={{ color: 'var(--sepia)' }}>未找到节点内容</p>
       </div>
     );
@@ -177,16 +471,34 @@ export function EditorContent({
   return (
     <div
       ref={contentRef}
-      id="editorContent"
+      id={contentId}
       className="editor-content"
-      contentEditable={isEditing}
+      contentEditable={!readOnly && isEditing}
       suppressContentEditableWarning
       onInput={handleInput}
       role="textbox"
       aria-label="剧本编辑区"
       aria-multiline="true"
     >
-      {snapshot ? (
+      {diffMode && data?.type === 'character' ? (
+        <CharacterBookDiff
+          data={data}
+          previous={compareData?.type === 'character' ? compareData : undefined}
+          mode={diffMode}
+        />
+      ) : diffMode && data?.type === 'clue-overview' ? (
+        <ClueOverviewDiff
+          data={data}
+          previous={compareData?.type === 'clue-overview' ? compareData : undefined}
+          mode={diffMode}
+        />
+      ) : diffMode && data?.type === 'simple' ? (
+        <SimpleContentDiff
+          data={data}
+          previous={compareData?.type === 'simple' ? compareData : undefined}
+          mode={diffMode}
+        />
+      ) : snapshot ? (
         <div dangerouslySetInnerHTML={{ __html: snapshot }} />
       ) : data.type === 'character' ? (
         <CharacterBook data={data} />

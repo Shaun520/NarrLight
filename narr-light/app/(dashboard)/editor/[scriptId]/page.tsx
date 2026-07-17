@@ -27,10 +27,7 @@ import { consumeHighlight, clearHighlight } from '@/components/editor/issue-loca
 import { ChapterTree } from '@/components/editor/chapter-tree';
 import { EditorContent } from '@/components/editor/editor-content';
 import { EditorToolbar } from '@/components/editor/editor-toolbar';
-import {
-  VersionHistory,
-  type VersionItem,
-} from '@/components/editor/version-history';
+import { VersionHistory, type VersionItem } from '@/components/editor/version-history';
 import { AiAdjustPanel } from '@/components/editor/ai-adjust-panel';
 import { VersionDiff } from '@/components/editor/version-diff';
 import { ScriptOutline } from '@/components/editor/script-outline';
@@ -88,6 +85,41 @@ interface ToastState {
   icon: string;
 }
 
+interface VersionPreviewState {
+  version: string;
+  time: string;
+  note: string;
+  title: string;
+  dataMap: Record<string, ScriptNodeData>;
+  baseDataMap?: Record<string, ScriptNodeData>;
+  groups: TreeGroup[];
+  labels: Record<string, string>;
+  defaultNodeId: string;
+  touchedNodeId?: string;
+  compareBaseVersion?: string;
+  changes: Record<
+    string,
+    { status: 'added' | 'modified'; currentLength: number; previousLength: number }
+  >;
+  changedNodeIds: string[];
+}
+
+type VersionPreviewMode = 'highlight' | 'side-by-side';
+
+function filterGroupsByNodeIds(groups: TreeGroup[], nodeIds: string[]): TreeGroup[] {
+  const nodeSet = new Set(nodeIds);
+  return groups
+    .map((group) => {
+      const children = group.children.filter((nodeId) => nodeSet.has(nodeId));
+      return {
+        ...group,
+        children,
+        count: children.length,
+      };
+    })
+    .filter((group) => group.children.length > 0);
+}
+
 interface SaveEditorNodeRequest {
   nodeId: string;
   nodeType: 'character' | 'simple' | 'clue-overview';
@@ -125,7 +157,10 @@ function getNodePlainText(nodeId: string, dataMap: Record<string, ScriptNodeData
     return c.clues.map((cl) => `${cl.no} ${cl.title} ${cl.tag} ${cl.loc}`).join('\n');
   }
   const s = data as SimpleNode;
-  return s.html.replace(/<[^>]+>/g, ' ').replace(/\s+\n/g, '\n').trim();
+  return s.html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+\n/g, '\n')
+    .trim();
 }
 
 /** 根据角色名查找人物剧本节点 ID（用于高亮跳转的 char 参数） */
@@ -147,6 +182,12 @@ function stripHtml(value: string): string {
   return template.content.textContent ?? '';
 }
 
+function displayVersionNote(note: string): string {
+  const rollbackMatch = note.match(/^回滚到版本\s*(\d+)$/);
+  if (rollbackMatch) return `由 v${rollbackMatch[1]} 恢复后保存`;
+  return note || '手动保存';
+}
+
 function getText(el: { textContent?: string } | null | undefined): string {
   return (el?.textContent ?? '').trim();
 }
@@ -159,12 +200,16 @@ function parseCharacterPages(contentEl: HTMLElement, fallback: CharacterNode): C
 
   return sections.map((section, index) => {
     const heading = section.querySelector('h2');
-    const act = getText(section.querySelector('.act-num')) || fallback.pages[index]?.act || `第${index + 1}幕`;
+    const act =
+      getText(section.querySelector('.act-num')) ||
+      fallback.pages[index]?.act ||
+      `第${index + 1}幕`;
     const title = heading
       ? getText(heading).replace(act, '').trim()
       : fallback.pages[index]?.title || `第${index + 1}幕`;
     const meta = getText(section.querySelector('.page-meta'));
-    const subtitle = meta.split(' · ').slice(2).join(' · ') || fallback.pages[index]?.subtitle || '';
+    const subtitle =
+      meta.split(' · ').slice(2).join(' · ') || fallback.pages[index]?.subtitle || '';
     const paragraphs = Array.from(section.querySelectorAll('p'))
       .map((p) => stripHtml(p.innerHTML).trim())
       .filter(Boolean);
@@ -178,7 +223,10 @@ function parseCharacterPages(contentEl: HTMLElement, fallback: CharacterNode): C
   });
 }
 
-function parseSimpleSections(contentEl: HTMLElement, fallback: SimpleNode): Array<{ actNum: string; title: string; text: string }> {
+function parseSimpleSections(
+  contentEl: HTMLElement,
+  fallback: SimpleNode,
+): Array<{ actNum: string; title: string; text: string }> {
   const sections: Array<{ actNum: string; title: string; text: string }> = [];
   let current: { actNum: string; title: string; textParts: string[] } | null = null;
 
@@ -188,7 +236,11 @@ function parseSimpleSections(contentEl: HTMLElement, fallback: SimpleNode): Arra
       const heading = getText(child);
       const title = actNum ? heading.replace(actNum, '').trim() : heading.trim();
       if (current) {
-        sections.push({ actNum: current.actNum, title: current.title, text: current.textParts.join('\n').trim() });
+        sections.push({
+          actNum: current.actNum,
+          title: current.title,
+          text: current.textParts.join('\n').trim(),
+        });
       }
       current = {
         actNum: actNum || fallback.actNum,
@@ -204,17 +256,28 @@ function parseSimpleSections(contentEl: HTMLElement, fallback: SimpleNode): Arra
   }
 
   if (current) {
-    sections.push({ actNum: current.actNum, title: current.title, text: current.textParts.join('\n').trim() });
+    sections.push({
+      actNum: current.actNum,
+      title: current.title,
+      text: current.textParts.join('\n').trim(),
+    });
   }
 
   if (!sections.length) {
-    sections.push({ actNum: fallback.actNum, title: fallback.title, text: stripHtml(fallback.html).trim() });
+    sections.push({
+      actNum: fallback.actNum,
+      title: fallback.title,
+      text: stripHtml(fallback.html).trim(),
+    });
   }
 
   return sections;
 }
 
-function parseClues(contentEl: HTMLElement, fallback: ClueOverviewNode): Array<{ no: string; title: string; tag: string; loc: string }> {
+function parseClues(
+  contentEl: HTMLElement,
+  fallback: ClueOverviewNode,
+): Array<{ no: string; title: string; tag: string; loc: string }> {
   const items = Array.from(contentEl.querySelectorAll('.clue-overview-item'));
   if (!items.length) {
     return fallback.clues.map((clue) => ({
@@ -226,9 +289,16 @@ function parseClues(contentEl: HTMLElement, fallback: ClueOverviewNode): Array<{
   }
 
   return items.map((item, index) => {
-    const no = getText(item.querySelector('.co-no')).split(' · ')[0] || fallback.clues[index]?.no || `#${String(index + 1).padStart(3, '0')}`;
-    const loc = getText(item.querySelector('.co-no')).split(' · ')[1] || fallback.clues[index]?.loc || '';
-    const title = getText(item.querySelector('.co-title')) || fallback.clues[index]?.title || `线索 ${index + 1}`;
+    const no =
+      getText(item.querySelector('.co-no')).split(' · ')[0] ||
+      fallback.clues[index]?.no ||
+      `#${String(index + 1).padStart(3, '0')}`;
+    const loc =
+      getText(item.querySelector('.co-no')).split(' · ')[1] || fallback.clues[index]?.loc || '';
+    const title =
+      getText(item.querySelector('.co-title')) ||
+      fallback.clues[index]?.title ||
+      `线索 ${index + 1}`;
     const tag = getText(item.querySelector('.co-tag')) || fallback.clues[index]?.tag || '线索';
     return { no, title, tag, loc };
   });
@@ -247,7 +317,9 @@ function buildSavePayload(
       title: currentNode.name,
       html,
       plainText: parseCharacterPages(contentEl, currentNode)
-        .map((page) => [page.act, page.title, page.subtitle, ...page.paragraphs].filter(Boolean).join('\n'))
+        .map((page) =>
+          [page.act, page.title, page.subtitle, ...page.paragraphs].filter(Boolean).join('\n'),
+        )
         .join('\n\n'),
       pages: parseCharacterPages(contentEl, currentNode),
     };
@@ -302,6 +374,15 @@ export default function EditorPage({ params }: PageProps) {
   const [editorData, setEditorData] = useState<EditorDataBundle | null>();
   const [isSaving, setIsSaving] = useState(false);
   const [isRollingBack, setIsRollingBack] = useState(false);
+  const [rollingBackVersion, setRollingBackVersion] = useState<string | null>(null);
+  const [pendingRestoreVersion, setPendingRestoreVersion] = useState<string | null>(null);
+  const [pendingDeleteVersion, setPendingDeleteVersion] = useState<string | null>(null);
+  const [deletingVersion, setDeletingVersion] = useState<string | null>(null);
+  const [previewVersion, setPreviewVersion] = useState<VersionPreviewState | null>(null);
+  const [previewNodeId, setPreviewNodeId] = useState<string | null>(null);
+  const [previewMode, setPreviewMode] = useState<VersionPreviewMode>('highlight');
+  const [previewChangedOnly, setPreviewChangedOnly] = useState(false);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [toast, setToast] = useState<ToastState>({
     visible: false,
     message: '',
@@ -315,6 +396,12 @@ export default function EditorPage({ params }: PageProps) {
   const isEditorDataLoading = editorData === undefined;
   const activeDataMap = useMemo(() => editorData?.dataMap ?? {}, [editorData]);
   const activeDefaultNodeId = editorData?.defaultNodeId ?? null;
+  const previewVisibleGroups = useMemo(() => {
+    if (!previewVersion) return [];
+    return previewChangedOnly
+      ? filterGroupsByNodeIds(previewVersion.groups, previewVersion.changedNodeIds)
+      : previewVersion.groups;
+  }, [previewChangedOnly, previewVersion]);
 
   useEffect(() => {
     let cancelled = false;
@@ -341,6 +428,14 @@ export default function EditorPage({ params }: PageProps) {
       setCurrentNode(activeDefaultNodeId);
     }
   }, [activeDataMap, activeDefaultNodeId, currentNodeId, setCurrentNode]);
+
+  useEffect(() => {
+    if (!previewVersion || !previewChangedOnly) return;
+    const activeNode = previewNodeId ?? previewVersion.defaultNodeId;
+    if (!previewVersion.changedNodeIds.includes(activeNode)) {
+      setPreviewNodeId(previewVersion.changedNodeIds[0] ?? previewVersion.defaultNodeId);
+    }
+  }, [previewChangedOnly, previewNodeId, previewVersion]);
 
   // ===== 高亮跳转（消费 sessionStorage payload，切换幕次/角色并滚动高亮） =====
   useEffect(() => {
@@ -513,7 +608,43 @@ export default function EditorPage({ params }: PageProps) {
     }
   };
 
-  // ===== 版本回退 =====
+  // ===== 版本预览 =====
+  const handlePreviewVersion = async (version: string) => {
+    const target = versions.find((item) => item.version === version);
+    if (!target?.versionNumber || isPreviewLoading) {
+      showToast(`找不到版本 ${version}`, '!');
+      return;
+    }
+
+    setIsPreviewLoading(true);
+    try {
+      const response = await fetch(
+        `/api/editor/${scriptId}?previewVersion=${target.versionNumber}`,
+        { cache: 'no-store' },
+      );
+      const data = (await response.json().catch(() => ({}))) as
+        | VersionPreviewState
+        | { error?: string };
+      if (!response.ok) {
+        const fallback =
+          response.status === 404
+            ? `版本 ${version} 不存在或已被删除，请刷新保存记录`
+            : `读取版本失败: ${response.status}`;
+        throw new Error(String('error' in data && data.error ? data.error : fallback));
+      }
+      const preview = data as VersionPreviewState;
+      setPreviewVersion(preview);
+      setPreviewNodeId(preview.changedNodeIds[0] ?? preview.touchedNodeId ?? preview.defaultNodeId);
+      setPreviewMode('highlight');
+      setPreviewChangedOnly(false);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '读取版本预览失败', '!');
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  };
+
+  // ===== 版本恢复 =====
   const handleRollback = async (version: string) => {
     if (isRollingBack) return;
     const target = versions.find((item) => item.version === version);
@@ -523,11 +654,11 @@ export default function EditorPage({ params }: PageProps) {
     }
 
     setIsRollingBack(true);
+    setRollingBackVersion(version);
     try {
-      await postJson<{ snapshot: { versionNumber: number } }>(
-        `/api/editor/${scriptId}/rollback`,
-        { versionNumber: target.versionNumber },
-      );
+      await postJson<{ snapshot: { versionNumber: number } }>(`/api/editor/${scriptId}/rollback`, {
+        versionNumber: target.versionNumber,
+      });
 
       setSnapshots({});
       const fresh = await loadEditorData(scriptId);
@@ -543,11 +674,55 @@ export default function EditorPage({ params }: PageProps) {
 
       markSaved();
       if (isEditing) exitEditMode();
-      showToast(`已回退到 ${version}`, '⇄');
+      setPendingRestoreVersion(null);
+      showToast(`已恢复到 ${version}`, '⇄');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : '回滚失败', '!');
+      showToast(error instanceof Error ? error.message : '恢复失败', '!');
     } finally {
       setIsRollingBack(false);
+      setRollingBackVersion(null);
+    }
+  };
+
+  // ===== 删除保存记录 =====
+  const handleDeleteVersion = async (version: string) => {
+    if (deletingVersion || isRollingBack) return;
+    const target = versions.find((item) => item.version === version);
+    if (!target?.versionNumber) {
+      showToast(`找不到版本 ${version}`, '!');
+      return;
+    }
+    if (target.isCurrent) {
+      showToast('当前版本不能删除', '!');
+      return;
+    }
+
+    setDeletingVersion(version);
+    try {
+      const response = await fetch(
+        `/api/editor/${scriptId}?deleteVersion=${target.versionNumber}`,
+        { method: 'DELETE' },
+      );
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        throw new Error(String(data.error ?? `删除失败: ${response.status}`));
+      }
+
+      const fresh = await loadEditorData(scriptId);
+      if (fresh) {
+        setEditorData(fresh);
+        setVersions(fresh.versions ?? []);
+      }
+      if (previewVersion?.version === version) {
+        setPreviewVersion(null);
+        setPreviewNodeId(null);
+      }
+      setPendingDeleteVersion(null);
+      showToast(`已删除 ${version} 保存记录`, '✓');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '删除保存记录失败', '!');
+    } finally {
+      setDeletingVersion(null);
     }
   };
 
@@ -602,6 +777,12 @@ export default function EditorPage({ params }: PageProps) {
 
   const versionA = versions[1]?.version ?? 'v1';
   const versionB = versions[0]?.version ?? 'v1';
+  const pendingRestoreItem = pendingRestoreVersion
+    ? versions.find((item) => item.version === pendingRestoreVersion)
+    : null;
+  const pendingDeleteItem = pendingDeleteVersion
+    ? versions.find((item) => item.version === pendingDeleteVersion)
+    : null;
 
   return (
     <section className="editor-view" id="view-editor">
@@ -612,7 +793,10 @@ export default function EditorPage({ params }: PageProps) {
             {'\u5267\u672c\u7f16\u8f91\u5668'} <span className="seal">{'\u7ed3\u6784\u5316'}</span>
           </h1>
           <div className="page-desc">
-            {'\u6309\u6a21\u5757\u5206\u533a\u6216\u8868\u5355\u5f0f\u7f16\u8f91 \u00b7 \u5f53\u524d'} {versions[0]?.version ?? 'v1'}
+            {
+              '\u6309\u6a21\u5757\u5206\u533a\u6216\u8868\u5355\u5f0f\u7f16\u8f91 \u00b7 \u5f53\u524d'
+            }{' '}
+            {versions[0]?.version ?? 'v1'}
           </div>
         </div>
         <div className="page-actions">
@@ -625,11 +809,7 @@ export default function EditorPage({ params }: PageProps) {
             <Search size={14} />
             跳转搜索
           </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => setShowCompare(true)}
-          >
+          <button type="button" className="btn btn-ghost" onClick={() => setShowCompare(true)}>
             <GitCompare size={14} />
             版本对比
           </button>
@@ -712,7 +892,13 @@ export default function EditorPage({ params }: PageProps) {
         <div className="side-panel">
           <VersionHistory
             versions={versions}
-            onRollback={handleRollback}
+            onPreview={handlePreviewVersion}
+            onRestoreRequest={setPendingRestoreVersion}
+            onDeleteRequest={setPendingDeleteVersion}
+            isRollingBack={isRollingBack}
+            rollingBackVersion={rollingBackVersion}
+            isDeletingVersion={Boolean(deletingVersion)}
+            deletingVersion={deletingVersion}
           />
           <AiAdjustPanel onExecute={handleAiAdjust} />
         </div>
@@ -727,6 +913,180 @@ export default function EditorPage({ params }: PageProps) {
           contentB={diffContent.b}
           onClose={() => setShowCompare(false)}
         />
+      )}
+
+      {/* ===== 历史版本预览 ===== */}
+      {previewVersion && (
+        <div
+          className="vd-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${previewVersion.version} 预览`}
+        >
+          <div className="vd-modal version-preview-modal">
+            <div className="vd-head">
+              <h3>
+                <span className="vd-tag a">{previewVersion.version}</span>
+                <span>{previewVersion.title}</span>
+                <span className="vd-summary">
+                  {previewVersion.note} · {previewVersion.time}
+                </span>
+              </h3>
+              <button
+                type="button"
+                className="vd-close"
+                aria-label="关闭"
+                onClick={() => {
+                  setPreviewVersion(null);
+                  setPreviewNodeId(null);
+                  setPreviewMode('highlight');
+                  setPreviewChangedOnly(false);
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <div className="version-preview-summary">
+              {previewVersion.compareBaseVersion ? (
+                <>
+                  相对 {previewVersion.compareBaseVersion}：
+                  <b>{previewVersion.changedNodeIds.length}</b> 个模块有变化
+                </>
+              ) : (
+                '这是该剧本的第一条保存记录，暂无上一版本可对比'
+              )}
+            </div>
+            <div className="version-preview-controls">
+              <div className="version-preview-segmented" role="tablist" aria-label="预览模式">
+                <button
+                  type="button"
+                  className={previewMode === 'highlight' ? 'active' : ''}
+                  onClick={() => setPreviewMode('highlight')}
+                >
+                  段落高亮
+                </button>
+                <button
+                  type="button"
+                  className={previewMode === 'side-by-side' ? 'active' : ''}
+                  onClick={() => setPreviewMode('side-by-side')}
+                  disabled={!previewVersion.compareBaseVersion}
+                >
+                  左右对比
+                </button>
+              </div>
+              <label className="version-preview-filter">
+                <input
+                  type="checkbox"
+                  checked={previewChangedOnly}
+                  disabled={!previewVersion.changedNodeIds.length}
+                  onChange={(event) => {
+                    setPreviewChangedOnly(event.target.checked);
+                    if (event.target.checked) {
+                      setPreviewNodeId(
+                        previewVersion.changedNodeIds[0] ?? previewVersion.defaultNodeId,
+                      );
+                    }
+                  }}
+                />
+                只看有变化的模块
+              </label>
+            </div>
+            <div className="version-preview-body">
+              <aside className="version-preview-tree">
+                <ChapterTree
+                  activeNodeId={previewNodeId ?? previewVersion.defaultNodeId}
+                  onSelect={setPreviewNodeId}
+                  groups={previewVisibleGroups}
+                  labels={previewVersion.labels}
+                  changedNodeIds={previewVersion.changedNodeIds}
+                />
+              </aside>
+              <div className="version-preview-main">
+                <EditorContent
+                  nodeId={previewNodeId ?? previewVersion.defaultNodeId}
+                  snapshots={{}}
+                  dataMap={previewVersion.dataMap}
+                  compareDataMap={previewVersion.baseDataMap}
+                  diffMode={previewVersion.compareBaseVersion ? previewMode : undefined}
+                  readOnly
+                  contentId="versionPreviewContent"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== 恢复确认 ===== */}
+      {pendingRestoreVersion && pendingRestoreItem && (
+        <div
+          className="vd-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`恢复到 ${pendingRestoreVersion}`}
+        >
+          <div className="restore-confirm-modal">
+            <div className="restore-confirm-head">恢复到 {pendingRestoreVersion}？</div>
+            <p>当前内容会生成一个新的保存版本，历史记录不会被删除。</p>
+            <div className="restore-confirm-meta">
+              {displayVersionNote(pendingRestoreItem.note)} · {pendingRestoreItem.time}
+            </div>
+            <div className="restore-confirm-actions">
+              <button
+                type="button"
+                className="vi-preview-btn"
+                onClick={() => setPendingRestoreVersion(null)}
+                disabled={isRollingBack}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="vi-rollback-btn danger"
+                onClick={() => handleRollback(pendingRestoreVersion)}
+                disabled={isRollingBack}
+              >
+                {isRollingBack ? '恢复中...' : '确认恢复'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== 删除保存记录确认 ===== */}
+      {pendingDeleteVersion && pendingDeleteItem && (
+        <div
+          className="vd-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`删除 ${pendingDeleteVersion} 保存记录`}
+        >
+          <div className="restore-confirm-modal">
+            <div className="restore-confirm-head">删除 {pendingDeleteVersion}？</div>
+            <p>只会删除这条保存记录，不会修改当前剧本内容。删除后不能恢复。</p>
+            <div className="restore-confirm-meta">
+              {displayVersionNote(pendingDeleteItem.note)} · {pendingDeleteItem.time}
+            </div>
+            <div className="restore-confirm-actions">
+              <button
+                type="button"
+                className="vi-preview-btn"
+                onClick={() => setPendingDeleteVersion(null)}
+                disabled={Boolean(deletingVersion)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="vi-delete-btn danger"
+                onClick={() => handleDeleteVersion(pendingDeleteVersion)}
+                disabled={Boolean(deletingVersion)}
+              >
+                {deletingVersion ? '删除中...' : '确认删除'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ===== 章节跳转搜索弹层 ===== */}
