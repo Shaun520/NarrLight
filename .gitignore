@@ -2,6 +2,7 @@ node_modules/
 dist/
 build/
 *.log
+package-lock.json
 .env*
 !.env.example
 .DS_Store

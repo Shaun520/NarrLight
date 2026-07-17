@@ -89,7 +89,7 @@ If you wish to just develop locally and not deploy to Vercel, [follow the steps 
 5. You can now run the Next.js local development server:
 
    ```bash
-   npm run dev
+   pnpm dev
    ```
 
    The starter kit should now be running on [localhost:3000](http://localhost:3000/).
