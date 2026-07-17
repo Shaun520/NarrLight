@@ -97,15 +97,15 @@ export default async function DashboardLayout({
 
         <nav className="nav-group">
           <div className="nav-section-title">创作</div>
-          <Link href="/dashboard" className="nav-item">
+          <Link href="/dashboard" className="nav-item" data-tooltip="概览" aria-label="概览" title="概览">
             <LayoutDashboard />
             <span>概览</span>
           </Link>
-          <Link href="/generate" className="nav-item">
+          <Link href="/generate" className="nav-item" data-tooltip="剧本生成" aria-label="剧本生成" title="剧本生成">
             <Sparkles />
             <span>剧本生成</span>
           </Link>
-          <Link href="/editor" className="nav-item">
+          <Link href="/editor" className="nav-item" data-tooltip="剧本编辑" aria-label="剧本编辑" title="剧本编辑">
             <FileText />
             <span>剧本编辑</span>
           </Link>
@@ -145,7 +145,7 @@ export default async function DashboardLayout({
           />
 
           <div className="nav-section-title">社区</div>
-          <Link href="/community" className="nav-item">
+          <Link href="/community" className="nav-item" data-tooltip="创作社区" aria-label="创作社区" title="创作社区">
             <MessageCircle />
             <span>创作社区</span>
           </Link>

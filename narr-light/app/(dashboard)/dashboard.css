@@ -7,11 +7,12 @@
 
 /* ===================== 应用容器 ===================== */
 .app {
+  --sidebar-width: 248px;
   position: relative;
   width: 100vw;
   height: 100vh;
   display: grid;
-  grid-template-columns: 248px 1fr;
+  grid-template-columns: var(--sidebar-width) 1fr;
   grid-template-rows: 56px 1fr;
   grid-template-areas:
     "sidebar topbar"
@@ -22,6 +23,104 @@
     repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.018) 0 1px, transparent 1px 4px),
     repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.014) 0 1px, transparent 1px 4px),
     linear-gradient(135deg, var(--paper) 0%, var(--paper-2) 60%, var(--paper-3) 100%);
+}
+
+.sb-toggle-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (min-width: 901px) {
+  .app:has(.sb-toggle-input:checked) {
+    --sidebar-width: 64px;
+  }
+
+  .app:has(.sb-toggle-input:checked) .brand {
+    padding: 14px 0;
+    justify-content: center;
+  }
+
+  .app:has(.sb-toggle-input:checked) .sidebar,
+  .app:has(.sb-toggle-input:checked) .nav-group {
+    overflow: visible;
+  }
+
+  .app:has(.sb-toggle-input:checked) .brand-text,
+  .app:has(.sb-toggle-input:checked) .script-switch .ss-label,
+  .app:has(.sb-toggle-input:checked) .script-switch .ss-title span:last-child,
+  .app:has(.sb-toggle-input:checked) .script-switch .ss-meta,
+  .app:has(.sb-toggle-input:checked) .nav-item span,
+  .app:has(.sb-toggle-input:checked) .nav-item .badge,
+  .app:has(.sb-toggle-input:checked) .sidebar-foot .user-info {
+    display: none;
+  }
+
+  .app:has(.sb-toggle-input:checked) .script-switch,
+  .app:has(.sb-toggle-input:checked) .nav-section-title {
+    display: none;
+  }
+
+  .app:has(.sb-toggle-input:checked) .nav-group {
+    padding: 16px 8px;
+  }
+
+  .app:has(.sb-toggle-input:checked) .nav-item {
+    width: 44px;
+    height: 44px;
+    justify-content: center;
+    margin: 0 auto 6px;
+    padding: 0;
+    border-left: none;
+    border-radius: 8px;
+  }
+
+  .app:has(.sb-toggle-input:checked) .nav-item.active {
+    background: rgba(138, 28, 28, 0.24);
+    box-shadow: inset 3px 0 0 var(--blood);
+  }
+
+  .app:has(.sb-toggle-input:checked) .nav-item.active::after {
+    display: none;
+  }
+
+  .app:has(.sb-toggle-input:checked) .nav-item[data-tooltip]::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: calc(100% + 12px);
+    top: 50%;
+    z-index: 1000;
+    transform: translateY(-50%) translateX(-4px);
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    padding: 7px 10px;
+    border: 1px solid rgba(138, 28, 28, 0.28);
+    border-radius: 4px;
+    background: rgba(26, 18, 11, 0.94);
+    color: var(--paper-light);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+    font-family: "Noto Serif SC", serif;
+    font-size: 12.5px;
+    line-height: 1;
+    letter-spacing: 0;
+    transition: opacity 0.16s ease, transform 0.16s ease;
+  }
+
+  .app:has(.sb-toggle-input:checked) .nav-item[data-tooltip]:hover::before,
+  .app:has(.sb-toggle-input:checked) .nav-item[data-tooltip]:focus-visible::before {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+
+  .app:has(.sb-toggle-input:checked) .sidebar-foot {
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 0;
+    align-items: center;
+  }
 }
 
 /* ===================== 侧边栏 ===================== */

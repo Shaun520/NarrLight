@@ -31,6 +31,9 @@ export function NavItem({
       <button
         type="button"
         className="nav-item"
+        data-tooltip={label}
+        aria-label={label}
+        title={label}
         onClick={() => message.info(disabledMessage)}
       >
         {icon}
@@ -40,7 +43,7 @@ export function NavItem({
   }
 
   return (
-    <Link href={href} className="nav-item">
+    <Link href={href} className="nav-item" data-tooltip={label} aria-label={label} title={label}>
       {icon}
       <span>{label}</span>
     </Link>

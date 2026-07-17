@@ -571,7 +571,7 @@
 /* ===================== 版本对比弹层 ===================== */
 .vd-modal-overlay {
   position: fixed;
-  inset: 0;
+  inset: 0 0 0 var(--sidebar-width, 248px);
   background: rgba(26, 18, 11, 0.55);
   backdrop-filter: blur(2px);
   z-index: 200;
@@ -579,13 +579,14 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
+  transition: left 0.2s ease;
 }
 .vd-modal {
   background: var(--paper-lighter);
   border: 1px solid var(--gold);
   border-radius: 6px;
   box-shadow: var(--shadow-lg);
-  width: min(1080px, 96vw);
+  width: min(1080px, calc(100vw - var(--sidebar-width, 248px) - 48px));
   max-height: 88vh;
   display: flex;
   flex-direction: column;
@@ -709,6 +710,22 @@
   font-size: 11px;
   color: var(--sepia);
   width: 12px;
+}
+
+@media (max-width: 900px) {
+  .vd-modal-overlay {
+    inset: 0;
+    padding: 12px;
+  }
+
+  .vd-modal {
+    width: calc(100vw - 24px);
+    max-height: 92vh;
+  }
+
+  .vd-body {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ===================== 章节跳转搜索弹层 ===================== */
