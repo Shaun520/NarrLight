@@ -992,26 +992,15 @@ export default function EditorPage({ params }: PageProps) {
               编辑
             </button>
           ) : (
-            <>
-              <button
-                type="button"
-                className="btn btn-edit"
-                onClick={handleSaveContent}
-                disabled={isSavingContent || isSavingVersion || isRollingBack}
-              >
-                <Save size={14} />
-                {isSavingContent ? '保存中' : '编辑保存'}
-              </button>
-              <button
-                type="button"
-                className="btn btn-edit active"
-                onClick={handleToggleEdit}
-                disabled={isSavingContent || isSavingVersion || isRollingBack}
-              >
-                <FileText size={14} />
-                完成编辑
-              </button>
-            </>
+            <button
+              type="button"
+              className="btn btn-edit active"
+              onClick={handleToggleEdit}
+              disabled={isSavingContent || isSavingVersion || isRollingBack}
+            >
+              <FileText size={14} />
+              {isSavingContent ? '保存中' : '完成编辑'}
+            </button>
           )}
           <button
             type="button"
