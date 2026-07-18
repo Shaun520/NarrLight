@@ -20,6 +20,7 @@
 'use client';
 
 import { use, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import {
@@ -678,6 +679,8 @@ export default function EditorPage({ params }: PageProps) {
     if (isEditing) {
       if (isDirty && currentNode && currentNodeId) {
         await handleSaveContent();
+        // 强制同步状态更新，确保退出编辑态前 dataMap 已是最新 DOM 内容
+        flushSync(() => {});
       }
       exitEditMode();
     } else {
@@ -711,13 +714,6 @@ export default function EditorPage({ params }: PageProps) {
         `/api/editor/${scriptId}/save`,
         { ...payload, createVersion },
       );
-
-      // 清除当前节点的本地快照（已持久化到数据库）
-      setSnapshots((prev) => {
-        const next = { ...prev };
-        delete next[currentNodeId];
-        return next;
-      });
 
       // 编辑保存：用当前 DOM 内容更新本地 dataMap，避免退出编辑态后内容回退
       if (!createVersion) {
