@@ -1,5 +1,5 @@
 /**
- * 保存记录卡组件（T138）
+ * 版本记录卡组件（T138）
  *
  * 严格对齐原型 workbench2.html .side-panel .version-item（4287-4299 行）。
  * 展示 .version-item 列表（.vi-head + .vi-note），当前版本带 .current 标记。
@@ -48,7 +48,7 @@ function displayNote(note: string): string {
 }
 
 /**
- * 保存记录
+ * 版本记录
  */
 export function VersionHistory({
   versions,
@@ -73,7 +73,7 @@ export function VersionHistory({
             <circle cx="12" cy="12" r="10" />
             <path d="M12 6v6l4 2" />
           </svg>
-          保存记录
+          版本记录
         </h3>
       </div>
       <div className="card-body" style={{ padding: '10px' }}>

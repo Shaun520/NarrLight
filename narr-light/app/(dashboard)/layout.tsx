@@ -205,6 +205,9 @@ export default async function DashboardLayout({
           <div className="view active">{children}</div>
         </DashboardProvider>
       </main>
+
+      {/* 编辑器版本预览/弹层的挂载点，避免被 .main 的 z-index 遮挡 */}
+      <div id="editor-portal-root" aria-hidden="true" />
     </div>
   );
 }

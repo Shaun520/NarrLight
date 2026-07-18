@@ -67,9 +67,6 @@ function CharacterBook({ data }: { data: CharacterNode }) {
               <span className="act-num">{page.act}</span>
               {page.title}
             </h2>
-            <div className="page-meta">
-              {data.name} · {data.role} · {page.subtitle}
-            </div>
             {page.paragraphs.map((text, pIdx) => (
               <p key={pIdx} dangerouslySetInnerHTML={{ __html: text }} />
             ))}
@@ -167,9 +164,6 @@ function CharacterBookDiff({
                 <span className="act-num">{page.act}</span>
                 {page.title}
               </h2>
-              <div className="page-meta">
-                {data.name} 路 {data.role} 路 {page.subtitle}
-              </div>
               {page.paragraphs.map((text, pIdx) => (
                 <p
                   key={pIdx}
@@ -441,19 +435,19 @@ export function EditorContent({
   const compareData = compareDataMap?.[nodeId];
   const snapshot = snapshots[nodeId];
 
-  // 进入编辑态时，光标移到末尾（对齐原型 enterEditMode）
+  // 进入/退出编辑态：保护标题、分隔符等结构元素不被误编辑
   useEffect(() => {
-    if (readOnly || !isEditing || !contentRef.current) return;
+    if (readOnly || !contentRef.current) return;
     const el = contentRef.current;
-    el.focus();
-    const sel = window.getSelection();
-    if (sel) {
-      const range = document.createRange();
-      range.selectNodeContents(el);
-      range.collapse(false);
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }
+    const protectedSelectors = 'h2, hr, .act-divider, .sub-h, .act-num';
+    el.querySelectorAll(protectedSelectors).forEach((node) => {
+      node.setAttribute('contenteditable', isEditing ? 'false' : 'true');
+    });
+
+    if (!isEditing) return;
+    // 只让编辑区获得焦点，不强制移动光标位置；
+    // 首字下沉在编辑模式下已通过 CSS 临时禁用，光标默认位置不再突兀。
+    el.focus({ preventScroll: true });
   }, [isEditing, nodeId, readOnly]);
 
   const handleInput = () => {

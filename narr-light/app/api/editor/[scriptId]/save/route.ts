@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VersionService } from '@/lib/services/version-service';
 import type { Json } from '@/lib/supabase/types';
-import type { OperationType } from '@/types';
+import type { OperationType, VersionSnapshot } from '@/types';
 
 type EditorNodeType = 'character' | 'simple' | 'clue-overview';
 
@@ -36,6 +36,7 @@ interface SaveEditorNodeRequest {
   pages?: CharacterPageInput[];
   sections?: SectionInput[];
   clues?: ClueInput[];
+  createVersion?: boolean;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -44,14 +45,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isValidBody(value: unknown): value is SaveEditorNodeRequest {
   if (!isRecord(value)) return false;
-  return (
-    typeof value.nodeId === 'string' &&
-    typeof value.nodeType === 'string' &&
-    ['character', 'simple', 'clue-overview'].includes(value.nodeType) &&
-    typeof value.title === 'string' &&
-    typeof value.html === 'string' &&
-    typeof value.plainText === 'string'
-  );
+  if (
+    typeof value.nodeId !== 'string' ||
+    typeof value.nodeType !== 'string' ||
+    !['character', 'simple', 'clue-overview'].includes(value.nodeType) ||
+    typeof value.title !== 'string' ||
+    typeof value.html !== 'string' ||
+    typeof value.plainText !== 'string'
+  ) {
+    return false;
+  }
+  if (value.createVersion !== undefined && typeof value.createVersion !== 'boolean') {
+    return false;
+  }
+  return true;
 }
 
 function wordCount(value: string): number {
@@ -471,14 +478,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ scr
     const script = await refreshScriptMetadata(supabase, scriptId);
     const invalidated = await invalidateValidationResults(supabase, scriptId);
 
-    const snapshotData = await buildSnapshotData(supabase, scriptId, body);
-    const versionService = new VersionService(supabase);
-    const snapshot = await versionService.createSnapshot(
-      scriptId,
-      `手动保存 · ${body.title || body.nodeId}`,
-      mapOperationType(body.nodeType),
-      snapshotData,
-    );
+    let snapshot: VersionSnapshot | null = null;
+    if (body.createVersion !== false) {
+      const snapshotData = await buildSnapshotData(supabase, scriptId, body);
+      const versionService = new VersionService(supabase);
+      snapshot = await versionService.createSnapshot(
+        scriptId,
+        `手动保存 · ${body.title || body.nodeId}`,
+        mapOperationType(body.nodeType),
+        snapshotData,
+      );
+    }
 
     return NextResponse.json({ snapshot, script, invalidated });
   } catch (error) {

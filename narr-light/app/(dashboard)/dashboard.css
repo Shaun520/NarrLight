@@ -497,6 +497,12 @@ button.nav-item {
   z-index: 3;
   overflow: hidden;
 }
+
+/* 编辑器弹层挂载点：不参与 grid 占位，为其内部 fixed 元素提供高 z-index 上下文 */
+#editor-portal-root {
+  position: fixed;
+  z-index: 200;
+}
 .view {
   position: absolute;
   inset: 0;

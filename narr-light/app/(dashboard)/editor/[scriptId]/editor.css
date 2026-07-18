@@ -442,6 +442,20 @@
   background: rgba(184, 132, 28, 0.06);
 }
 
+/* 编辑模式下临时禁用首字下沉，避免光标被“吞”在大字前面 */
+.editor-content[contenteditable='true'] .act-section p:first-of-type {
+  text-indent: 2em;
+}
+.editor-content[contenteditable='true'] .act-section p:first-of-type::first-letter {
+  float: none;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  line-height: inherit;
+  margin: 0;
+  padding: 0;
+}
+
 /* ===================== 线索卡总览列表 ===================== */
 .clue-overview-list {
   display: grid;
@@ -868,6 +882,102 @@
   background: rgba(138, 28, 28, 0.1);
   color: var(--blood);
 }
+
+/* 全屏预览：占满整个视口，覆盖左侧主导航栏与顶部栏 */
+.vd-modal-overlay.is-fullscreen {
+  inset: 0;
+  padding: 0;
+  background: rgba(26, 18, 11, 0.68);
+  backdrop-filter: blur(3px);
+}
+.vd-modal-overlay.is-fullscreen .vd-modal {
+  width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 0;
+  border: none;
+}
+.vd-modal-overlay.is-fullscreen .version-preview-body {
+  grid-template-columns: 260px 1fr;
+}
+.vd-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.vd-nav-changes {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(253, 248, 240, 0.8);
+  border: 1px solid rgba(122, 92, 58, 0.22);
+  border-radius: 4px;
+  padding: 2px;
+}
+.vd-nav-change-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--sepia);
+  cursor: pointer;
+  transition: all 0.16s;
+}
+.vd-nav-change-btn:hover:not(:disabled) {
+  background: rgba(138, 28, 28, 0.1);
+  color: var(--blood);
+}
+.vd-nav-change-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.vd-nav-change-count {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--char);
+  padding: 0 6px;
+  min-width: 34px;
+  text-align: center;
+}
+.vd-nav-change-sep {
+  margin: 0 2px;
+  opacity: 0.6;
+}
+.vd-fullscreen-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid rgba(122, 92, 58, 0.3);
+  border-radius: 4px;
+  background: rgba(253, 248, 240, 0.7);
+  color: var(--sepia);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.16s;
+}
+.vd-fullscreen-toggle:hover {
+  background: rgba(138, 28, 28, 0.08);
+  border-color: rgba(138, 28, 28, 0.4);
+  color: var(--blood);
+}
+.vd-esc-hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--sepia);
+}
+.vd-esc-hint kbd {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  padding: 1px 5px;
+  border: 1px solid rgba(122, 92, 58, 0.25);
+  border-radius: 3px;
+  background: rgba(253, 248, 240, 0.9);
+}
 .vd-body {
   flex: 1;
   display: grid;
@@ -941,6 +1051,15 @@
   color: var(--blood);
   font-family: 'Courier Prime', monospace;
   margin: 0 3px;
+}
+.version-preview-current-flag {
+  margin-left: 10px;
+  font-size: 11px;
+  color: var(--paper-light);
+  background: var(--blood);
+  padding: 1px 6px;
+  border-radius: 2px;
+  font-family: 'Courier Prime', monospace;
 }
 .version-preview-controls {
   display: flex;
@@ -1030,6 +1149,24 @@
   background: linear-gradient(90deg, rgba(138, 28, 28, 0.13), rgba(138, 28, 28, 0.04));
   color: rgba(61, 44, 31, 0.7);
   box-shadow: inset 3px 0 0 rgba(138, 28, 28, 0.58);
+}
+
+/* 字级差异高亮：新增绿色背景 + 下划线；删除浅红背景 + 删除线 */
+.diff-ins {
+  background: rgba(74, 124, 89, 0.22);
+  text-decoration: underline;
+  text-decoration-color: rgba(74, 124, 89, 0.65);
+  text-decoration-thickness: 1.5px;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+.diff-del {
+  background: rgba(138, 28, 28, 0.14);
+  text-decoration: line-through;
+  text-decoration-color: rgba(138, 28, 28, 0.55);
+  color: rgba(61, 44, 31, 0.72);
+  border-radius: 2px;
+  padding: 0 2px;
 }
 .preview-diff-grid {
   display: grid;
@@ -1224,6 +1361,20 @@
   font-size: 12.5px;
   color: var(--char);
   line-height: 1.6;
+}
+.so-hit-keyword {
+  background: rgba(184, 132, 28, 0.25);
+  color: var(--ink);
+  border-radius: 2px;
+  padding: 0 2px;
+  font-weight: 700;
+}
+.search-highlight {
+  background: rgba(184, 132, 28, 0.35);
+  color: var(--ink);
+  border-radius: 2px;
+  padding: 1px 2px;
+  box-shadow: 0 0 0 1px rgba(184, 132, 28, 0.35);
 }
 .so-outline {
   display: flex;

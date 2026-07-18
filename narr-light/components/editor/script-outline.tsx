@@ -26,8 +26,8 @@ import {
 interface ScriptOutlineProps {
   /** 当前节点 ID */
   activeNodeId: string;
-  /** 跳转到指定节点 */
-  onJump: (nodeId: string) => void;
+  /** 跳转到指定节点，可选携带搜索关键字用于正文高亮 */
+  onJump: (nodeId: string, options?: { keyword?: string }) => void;
   /** 关闭面板 */
   onClose: () => void;
   dataMap?: Record<string, ScriptNodeData>;
@@ -48,6 +48,30 @@ interface SearchHit {
 /** 从可能含 HTML 标签的字符串中提取纯文本 */
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, '');
+}
+
+/** 转义正则特殊字符 */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** 高亮片段中的关键字 */
+function HighlightSnippet({ snippet, keyword }: { snippet: string; keyword: string }) {
+  if (!keyword.trim()) return <>{snippet}</>;
+  const parts = snippet.split(new RegExp(`(${escapeRegExp(keyword)})`, 'gi'));
+  return (
+    <>
+      {parts.map((part, idx) =>
+        part.toLowerCase() === keyword.toLowerCase() ? (
+          <mark key={idx} className="so-hit-keyword">
+            {part}
+          </mark>
+        ) : (
+          <span key={idx}>{part}</span>
+        ),
+      )}
+    </>
+  );
 }
 
 /** 收集单个节点的纯文本与可搜索段落列表 */
@@ -206,13 +230,13 @@ export function ScriptOutline({
                       role="button"
                       tabIndex={0}
                       onClick={() => {
-                        onJump(hit.nodeId);
+                        onJump(hit.nodeId, { keyword: query });
                         onClose();
                       }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
-                          onJump(hit.nodeId);
+                          onJump(hit.nodeId, { keyword: query });
                           onClose();
                         }
                       }}
@@ -221,7 +245,9 @@ export function ScriptOutline({
                         <CornerDownRight size={12} />
                         <span className="so-hit-node">{hit.nodeLabel}</span>
                       </div>
-                      <div className="so-hit-snippet">{hit.snippet}</div>
+                      <div className="so-hit-snippet">
+                        <HighlightSnippet snippet={hit.snippet} keyword={query} />
+                      </div>
                     </div>
                   ))}
                 </div>
