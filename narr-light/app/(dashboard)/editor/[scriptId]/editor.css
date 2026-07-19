@@ -246,6 +246,9 @@
   background: rgba(246, 238, 226, 0.82);
   flex-wrap: wrap;
 }
+.editor-toolbar.is-readonly {
+  gap: 8px;
+}
 .tb-btn {
   width: 28px;
   height: 28px;
@@ -281,6 +284,14 @@
   font-size: 11px;
   color: var(--sepia);
   margin-left: auto;
+}
+.tb-label-readonly {
+  margin-left: 0;
+  margin-right: auto;
+  max-width: calc(100% - 84px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .editor-edit-badge {
   display: inline-flex;
@@ -704,10 +715,86 @@
   width: 15px;
   height: 15px;
 }
+.ai-polish-card {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--noir-line);
+}
+.ai-polish-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--paper-light);
+  font-family: 'Noto Serif SC', serif;
+  font-size: 13px;
+  font-weight: 800;
+}
+.ai-polish-head button,
+.ai-polish-actions button {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--noir-line);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--noir-text);
+  cursor: pointer;
+  font-size: 12px;
+}
+.ai-polish-head button:hover,
+.ai-polish-actions button:hover {
+  border-color: var(--blood);
+  color: var(--blood-soft);
+}
+.ai-polish-label {
+  margin: 8px 0 5px;
+  color: var(--gold-soft);
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+.ai-polish-source,
+.ai-polish-result {
+  max-height: 150px;
+  overflow-y: auto;
+  padding: 9px 10px;
+  border: 1px solid var(--noir-line);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--noir-text);
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.ai-polish-result {
+  color: var(--paper-light);
+}
+.ai-polish-error {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(138, 28, 28, 0.45);
+  border-radius: 3px;
+  background: rgba(138, 28, 28, 0.14);
+  color: var(--blood-soft);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.ai-polish-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
 .quick-prompt-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 7px;
+}
+.quick-prompt-grid.compact {
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
 }
 .quick-prompt {
   display: block;

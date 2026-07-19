@@ -435,22 +435,24 @@ export async function getVersionPreviewResponse(scriptId: string, versionNumber:
       );
     }
 
-    const { data: previousSnapshot, error: previousError } = await supabase
+    const { data: currentSnapshot, error: currentError } = await supabase
       .from('version_snapshots')
       .select('version_number, snapshot_data')
       .eq('script_id', scriptId)
-      .lt('version_number', parsedVersion)
       .order('version_number', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (previousError) throw new Error(`读取上一版本失败: ${previousError.message}`);
+    if (currentError) throw new Error(`读取当前版本失败: ${currentError.message}`);
 
-    const previousPreviewData = previousSnapshot
-      ? buildSnapshotPreviewData(toRecord(previousSnapshot.snapshot_data))
+    const currentPreviewData = currentSnapshot
+      ? buildSnapshotPreviewData(toRecord(currentSnapshot.snapshot_data))
       : null;
-    const changes = previousPreviewData
-      ? computeNodeChanges(previewData.dataMap, previousPreviewData.dataMap)
+    const shouldCompareToCurrent =
+      currentSnapshot && Number(currentSnapshot.version_number) !== parsedVersion;
+    const changes =
+      shouldCompareToCurrent && currentPreviewData
+        ? computeNodeChanges(previewData.dataMap, currentPreviewData.dataMap)
       : {};
     const changedNodeIds = Object.keys(changes);
     const defaultNodeId =
@@ -463,14 +465,14 @@ export async function getVersionPreviewResponse(scriptId: string, versionNumber:
       note: displayNote(String(data.change_summary ?? '')),
       title: previewData.title,
       dataMap: previewData.dataMap,
-      baseDataMap: previousPreviewData?.dataMap,
-      baseGroups: previousPreviewData?.groups,
-      baseLabels: previousPreviewData?.labels,
+      baseDataMap: shouldCompareToCurrent ? currentPreviewData?.dataMap : undefined,
+      baseGroups: shouldCompareToCurrent ? currentPreviewData?.groups : undefined,
+      baseLabels: shouldCompareToCurrent ? currentPreviewData?.labels : undefined,
       groups: previewData.groups,
       labels: previewData.labels,
       defaultNodeId,
       touchedNodeId: previewData.touchedNodeId,
-      compareBaseVersion: previousSnapshot ? `v${previousSnapshot.version_number}` : undefined,
+      compareBaseVersion: shouldCompareToCurrent ? `v${currentSnapshot.version_number}` : undefined,
       changes,
       changedNodeIds,
     };

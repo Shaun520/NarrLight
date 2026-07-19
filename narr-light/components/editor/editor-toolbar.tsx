@@ -86,7 +86,7 @@ export function EditorToolbar({
     }
   };
 
-  const buttons: ToolButton[] = [
+  const editButtons: ToolButton[] = [
     {
       title: '加粗',
       icon: Bold,
@@ -122,19 +122,23 @@ export function EditorToolbar({
       ariaLabel: '插入线索',
       requiresEdit: true,
     },
-    {
-      title: 'AI 润色',
-      icon: Sparkles,
-      onClick: onAiPolish,
-      ariaLabel: 'AI 润色',
-    },
+  ];
+
+  const actionButtons: ToolButton[] = [
     {
       title: '下载 PDF',
       icon: Download,
       onClick: onExportPdf,
       ariaLabel: '下载 PDF',
     },
+    {
+      title: 'AI 润色',
+      icon: Sparkles,
+      onClick: onAiPolish,
+      ariaLabel: 'AI 润色',
+    },
   ];
+  const buttons = isEditing ? [...editButtons, ...actionButtons] : actionButtons;
 
   const badgeText =
     badge === 'editing'
@@ -148,7 +152,13 @@ export function EditorToolbar({
     badge === 'dirty' ? 'editor-edit-badge dirty' : 'editor-edit-badge';
 
   return (
-    <div className="editor-toolbar" role="toolbar" aria-label="编辑器工具栏">
+    <div
+      className={`editor-toolbar ${isEditing ? 'is-editing' : 'is-readonly'}`}
+      role="toolbar"
+      aria-label="编辑器工具栏"
+    >
+      {!isEditing && <span className="tb-label tb-label-readonly">{label}</span>}
+
       {buttons.map((btn) => {
         const Icon = btn.icon;
         return (
@@ -172,9 +182,9 @@ export function EditorToolbar({
         );
       })}
 
-      <span className="tb-sep" aria-hidden="true" />
+      {isEditing && <span className="tb-sep" aria-hidden="true" />}
 
-      <span className="tb-label">{label}</span>
+      {isEditing && <span className="tb-label">{label}</span>}
 
       {badge !== 'hidden' && (
         <span className={badgeClass} role="status">

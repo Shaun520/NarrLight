@@ -40,7 +40,7 @@ import { ChapterTree } from '@/components/editor/chapter-tree';
 import { EditorContent } from '@/components/editor/editor-content';
 import { EditorToolbar } from '@/components/editor/editor-toolbar';
 import { VersionHistory, type VersionItem } from '@/components/editor/version-history';
-import { AiAdjustPanel } from '@/components/editor/ai-adjust-panel';
+import { AiAdjustPanel, type AiPolishState } from '@/components/editor/ai-adjust-panel';
 import { VersionDiff } from '@/components/editor/version-diff';
 import { ScriptOutline } from '@/components/editor/script-outline';
 import {
@@ -120,6 +120,14 @@ interface VersionPreviewState {
 
 type VersionPreviewMode = 'highlight' | 'side-by-side';
 type NodeChangeStatus = 'added' | 'modified' | 'removed';
+
+const DEFAULT_POLISH_STATE: AiPolishState = {
+  status: 'idle',
+  sourceText: '',
+  mode: '润色文采',
+  resultText: '',
+  error: '',
+};
 
 function filterGroupsByNodeIds(groups: TreeGroup[], nodeIds: string[]): TreeGroup[] {
   const nodeSet = new Set(nodeIds);
@@ -443,6 +451,7 @@ export default function EditorPage({ params }: PageProps) {
   const [previewFullscreen, setPreviewFullscreen] = useState(false);
   const [previewPortalRoot, setPreviewPortalRoot] = useState<HTMLElement | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [aiPolish, setAiPolish] = useState<AiPolishState>(DEFAULT_POLISH_STATE);
   const [toast, setToast] = useState<ToastState>({
     visible: false,
     message: '',
@@ -464,6 +473,7 @@ export default function EditorPage({ params }: PageProps) {
     setPreviewPortalRoot(document.getElementById('editor-portal-root') ?? document.body);
   }, []);
   const highlightInitialized = useRef(false);
+  const polishRangeRef = useRef<Range | null>(null);
   const isEditorDataLoading = editorData === undefined;
   const activeDataMap = useMemo(() => editorData?.dataMap ?? {}, [editorData]);
   const activeDefaultNodeId = editorData?.defaultNodeId ?? null;
@@ -689,7 +699,11 @@ export default function EditorPage({ params }: PageProps) {
       return;
     }
     const ts = formatNow();
-    const status = hasDirtyDrafts ? `${dirtyNodeIds.length} 个模块未保存` : `自动保存于 ${ts}`;
+    const status = hasDirtyDrafts
+      ? `${dirtyNodeIds.length} 个模块未保存`
+      : isEditing
+        ? `自动保存于 ${ts}`
+        : `加载于 ${ts}`;
     if (currentNode.type === 'character') {
       const c = currentNode as CharacterNode;
       setToolbarLabel(`人物剧本 · ${c.name} · ${status}`);
@@ -700,7 +714,7 @@ export default function EditorPage({ params }: PageProps) {
       const s = currentNode as SimpleNode;
       setToolbarLabel(`${s.fullTitle} · ${status}`);
     }
-  }, [currentNode, dirtyNodeIds.length, hasDirtyDrafts]);
+  }, [currentNode, dirtyNodeIds.length, hasDirtyDrafts, isEditing]);
 
   // ===== Toast 自动消失 =====
   useEffect(() => {
@@ -1055,10 +1069,153 @@ export default function EditorPage({ params }: PageProps) {
     showToast('正在准备打印 · 在对话框选"另存为 PDF"', '⤓');
   };
 
-  // ===== AI 润色（占位） =====
+  const getClosestEditableElement = (node: Node | null): HTMLElement | null => {
+    if (!node) return null;
+    const element = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+    return element?.closest('p, .co-title, .co-no, .clue-overview-item, div') as HTMLElement | null;
+  };
+
+  const capturePolishTarget = (): { text: string; range: Range } | null => {
+    const contentEl = document.getElementById('editorContent');
+    if (!contentEl) return null;
+
+    const selection = window.getSelection();
+    if (
+      selection &&
+      selection.rangeCount > 0 &&
+      !selection.isCollapsed &&
+      selection.anchorNode &&
+      contentEl.contains(selection.anchorNode)
+    ) {
+      const range = selection.getRangeAt(0).cloneRange();
+      const text = range.toString().trim();
+      return text ? { text, range } : null;
+    }
+
+    const focusNode = selection?.focusNode;
+    if (focusNode && contentEl.contains(focusNode)) {
+      const block = getClosestEditableElement(focusNode);
+      if (block && block !== contentEl) {
+        const text = block.innerText.trim();
+        if (text) {
+          const range = document.createRange();
+          range.selectNodeContents(block);
+          return { text, range };
+        }
+      }
+    }
+
+    const firstParagraph = contentEl.querySelector('p, .co-title') as HTMLElement | null;
+    if (firstParagraph?.innerText.trim()) {
+      const range = document.createRange();
+      range.selectNodeContents(firstParagraph);
+      return { text: firstParagraph.innerText.trim(), range };
+    }
+
+    return null;
+  };
+
+  const markCurrentContentDirty = () => {
+    if (!currentNodeId) return;
+    const contentEl = document.getElementById('editorContent');
+    if (contentEl) {
+      setSnapshots((prev) => ({ ...prev, [currentNodeId]: contentEl.innerHTML }));
+    }
+    markNodeDirty(currentNodeId);
+  };
+
+  // ===== AI 润色 =====
   const handleAiPolish = () => {
     if (!currentNode) return;
-    showToast('AI 润色指令已下发，请稍候…', '✦');
+    if (!isEditing) {
+      showToast('请先进入编辑模式，再选择需要润色的文字', '!');
+      return;
+    }
+    const target = capturePolishTarget();
+    if (!target) {
+      showToast('请先选中要润色的文字，或把光标放在目标段落中', '!');
+      return;
+    }
+    polishRangeRef.current = target.range;
+    setAiPolish({
+      status: 'ready',
+      sourceText: target.text,
+      mode: '润色文采',
+      resultText: '',
+      error: '',
+    });
+    showToast('已选中润色片段，请在右侧生成建议', '✦');
+  };
+
+  const handlePolishModeChange = (mode: string) => {
+    setAiPolish((prev) => ({ ...prev, mode }));
+  };
+
+  const handleGeneratePolish = async (mode: string, instruction: string) => {
+    if (!aiPolish.sourceText.trim()) return;
+    setAiPolish((prev) => ({ ...prev, status: 'loading', mode, error: '' }));
+    try {
+      const result = await postJson<{ suggestion: string }>(`/api/editor/${scriptId}/polish`, {
+        sourceText: aiPolish.sourceText,
+        mode,
+        instruction,
+        nodeTitle: toolbarLabel,
+      });
+      setAiPolish((prev) => ({
+        ...prev,
+        status: 'result',
+        mode,
+        resultText: result.suggestion,
+        error: '',
+      }));
+    } catch (error) {
+      setAiPolish((prev) => ({
+        ...prev,
+        status: 'error',
+        mode,
+        error: error instanceof Error ? error.message : 'AI 润色失败',
+      }));
+    }
+  };
+
+  const handleApplyPolishReplace = () => {
+    const range = polishRangeRef.current;
+    if (!range || !aiPolish.resultText.trim()) {
+      showToast('润色目标已失效，请重新选择文本', '!');
+      return;
+    }
+    range.deleteContents();
+    range.insertNode(document.createTextNode(aiPolish.resultText));
+    range.collapse(false);
+    markCurrentContentDirty();
+    setAiPolish(DEFAULT_POLISH_STATE);
+    polishRangeRef.current = null;
+    showToast('已替换原文，当前模块未保存', '✓');
+  };
+
+  const handleApplyPolishInsert = () => {
+    const range = polishRangeRef.current;
+    if (!range || !aiPolish.resultText.trim()) {
+      showToast('润色目标已失效，请重新选择文本', '!');
+      return;
+    }
+    const block = getClosestEditableElement(range.commonAncestorContainer);
+    const paragraph = document.createElement('p');
+    paragraph.textContent = aiPolish.resultText;
+    if (block && block.id !== 'editorContent') {
+      block.insertAdjacentElement('afterend', paragraph);
+    } else {
+      document.getElementById('editorContent')?.appendChild(paragraph);
+    }
+    markCurrentContentDirty();
+    setAiPolish(DEFAULT_POLISH_STATE);
+    polishRangeRef.current = null;
+    showToast('已插入建议稿，当前模块未保存', '✓');
+  };
+
+  const handleClearPolish = () => {
+    setAiPolish(DEFAULT_POLISH_STATE);
+    polishRangeRef.current = null;
   };
 
   // ===== AI 智能调整 =====
@@ -1250,7 +1407,15 @@ export default function EditorPage({ params }: PageProps) {
             isDeletingVersion={Boolean(deletingVersion)}
             deletingVersion={deletingVersion}
           />
-          <AiAdjustPanel onExecute={handleAiAdjust} />
+          <AiAdjustPanel
+            onExecute={handleAiAdjust}
+            polish={aiPolish}
+            onPolishModeChange={handlePolishModeChange}
+            onGeneratePolish={handleGeneratePolish}
+            onApplyPolishReplace={handleApplyPolishReplace}
+            onApplyPolishInsert={handleApplyPolishInsert}
+            onClearPolish={handleClearPolish}
+          />
         </div>
       </div>
 
@@ -1351,14 +1516,15 @@ export default function EditorPage({ params }: PageProps) {
                 <div>
                   {previewVersion.compareBaseVersion ? (
                     <>
-                      对比基准 <b>{previewVersion.compareBaseVersion}</b>，共{' '}
+                      当前版本 <b>{previewVersion.compareBaseVersion}</b> 与选中版本{' '}
+                      <b>{previewVersion.version}</b> 对比，共{' '}
                       <b>{previewVersion.changedNodeIds.length}</b> 个模块有变化
                       {previewVersion.changedNodeIds.includes(
                         previewNodeId ?? previewVersion.defaultNodeId,
                       ) && <span className="version-preview-current-flag">当前模块已变更</span>}
                     </>
                   ) : (
-                    '这是该剧本的第一条保存记录，暂无上一版本可对比'
+                    '选中的是当前版本，暂无差异可对比'
                   )}
                 </div>
                 {previewFullscreen && (
@@ -1419,6 +1585,7 @@ export default function EditorPage({ params }: PageProps) {
                     snapshots={{}}
                     dataMap={previewRenderDataMap}
                     compareDataMap={previewVersion.baseDataMap}
+                    diffLabels={{ previous: '当前版本', current: '选中版本' }}
                     changeStatus={
                       previewVersion.changes[previewNodeId ?? previewVersion.defaultNodeId]?.status
                     }

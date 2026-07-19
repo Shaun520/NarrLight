@@ -40,6 +40,10 @@ interface EditorContentProps {
   compareDataMap?: Record<string, ScriptNodeData>;
   diffMode?: 'highlight' | 'side-by-side';
   changeStatus?: NodeChangeStatus;
+  diffLabels?: {
+    previous: string;
+    current: string;
+  };
 }
 
 type NodeChangeStatus = 'added' | 'modified' | 'removed';
@@ -259,11 +263,13 @@ function CharacterBookDiff({
   previous,
   mode,
   changeStatus = 'modified',
+  labels,
 }: {
   data: CharacterNode;
   previous?: CharacterNode;
   mode: 'highlight' | 'side-by-side';
   changeStatus?: NodeChangeStatus;
+  labels: { previous: string; current: string };
 }) {
   const currentPages = changeStatus === 'removed' ? [] : data.pages;
   const previousPages = previous?.pages ?? (changeStatus === 'removed' ? data.pages : []);
@@ -287,7 +293,7 @@ function CharacterBookDiff({
               </h2>
               <div className="preview-diff-grid">
                 <div className="preview-diff-column">
-                  <div className="preview-diff-column-title">上一版</div>
+                  <div className="preview-diff-column-title">{labels.previous}</div>
                   {rows.map((row, pIdx) => {
                     return (
                       <p
@@ -299,7 +305,7 @@ function CharacterBookDiff({
                   })}
                 </div>
                 <div className="preview-diff-column">
-                  <div className="preview-diff-column-title">当前预览版</div>
+                  <div className="preview-diff-column-title">{labels.current}</div>
                   {rows.map((row, pIdx) => {
                     return (
                       <p
@@ -369,11 +375,13 @@ function SimpleContentDiff({
   previous,
   mode,
   changeStatus = 'modified',
+  labels,
 }: {
   data: SimpleNode;
   previous?: SimpleNode;
   mode: 'highlight' | 'side-by-side';
   changeStatus?: NodeChangeStatus;
+  labels: { previous: string; current: string };
 }) {
   const currentBlocks = changeStatus === 'removed' ? [] : splitHtmlBlocks(data.html);
   const previousBlocks =
@@ -384,7 +392,7 @@ function SimpleContentDiff({
     return (
       <div className="preview-diff-grid">
         <div className="preview-diff-column">
-          <div className="preview-diff-column-title">上一版</div>
+          <div className="preview-diff-column-title">{labels.previous}</div>
           {rows.map((row, index) => (
             <div
               key={index}
@@ -396,7 +404,7 @@ function SimpleContentDiff({
           ))}
         </div>
         <div className="preview-diff-column">
-          <div className="preview-diff-column-title">当前预览版</div>
+          <div className="preview-diff-column-title">{labels.current}</div>
           {rows.map((row, index) => (
             <div
               key={index}
@@ -492,11 +500,13 @@ function ClueOverviewDiff({
   previous,
   mode,
   changeStatus = 'modified',
+  labels,
 }: {
   data: ClueOverviewNode;
   previous?: ClueOverviewNode;
   mode: 'highlight' | 'side-by-side';
   changeStatus?: NodeChangeStatus;
+  labels: { previous: string; current: string };
 }) {
   const currentClues = changeStatus === 'removed' ? [] : data.clues;
   const previousClues = previous?.clues ?? (changeStatus === 'removed' ? data.clues : []);
@@ -556,11 +566,11 @@ function ClueOverviewDiff({
         </h2>
         <div className="preview-diff-grid">
           <div className="preview-diff-column">
-            <div className="preview-diff-column-title">上一版</div>
+            <div className="preview-diff-column-title">{labels.previous}</div>
             {clueNos.map((clueNo) => renderClue(clueNo, 'previous'))}
           </div>
           <div className="preview-diff-column">
-            <div className="preview-diff-column-title">当前预览版</div>
+            <div className="preview-diff-column-title">{labels.current}</div>
             {clueNos.map((clueNo) => renderClue(clueNo, 'current'))}
           </div>
         </div>
@@ -598,6 +608,7 @@ export function EditorContent({
   compareDataMap,
   diffMode,
   changeStatus,
+  diffLabels = { previous: '上一版', current: '当前预览版' },
 }: EditorContentProps) {
   const isEditing = useEditorStore((s) => s.isEditing);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -651,6 +662,7 @@ export function EditorContent({
           previous={compareData?.type === 'character' ? compareData : undefined}
           mode={diffMode}
           changeStatus={changeStatus}
+          labels={diffLabels}
         />
       ) : diffMode && data?.type === 'clue-overview' ? (
         <ClueOverviewDiff
@@ -658,6 +670,7 @@ export function EditorContent({
           previous={compareData?.type === 'clue-overview' ? compareData : undefined}
           mode={diffMode}
           changeStatus={changeStatus}
+          labels={diffLabels}
         />
       ) : diffMode && data?.type === 'simple' ? (
         <SimpleContentDiff
@@ -665,6 +678,7 @@ export function EditorContent({
           previous={compareData?.type === 'simple' ? compareData : undefined}
           mode={diffMode}
           changeStatus={changeStatus}
+          labels={diffLabels}
         />
       ) : snapshot ? (
         <div dangerouslySetInnerHTML={{ __html: snapshot }} />
