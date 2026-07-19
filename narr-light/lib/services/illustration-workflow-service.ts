@@ -126,6 +126,16 @@ interface MarketRow {
   updated_at: string;
 }
 
+function isMissingTableError(error: { code?: string; message?: string } | null): boolean {
+  return Boolean(
+    error &&
+      (error.code === '42P01' ||
+        error.code === 'PGRST205' ||
+        error.message?.includes('Could not find the table') ||
+        error.message?.includes('schema cache')),
+  );
+}
+
 export interface IllustrationTaskView extends IllustrationTask {
   thumb: string;
   sourceLabel: string;
@@ -172,16 +182,20 @@ export class IllustrationWorkflowService {
 
   async getWorkspace(scriptId: string): Promise<IllustrationWorkspace> {
     const supabase = this.getAdminClient();
-    const [script, styleProfile, marketItems, taskRows, assetRows] = await Promise.all([
+    const [script, characters, marketItems, taskRows, assetRows] = await Promise.all([
       this.getScript(supabase, scriptId),
-      this.getStyleProfile(supabase, scriptId),
+      this.getCharacters(supabase, scriptId),
       this.getMarketItems(supabase),
       this.getTasks(supabase, scriptId),
       this.getAssets(supabase, scriptId),
     ]);
+    const styleProfile = await this.ensureStyleProfile(supabase, script, characters, marketItems);
 
     const assetById = new Map(assetRows.map((row) => [row.id, row]));
-    const tasks = taskRows.map((row) => this.mapTaskRow(row, assetById.get(row.asset_id ?? '') ?? null));
+    const tasks =
+      taskRows.length > 0
+        ? taskRows.map((row) => this.mapTaskRow(row, assetById.get(row.asset_id ?? '') ?? null))
+        : assetRows.map((row, index) => this.mapAssetFallbackTask(row, styleProfile, index));
 
     return {
       script,
@@ -400,7 +414,10 @@ export class IllustrationWorkflowService {
       .select('*')
       .eq('script_id', scriptId)
       .order('sort_order', { ascending: true });
-    if (error) throw new Error(`读取插画任务失败: ${error.message}`);
+    if (error) {
+      if (isMissingTableError(error)) return [];
+      throw new Error(`读取插画任务失败: ${error.message}`);
+    }
     return (data ?? []) as unknown as TaskRow[];
   }
 
@@ -446,20 +463,44 @@ export class IllustrationWorkflowService {
       .select('*')
       .eq('is_active', true)
       .order('sort_order', { ascending: true });
-    if (error) throw new Error(`读取市场素材失败: ${error.message}`);
+    if (error) {
+      if (isMissingTableError(error)) {
+        return [
+          {
+            id: 'fallback-market-scene',
+            title: '雨夜码头氛围',
+            taskType: 'scene',
+            subtitle: '适合港口、旧镇、潮湿夜景',
+            promptHint: '雨夜中的码头与远处灯火，强调潮湿空气、木箱、反光水面和压迫感',
+            visualTone: '水墨古风 / 暗调暖光 / 留白构图 / 雨夜氛围',
+            thumbUrl: '',
+            sortOrder: 1,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        ];
+      }
+      throw new Error(`读取市场素材失败: ${error.message}`);
+    }
     return (data ?? []).map((row) => this.mapMarketRow(row as unknown as MarketRow));
   }
 
   private async getStyleProfile(
     supabase: SupabaseClient,
     scriptId: string,
-  ): Promise<IllustrationStyleProfile> {
+  ): Promise<IllustrationStyleProfile | null> {
     const { data, error } = await supabase
       .from('illustration_style_profiles')
       .select('*')
       .eq('script_id', scriptId)
       .maybeSingle();
-    if (error) throw new Error(`读取风格档案失败: ${error.message}`);
+    if (error) {
+      if (isMissingTableError(error)) {
+        return null;
+      }
+      throw new Error(`读取风格档案失败: ${error.message}`);
+    }
     if (!data) throw new Error('插画风格档案不存在');
     return this.mapStyleRow(data as unknown as StyleProfileRow);
   }
@@ -501,19 +542,36 @@ export class IllustrationWorkflowService {
       .filter(Boolean)
       .join('；');
 
+    const payload = {
+      id: script.id,
+      scriptId: script.id,
+      styleName,
+      visualTone: formatVisualTone(visualTone),
+      masterPrompt,
+      referenceNotes,
+      marketItemId: marketItems[0]?.id ?? null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
     const { data, error } = await supabase
       .from('illustration_style_profiles')
       .insert({
         script_id: script.id,
         style_name: styleName,
-        visual_tone: formatVisualTone(visualTone),
-        master_prompt: masterPrompt,
+        visual_tone: payload.visualTone,
+        master_prompt: payload.masterPrompt,
         reference_notes: referenceNotes,
         market_item_id: marketItems[0]?.id ?? null,
       })
       .select('*')
       .single();
-    if (error) throw new Error(`创建风格档案失败: ${error.message}`);
+    if (error) {
+      if (isMissingTableError(error)) {
+        return payload;
+      }
+      throw new Error(`创建风格档案失败: ${error.message}`);
+    }
     return this.mapStyleRow(data as unknown as StyleProfileRow);
   }
 
@@ -705,7 +763,14 @@ export class IllustrationWorkflowService {
     specs: TaskSpec[],
   ): Promise<void> {
     for (const spec of specs) {
-      await this.upsertSingleTaskAndAsset(supabase, scriptId, styleProfileId, spec);
+      try {
+        await this.upsertSingleTaskAndAsset(supabase, scriptId, styleProfileId, spec);
+      } catch (error) {
+        if (isMissingTableError(error instanceof Error ? { message: error.message } : null)) {
+          return;
+        }
+        throw error;
+      }
     }
   }
 
@@ -819,6 +884,45 @@ export class IllustrationWorkflowService {
       isActive: row.is_active,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+    };
+  }
+
+  private mapAssetFallbackTask(
+    row: AssetRow,
+    styleProfile: IllustrationStyleProfile,
+    index: number,
+  ): IllustrationTaskView {
+    const taskStatus =
+      row.status === 'done' ? 'completed' : row.status === 'active' ? 'running' : 'pending';
+    return {
+      id: row.id,
+      scriptId: row.script_id,
+      styleProfileId: styleProfile.id,
+      assetId: row.id,
+      marketItemId: null,
+      taskKey: row.source_id || row.id,
+      taskType: row.type,
+      sourceType: row.source_type || 'asset',
+      sourceId: row.source_id || row.id,
+      title: row.title,
+      subtitle: row.sub,
+      prompt: `${row.title}；${styleProfile.masterPrompt}`,
+      status: taskStatus,
+      progressPercent: row.progress ?? (row.status === 'done' ? 100 : 0),
+      sortOrder: index,
+      selectedModel: 'openai',
+      selectedRatio: '16:9',
+      selectedCount: 1,
+      resultImageUrl: row.thumb,
+      errorMessage: '',
+      startedAt: null,
+      completedAt: row.status === 'done' ? row.updated_at : null,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      thumb: row.thumb,
+      sourceLabel: row.source_type || 'asset',
+      assetStatus: row.status,
+      taskPromptSeed: `${row.title}；${styleProfile.visualTone}`,
     };
   }
 
