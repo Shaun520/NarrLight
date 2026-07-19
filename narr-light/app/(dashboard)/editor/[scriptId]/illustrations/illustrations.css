@@ -355,7 +355,7 @@
 }
 
 .scene-item.pending {
-  background: rgba(253, 248, 240, 0.5);
+  background: transparent;
 }
 
 .scene-item.active {
@@ -363,11 +363,11 @@
 }
 
 .scene-item.selected {
-  background: rgba(176, 141, 87, 0.03);
+  background: transparent;
 }
 
 .scene-item.selected:hover {
-  background: rgba(176, 141, 87, 0.06);
+  background: rgba(176, 141, 87, 0.04);
 }
 
 .scene-item.selected::before {

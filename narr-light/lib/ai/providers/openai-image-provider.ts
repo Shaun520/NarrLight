@@ -36,21 +36,25 @@ export class OpenAIImageProvider implements AIProvider {
 
     const model = (options?.model as string | undefined) ?? this.model;
     const outputFormat = (options?.output_format as string | undefined) ?? 'png';
-    const response = await fetchWithOptionalProxy(`${this.baseUrl}/images/generations`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
+    const response = await requestWithRetry(
+      `${this.baseUrl}/images/generations`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          prompt,
+          size: options?.size ?? '1024x1024',
+          quality: options?.quality ?? 'medium',
+          output_format: outputFormat,
+        }),
+        signal: (options?.signal ?? undefined) as AbortSignal | undefined,
       },
-      body: JSON.stringify({
-        model,
-        prompt,
-        size: options?.size ?? '1024x1024',
-        quality: options?.quality ?? 'medium',
-        output_format: outputFormat,
-      }),
-      signal: options?.signal as AbortSignal | undefined,
-    }, process.env.OPENAI_PROXY_URL);
+      process.env.OPENAI_PROXY_URL,
+    );
 
     if (!response.ok) {
       throw new Error(await buildProviderError('OpenAI Images', response));
@@ -102,5 +106,61 @@ async function buildProviderError(provider: string, response: Response): Promise
   } catch {
     detail = await response.text().catch(() => '');
   }
-  return `${provider} API error ${response.status}: ${detail || response.statusText}`;
+  const requestId =
+    response.headers.get('x-request-id') ||
+    response.headers.get('openai-request-id') ||
+    response.headers.get('x-amzn-requestid') ||
+    '';
+  return `${provider} API error ${response.status}: ${detail || response.statusText}${requestId ? ` (request-id: ${requestId})` : ''}`;
+}
+
+async function requestWithRetry(
+  input: string | URL,
+  init: RequestInit = {},
+  explicitProxyUrl?: string,
+): Promise<Response> {
+  const maxAttempts = 3;
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const response = await fetchWithOptionalProxy(input, init, explicitProxyUrl);
+    if (response.ok || !shouldRetry(response.status) || attempt === maxAttempts) {
+      return response;
+    }
+
+    lastError = new Error(`OpenAI Images temporary failure ${response.status}`);
+    await delay(200 * 2 ** (attempt - 1), (init.signal ?? undefined) as AbortSignal | undefined);
+  }
+
+  throw lastError ?? new Error('OpenAI Images request failed');
+}
+
+function shouldRetry(status: number): boolean {
+  return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+}
+
+async function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  if (ms <= 0) return;
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+
+    const onAbort = () => {
+      cleanup();
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+    };
+
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }

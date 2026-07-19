@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useCallback, useEffect, useMemo, useState } from 'react';
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App as AntdApp, Modal as AntModal, Progress } from 'antd';
 import { Library, Play, Sparkles } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
@@ -16,7 +16,6 @@ import {
   createCustomIllustrationTaskAction,
   createIllustrationTaskFromMarketAction,
   getIllustrationWorkspaceAction,
-  runIllustrationTaskAction,
   type IllustrationAssetView,
   type IllustrationWorkspaceView,
 } from './actions';
@@ -73,10 +72,11 @@ function replaceTask(
 function markTaskRunning(
   workspace: IllustrationWorkspaceView,
   taskId: string,
+  progressPercent = 12,
 ): IllustrationWorkspaceView {
   const tasks = workspace.tasks.map((task) =>
     task.id === taskId
-      ? { ...task, status: 'running' as const, assetStatus: 'active' as const, progressPercent: 12 }
+      ? { ...task, status: 'running' as const, assetStatus: 'active' as const, progressPercent }
       : task,
   );
   return {
@@ -84,6 +84,56 @@ function markTaskRunning(
     tasks,
     assets: tasks.map(taskToAsset),
   };
+}
+
+function markTaskCancelled(
+  workspace: IllustrationWorkspaceView,
+  taskId: string,
+): IllustrationWorkspaceView {
+  const tasks = workspace.tasks.map((task) =>
+    task.id === taskId
+      ? {
+          ...task,
+          status: 'cancelled' as const,
+          assetStatus: 'pending' as const,
+          progressPercent: 0,
+          errorMessage: '生成已停止',
+        }
+      : task,
+  );
+  return {
+    ...workspace,
+    tasks,
+    assets: tasks.map(taskToAsset),
+  };
+}
+
+function updateTaskProgress(
+  workspace: IllustrationWorkspaceView,
+  taskId: string,
+  progressPercent: number,
+): IllustrationWorkspaceView {
+  const tasks = workspace.tasks.map((task) =>
+    task.id === taskId && task.status === 'running'
+      ? {
+          ...task,
+          assetStatus: 'active' as const,
+          progressPercent: Math.max(task.progressPercent, progressPercent),
+        }
+      : task,
+  );
+  return {
+    ...workspace,
+    tasks,
+    assets: tasks.map(taskToAsset),
+  };
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    (error instanceof DOMException && error.name === 'AbortError') ||
+    (error instanceof Error && error.name === 'AbortError')
+  );
 }
 
 export default function IllustrationsPage({ params }: PageProps) {
@@ -100,6 +150,8 @@ export default function IllustrationsPage({ params }: PageProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [marketOpen, setMarketOpen] = useState(false);
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
+  const generationControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const progressTimersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
 
   const [batchOpen, setBatchOpen] = useState(false);
   const [batchPercent, setBatchPercent] = useState(0);
@@ -125,6 +177,43 @@ export default function IllustrationsPage({ params }: PageProps) {
     setSelectedAssetId((prev) => prev || sourceMatch?.id || data.assets[0]?.id || '');
   }, [scriptId, sourceId]);
 
+  const stopProgressTicker = useCallback((taskId: string) => {
+    const timer = progressTimersRef.current.get(taskId);
+    if (timer) {
+      clearInterval(timer);
+      progressTimersRef.current.delete(taskId);
+    }
+  }, []);
+
+  const startProgressTicker = useCallback(
+    (taskId: string) => {
+      stopProgressTicker(taskId);
+      const timer = setInterval(() => {
+        setWorkspace((prev) => {
+          if (!prev) return prev;
+          const task = prev.tasks.find((item) => item.id === taskId);
+          if (!task || task.status !== 'running') return prev;
+          const current = task.progressPercent || 12;
+          const step = current < 45 ? 6 : current < 75 ? 4 : 2;
+          return updateTaskProgress(prev, taskId, Math.min(92, current + step));
+        });
+      }, 900);
+      progressTimersRef.current.set(taskId, timer);
+    },
+    [stopProgressTicker],
+  );
+
+  useEffect(() => {
+    const controllers = generationControllersRef.current;
+    const timers = progressTimersRef.current;
+    return () => {
+      controllers.forEach((controller) => controller.abort());
+      timers.forEach((timer) => clearInterval(timer));
+      controllers.clear();
+      timers.clear();
+    };
+  }, []);
+
   useEffect(() => {
     setActiveType(normalizeAssetFilter(searchParams.get('type')));
   }, [searchParams]);
@@ -142,28 +231,49 @@ export default function IllustrationsPage({ params }: PageProps) {
   }, [loadWorkspace, message]);
 
   const runTask = async (taskId: string, config?: GenerateConfig): Promise<void> => {
-    if (generatingIds.has(taskId)) {
+    if (generationControllersRef.current.has(taskId)) {
       message.warning('该任务正在生成中，请稍候');
       return;
     }
 
+    const controller = new AbortController();
+    generationControllersRef.current.set(taskId, controller);
     setGeneratingIds((prev) => new Set(prev).add(taskId));
     setWorkspace((prev) => (prev ? markTaskRunning(prev, taskId) : prev));
+    startProgressTicker(taskId);
 
     try {
-      const result = await runIllustrationTaskAction(taskId, {
-        prompt: config?.prompt,
-        model: config?.model,
-        ratio: config?.ratio,
-        count: config?.count,
+      const response = await fetch(`/api/illustrations/tasks/${encodeURIComponent(taskId)}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: config?.prompt,
+          model: config?.model,
+          ratio: config?.ratio,
+          count: config?.count,
+        }),
+        signal: controller.signal,
       });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error || '生成失败，请重试');
+      }
+
+      const result = (await response.json()) as TaskView;
       setWorkspace((prev) => (prev ? replaceTask(prev, result) : prev));
-      message.success(`「${result.title}」生成完成`);
+      message.success(`任务「${result.title}」生成完成`);
     } catch (error) {
+      if (isAbortError(error) || controller.signal.aborted) {
+        setWorkspace((prev) => (prev ? markTaskCancelled(prev, taskId) : prev));
+        return;
+      }
       console.error('Generate illustration task failed:', error);
       await loadWorkspace();
       message.error(error instanceof Error ? error.message : '生成失败，请重试');
     } finally {
+      generationControllersRef.current.delete(taskId);
+      stopProgressTicker(taskId);
       setGeneratingIds((prev) => {
         const next = new Set(prev);
         next.delete(taskId);
@@ -171,6 +281,24 @@ export default function IllustrationsPage({ params }: PageProps) {
       });
     }
   };
+
+  const stopTask = useCallback(
+    (taskId: string) => {
+      const controller = generationControllersRef.current.get(taskId);
+      if (!controller) return;
+      controller.abort();
+      generationControllersRef.current.delete(taskId);
+      stopProgressTicker(taskId);
+      setGeneratingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+      setWorkspace((prev) => (prev ? markTaskCancelled(prev, taskId) : prev));
+      message.info('已停止生成');
+    },
+    [message, stopProgressTicker],
+  );
 
   const handleGenerate = (config: GenerateConfig) => {
     if (!selectedTask) {
@@ -358,7 +486,11 @@ export default function IllustrationsPage({ params }: PageProps) {
         <GalleryPanel
           asset={selectedAsset}
           generatedPrompt={selectedTask?.taskPromptSeed ?? selectedAsset?.taskPrompt}
+          isGenerating={selectedTask ? generatingIds.has(selectedTask.id) : false}
           onGenerate={handleGenerate}
+          onStopGenerate={() => {
+            if (selectedTask) stopTask(selectedTask.id);
+          }}
           onAdopt={handleAdopt}
           onRegenerate={handleRegenerate}
           onUpscale={handleUpscale}

@@ -162,6 +162,13 @@ interface TaskSpec {
   marketItemId?: string | null;
 }
 
+function isAbortError(error: unknown): boolean {
+  return (
+    (error instanceof DOMException && error.name === 'AbortError') ||
+    (error instanceof Error && error.name === 'AbortError')
+  );
+}
+
 export class IllustrationWorkflowService {
   async ensureScriptWorkspace(scriptId: string): Promise<IllustrationWorkspace> {
     const supabase = this.getAdminClient();
@@ -273,7 +280,7 @@ export class IllustrationWorkflowService {
 
   async runTask(
     taskId: string,
-    config?: { prompt?: string; model?: string; ratio?: string; count?: number },
+    config?: { prompt?: string; model?: string; ratio?: string; count?: number; signal?: AbortSignal },
   ): Promise<IllustrationTaskView> {
     const supabase = this.getAdminClient();
     let task = await this.getTaskById(supabase, taskId);
@@ -301,6 +308,7 @@ export class IllustrationWorkflowService {
           model: task.selected_model,
           ratio: task.selected_ratio,
           count: task.selected_count,
+          signal: config?.signal,
         },
         async (percent) => {
           await this.updateTask(supabase, taskId, {
@@ -320,6 +328,15 @@ export class IllustrationWorkflowService {
       const asset = await this.getAssetById(supabase, assetId);
       return this.mapTaskRow(updated, asset);
     } catch (error) {
+      if (isAbortError(error)) {
+        await this.updateTask(supabase, taskId, {
+          status: 'cancelled',
+          progress_percent: 0,
+          completed_at: new Date().toISOString(),
+          error_message: '生成已停止',
+        });
+        throw error;
+      }
       await this.updateTask(supabase, taskId, {
         status: 'failed',
         progress_percent: 0,

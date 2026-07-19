@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ImagePlus, Play, Sparkles } from 'lucide-react';
+import { ImagePlus, Play, Sparkles, Square } from 'lucide-react';
 import { GenCard, type GenCardData } from './gen-card';
 import type { IllustrationAsset } from './asset-list';
 
@@ -25,7 +25,9 @@ interface GalleryPanelProps {
   asset: IllustrationAsset | undefined;
   generatedPrompt?: string;
   visualTone?: string;
+  isGenerating?: boolean;
   onGenerate?: (config: GenerateConfig) => void;
+  onStopGenerate?: () => void;
   onAdopt?: (assetId: string) => void;
   onRegenerate?: (assetId: string) => void;
   onUpscale?: (assetId: string) => void;
@@ -61,7 +63,9 @@ export function GalleryPanel({
   asset,
   generatedPrompt,
   visualTone,
+  isGenerating = false,
   onGenerate,
+  onStopGenerate,
   onAdopt,
   onRegenerate,
   onUpscale,
@@ -80,6 +84,10 @@ export function GalleryPanel({
   }, [asset, generatedPrompt]);
 
   const handleGenerate = () => {
+    if (isGenerating) {
+      onStopGenerate?.();
+      return;
+    }
     onGenerate?.({ prompt, model, ratio, count });
   };
 
@@ -183,8 +191,8 @@ export function GalleryPanel({
             style={{ marginLeft: 'auto' }}
             onClick={handleGenerate}
           >
-            <Play size={14} />
-            开始生成
+            {isGenerating ? <Square size={14} /> : <Play size={14} />}
+            {isGenerating ? '停止生成' : '开始生成'}
           </button>
         </div>
         <div className="pb-inject">

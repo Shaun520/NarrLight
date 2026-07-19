@@ -14,6 +14,7 @@ export interface GenerateSingleParams {
   model: string;
   ratio: string;
   count: number;
+  signal?: AbortSignal;
 }
 
 export interface GenerateResult {
@@ -120,8 +121,18 @@ function extensionFromContentType(contentType: string | null): string {
   return 'png';
 }
 
-async function fetchImageBlob(imageUrl: string): Promise<{ blob: Blob; contentType: string }> {
-  const response = await fetchWithOptionalProxy(imageUrl);
+function isAbortError(error: unknown): boolean {
+  return (
+    (error instanceof DOMException && error.name === 'AbortError') ||
+    (error instanceof Error && error.name === 'AbortError')
+  );
+}
+
+async function fetchImageBlob(
+  imageUrl: string,
+  signal?: AbortSignal,
+): Promise<{ blob: Blob; contentType: string }> {
+  const response = await fetchWithOptionalProxy(imageUrl, { signal });
   if (!response.ok) {
     throw new ApiError(
       'IMAGE_DOWNLOAD_FAILED',
@@ -155,6 +166,7 @@ export class IllustrationGenerateService {
         size: mapRatioToSize(params.ratio, providerName),
         n: Math.max(1, Math.min(params.count, 4)),
         output_format: 'png',
+        signal: params.signal,
       });
 
       onProgress?.(70, '上传图片');
@@ -162,6 +174,7 @@ export class IllustrationGenerateService {
         scriptId: params.scriptId,
         assetId: params.assetId,
         sourceImageUrl: result.imageUrl,
+        signal: params.signal,
       });
 
       onProgress?.(90, '写入版本');
@@ -189,7 +202,11 @@ export class IllustrationGenerateService {
         seed: version.seed,
       };
     } catch (error) {
-      await this.markAssetFailed(supabase, params.assetId);
+      if (isAbortError(error)) {
+        await this.markAssetCancelled(supabase, params.assetId);
+      } else {
+        await this.markAssetFailed(supabase, params.assetId);
+      }
       throw error;
     }
   }
@@ -251,12 +268,24 @@ export class IllustrationGenerateService {
       .eq('id', assetId);
   }
 
+  private async markAssetCancelled(supabase: SupabaseClient, assetId: string): Promise<void> {
+    await supabase
+      .from('illustration_assets')
+      .update({
+        status: 'pending',
+        progress: 0,
+        sub: '生成已停止',
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq('id', assetId);
+  }
+
   private async storeGeneratedImage(
     supabase: SupabaseClient,
-    args: { scriptId: string; assetId: string; sourceImageUrl: string },
+    args: { scriptId: string; assetId: string; sourceImageUrl: string; signal?: AbortSignal },
   ): Promise<string> {
     await this.ensureImageBucket(supabase);
-    const { blob, contentType } = await fetchImageBlob(args.sourceImageUrl);
+    const { blob, contentType } = await fetchImageBlob(args.sourceImageUrl, args.signal);
     const ext = extensionFromContentType(contentType);
     const path = `${args.scriptId}/${args.assetId}/${Date.now()}.${ext}`;
 
