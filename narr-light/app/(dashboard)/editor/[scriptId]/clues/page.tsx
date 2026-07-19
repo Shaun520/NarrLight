@@ -8,7 +8,10 @@ interface PageProps {
 
 export default async function CluesPage({ params }: PageProps) {
   const { scriptId } = await params;
-  const clues = await clueService.getClues(scriptId);
+  const [clues, actTabs] = await Promise.all([
+    clueService.getClues(scriptId),
+    clueService.getActTabs(scriptId),
+  ]);
 
-  return <CluesManager scriptId={scriptId} initialClues={clues} />;
+  return <CluesManager scriptId={scriptId} initialClues={clues} actTabs={actTabs} />;
 }

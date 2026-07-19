@@ -23,6 +23,7 @@ export interface GenerateConfig {
 
 interface GalleryPanelProps {
   asset: IllustrationAsset | undefined;
+  generatedPrompt?: string;
   visualTone?: string;
   onGenerate?: (config: GenerateConfig) => void;
   onAdopt?: (assetId: string) => void;
@@ -58,6 +59,7 @@ function defaultPrompt(asset: IllustrationAsset | undefined): string {
 
 export function GalleryPanel({
   asset,
+  generatedPrompt,
   visualTone,
   onGenerate,
   onAdopt,
@@ -74,8 +76,8 @@ export function GalleryPanel({
   const assetId = asset?.id;
 
   useEffect(() => {
-    setPrompt(defaultPrompt(asset));
-  }, [asset]);
+    setPrompt(generatedPrompt ?? defaultPrompt(asset));
+  }, [asset, generatedPrompt]);
 
   const handleGenerate = () => {
     onGenerate?.({ prompt, model, ratio, count });

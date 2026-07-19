@@ -21,6 +21,7 @@ import {
   filterClues,
   type Clue,
   type ClueAct,
+  type ClueActTab,
   type CluePhase,
 } from './clue-card';
 
@@ -33,14 +34,14 @@ export interface UseClueFilterResult {
   applyFilter: () => Clue[];
   /** 刷新双向联动计数 */
   refreshCounts: () => {
-    actCounts: Record<ClueAct | 'all', number>;
+    actCounts: Record<string, number>;
     phaseCounts: Record<CluePhase | 'all', number>;
   };
   /** 确认空状态：当前筛选下无线索 */
   ensureEmptyState: () => boolean;
   visible: Clue[];
   counts: {
-    actCounts: Record<ClueAct | 'all', number>;
+    actCounts: Record<string, number>;
     phaseCounts: Record<CluePhase | 'all', number>;
   };
   isEmpty: boolean;
@@ -75,19 +76,14 @@ export function useClueFilter(clues: Clue[]): UseClueFilterResult {
 }
 
 interface ClueTabsProps {
-  clues: Clue[];
   curAct: ClueAct | 'all';
   curPhase: CluePhase | 'all';
   counts: UseClueFilterResult['counts'];
+  actTabs?: ClueActTab[];
   onActChange: (act: ClueAct | 'all') => void;
   onPhaseChange: (phase: CluePhase | 'all') => void;
 }
 
-/**
- * 幕次行分隔符位置：全部 | 第一幕 | 第二幕 | 第三幕 | 真相复盘
- * 原型在「全部」后、「真相复盘」前各插一道 .tab-divider。
- */
-const ACT_DIVIDER_AFTER: (ClueAct | 'all')[] = ['all', 'act3'];
 /** 环节行分隔符位置：全部 | 公共 | 私有 | 关键 | 干扰，仅「全部」后一道分隔。 */
 const PHASE_DIVIDER_AFTER: (CluePhase | 'all')[] = ['all'];
 
@@ -98,6 +94,7 @@ export function ClueTabs({
   curAct,
   curPhase,
   counts,
+  actTabs = ACT_TABS,
   onActChange,
   onPhaseChange,
 }: ClueTabsProps) {
@@ -106,8 +103,9 @@ export function ClueTabs({
       {/* ===== 第一行：幕次 ===== */}
       <div className="tab-row">
         <span className="row-label">幕次</span>
-        {ACT_TABS.map((tab) => (
+        {actTabs.map((tab) => (
           <Fragment key={tab.act}>
+            {tab.act === 'truth' && <div className="tab-divider" />}
             <div
               className={`act-tab ${curAct === tab.act ? 'active' : ''}`}
               data-act={tab.act}
@@ -121,9 +119,9 @@ export function ClueTabs({
                 }
               }}
             >
-              {tab.label} <span className="t-count">{counts.actCounts[tab.act]}</span>
+              {tab.label} <span className="t-count">{counts.actCounts[tab.act] ?? 0}</span>
             </div>
-            {ACT_DIVIDER_AFTER.includes(tab.act) && <div className="tab-divider" />}
+            {tab.act === 'all' && <div className="tab-divider" />}
           </Fragment>
         ))}
       </div>

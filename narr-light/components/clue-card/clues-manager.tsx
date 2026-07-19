@@ -6,9 +6,8 @@ import { Download, ImagePlus, MoreHorizontal, Package, WandSparkles } from 'luci
 import { useRouter } from 'next/navigation';
 import {
   ClueCard,
-  STYLE_CHIPS,
+  type ClueActTab,
   type Clue,
-  type ClueCardStyle,
 } from '@/components/clue-card/clue-card';
 import { ClueDetail } from '@/components/clue-card/clue-detail';
 import { ClueHierarchy } from '@/components/clue-card/clue-hierarchy';
@@ -47,12 +46,12 @@ function stripRedrawStamp(text: string): string {
 interface CluesManagerProps {
   scriptId: string;
   initialClues: Clue[];
+  actTabs: ClueActTab[];
 }
 
-export function CluesManager({ scriptId, initialClues }: CluesManagerProps) {
+export function CluesManager({ scriptId, initialClues, actTabs }: CluesManagerProps) {
   const [clues, setClues] = useState<Clue[]>(initialClues);
   const filter = useClueFilter(clues);
-  const [style, setStyle] = useState<ClueCardStyle>('ink');
   const [selectedClueId, setSelectedClueId] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportStatus, setExportStatus] = useState<ExportStatus>('idle');
@@ -363,7 +362,7 @@ export function CluesManager({ scriptId, initialClues }: CluesManagerProps) {
             线索卡管理 <span className="seal">{clues.length} 张</span>
           </h1>
           <div className="page-desc">
-            {'// 四种风格一键切换 · 自动分类 · 批量重绘与导出'}
+            {'// 自动分类 · 批量补全插画 · 线索包导出'}
           </div>
         </div>
         <div className="page-actions">
@@ -385,31 +384,11 @@ export function CluesManager({ scriptId, initialClues }: CluesManagerProps) {
         </div>
       </div>
 
-      <div className="style-switcher">
-        {STYLE_CHIPS.map((chip) => (
-          <div
-            key={chip.style}
-            className={`style-chip ${style === chip.style ? 'active' : ''}`}
-            role="button"
-            tabIndex={0}
-            onClick={() => setStyle(chip.style)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                setStyle(chip.style);
-              }
-            }}
-          >
-            {chip.label}
-          </div>
-        ))}
-      </div>
-
       <ClueTabs
-        clues={clues}
         curAct={filter.curAct}
         curPhase={filter.curPhase}
         counts={filter.counts}
+        actTabs={actTabs}
         onActChange={filter.setAct}
         onPhaseChange={filter.setPhase}
       />
@@ -419,7 +398,6 @@ export function CluesManager({ scriptId, initialClues }: CluesManagerProps) {
           <ClueCard
             key={clue.id}
             clue={clue}
-            style={style}
             selected={clue.id === selectedClueId}
             onClick={(item) => setSelectedClueId(item.id)}
           />

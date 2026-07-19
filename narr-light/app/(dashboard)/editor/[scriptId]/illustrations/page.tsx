@@ -13,8 +13,14 @@ import {
 import { GalleryPanel, type GenerateConfig } from '@/components/illust/gallery-panel';
 import { NewTaskDrawer, type NewTaskFormData } from '@/components/illust/new-task-drawer';
 import {
+  buildCharacterConsistencyPrompt,
+  type CharacterConsistencyInput,
+} from '@/lib/ai/prompts/illustration-style';
+import {
   generateIllustrationAssetAction,
+  getIllustrationCharactersAction,
   getIllustrationAssetsAction,
+  type IllustrationCharacterView,
   type IllustrationAssetView,
 } from './actions';
 import './illustrations.css';
@@ -43,6 +49,42 @@ function buildPrompt(asset: IllustrationAssetView, prompt: string): string {
   return `${asset.title}，水墨古风，暗调暖光，留白构图，悬疑氛围，突出线索主体细节。`;
 }
 
+function normalizeMatchText(text: string): string {
+  return text.replace(/\s+/g, '').toLowerCase();
+}
+
+function findCharacterForAsset(
+  asset: IllustrationAssetView | undefined,
+  characters: IllustrationCharacterView[],
+): IllustrationCharacterView | undefined {
+  if (!asset || asset.type !== 'char') return undefined;
+
+  const sourceMatch = characters.find(
+    (character) =>
+      asset.sourceId === character.id &&
+      (asset.sourceType === 'character' || asset.sourceType === 'char'),
+  );
+  if (sourceMatch) return sourceMatch;
+
+  const normalizedTitle = normalizeMatchText(asset.title);
+  return characters.find((character) =>
+    normalizedTitle.includes(normalizeMatchText(character.name)),
+  );
+}
+
+function buildAssetPrompt(
+  asset: IllustrationAssetView,
+  prompt: string,
+  character?: CharacterConsistencyInput,
+): string {
+  const trimmed = prompt.trim();
+  if (trimmed) return trimmed;
+  if (asset.type === 'char' && character) {
+    return buildCharacterConsistencyPrompt(character);
+  }
+  return buildPrompt(asset, prompt);
+}
+
 export default function IllustrationsPage({ params }: PageProps) {
   const { scriptId } = use(params);
   const searchParams = useSearchParams();
@@ -55,6 +97,7 @@ export default function IllustrationsPage({ params }: PageProps) {
   const [selectedAssetId, setSelectedAssetId] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [assets, setAssets] = useState<IllustrationAssetView[]>([]);
+  const [characters, setCharacters] = useState<IllustrationCharacterView[]>([]);
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
 
   const [batchOpen, setBatchOpen] = useState(false);
@@ -66,6 +109,14 @@ export default function IllustrationsPage({ params }: PageProps) {
 
   const { counts, total, done } = useMemo(() => countAssetsByType(assets), [assets]);
   const selectedAsset = assets.find((asset) => asset.id === selectedAssetId);
+  const selectedCharacter = useMemo(
+    () => findCharacterForAsset(selectedAsset, characters),
+    [characters, selectedAsset],
+  );
+  const selectedGeneratedPrompt = useMemo(() => {
+    if (!selectedAsset || selectedAsset.type !== 'char' || !selectedCharacter) return undefined;
+    return buildCharacterConsistencyPrompt(selectedCharacter);
+  }, [selectedAsset, selectedCharacter]);
 
   useEffect(() => {
     setActiveType(normalizeAssetFilter(searchParams.get('type')));
@@ -73,10 +124,14 @@ export default function IllustrationsPage({ params }: PageProps) {
 
   useEffect(() => {
     let cancelled = false;
-    getIllustrationAssetsAction(scriptId)
-      .then((items) => {
+    Promise.all([
+      getIllustrationAssetsAction(scriptId),
+      getIllustrationCharactersAction(scriptId),
+    ])
+      .then(([items, characterItems]) => {
         if (cancelled) return;
         setAssets(items);
+        setCharacters(characterItems);
         const sourceMatch = sourceId
           ? items.find((asset) => asset.sourceType === 'clue' && asset.sourceId === sourceId)
           : undefined;
@@ -117,7 +172,11 @@ export default function IllustrationsPage({ params }: PageProps) {
       const result = await generateIllustrationAssetAction({
         scriptId,
         assetId,
-        prompt: buildPrompt(asset, config.prompt),
+        prompt: buildAssetPrompt(
+          asset,
+          config.prompt,
+          findCharacterForAsset(asset, characters),
+        ),
         model: config.model,
         ratio: config.ratio,
         count: config.count,
@@ -293,6 +352,7 @@ export default function IllustrationsPage({ params }: PageProps) {
         />
         <GalleryPanel
           asset={selectedAsset}
+          generatedPrompt={selectedGeneratedPrompt}
           onGenerate={handleGenerate}
           onAdopt={handleAdopt}
           onRegenerate={handleRegenerate}

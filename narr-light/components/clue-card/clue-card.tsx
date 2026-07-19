@@ -1,8 +1,7 @@
 /**
  * 线索卡组件（T166）
  *
- * 4 种视觉风格：ink（水墨古风，默认）/ film（胶片暗调）/ hand（手写便签）/ mini（极简白卡）。
- * 视觉与 class 命名严格对齐原型 workbench2.html #view-clues .clue-card（CSS 2426-2482 行）。
+ * 默认水墨线索卡样式。
  *
  * 结构：.cc-corner（大写汉字序号）/ .cc-tag（public/private/key/trap，带配色）/
  *      .cc-body（.cc-title + .cc-text）/ .cc-foot（编号 + 位置）
@@ -11,8 +10,8 @@
  */
 import type { CSSProperties } from 'react';
 
-/** 幕次（对齐 .act-tab[data-act]） */
-export type ClueAct = 'act1' | 'act2' | 'act3' | 'truth';
+/** 幕次（对齐 .act-tab[data-act]）：真实分幕使用 act1 / act2 / ...，真相复盘单独保留 */
+export type ClueAct = `act${number}` | 'truth';
 
 /** 环节（对齐 .phase-tab[data-phase]） */
 export type CluePhase = 'public' | 'private' | 'key' | 'trap';
@@ -23,12 +22,17 @@ export type ClueType = 'physical' | 'testimony' | 'deep' | 'hidden';
 /** 线索卡视觉风格 */
 export type ClueCardStyle = 'ink' | 'film' | 'hand' | 'mini';
 
-/** 幕次 tab 配置（顺序对齐原型 .clue-tabs 第一行） */
-export const ACT_TABS: { act: ClueAct | 'all'; label: string }[] = [
+export interface ClueActTab {
+  act: ClueAct | 'all';
+  label: string;
+}
+
+/** 默认幕次 tab 配置（无真实分幕数据时兜底） */
+export const ACT_TABS: ClueActTab[] = [
   { act: 'all', label: '全部' },
-  { act: 'act1', label: '第一幕 · 序幕' },
-  { act: 'act2', label: '第二幕 · 搜证' },
-  { act: 'act3', label: '第三幕 · 圆桌' },
+  { act: 'act1', label: '第一幕' },
+  { act: 'act2', label: '第二幕' },
+  { act: 'act3', label: '第三幕' },
   { act: 'truth', label: '真相复盘' },
 ];
 
@@ -41,14 +45,6 @@ export const PHASE_TABS: { phase: CluePhase | 'all'; label: string }[] = [
   { phase: 'trap', label: '干扰线索' },
 ];
 
-/** 风格切换 chip 配置（对齐 .style-switcher） */
-export const STYLE_CHIPS: { style: ClueCardStyle; label: string }[] = [
-  { style: 'ink', label: '水墨古风' },
-  { style: 'film', label: '胶片暗调' },
-  { style: 'hand', label: '手写便签' },
-  { style: 'mini', label: '极简白卡' },
-];
-
 /** 线索内容分类标签 */
 export const CLUE_TYPE_LABELS: Record<ClueType, string> = {
   physical: '物证',
@@ -58,10 +54,10 @@ export const CLUE_TYPE_LABELS: Record<ClueType, string> = {
 };
 
 /** 幕次中文标签 */
-export const ACT_LABELS: Record<ClueAct, string> = {
-  act1: '第一幕 · 序幕',
-  act2: '第二幕 · 搜证',
-  act3: '第三幕 · 圆桌',
+export const ACT_LABELS: Record<string, string> = {
+  act1: '第一幕',
+  act2: '第二幕',
+  act3: '第三幕',
   truth: '真相复盘',
 };
 
@@ -131,10 +127,10 @@ export function computeClueCounts(
   curAct: ClueAct | 'all',
   curPhase: CluePhase | 'all',
 ): {
-  actCounts: Record<ClueAct | 'all', number>;
+  actCounts: Record<string, number>;
   phaseCounts: Record<CluePhase | 'all', number>;
 } {
-  const actCounts: Record<ClueAct | 'all', number> = {
+  const actCounts: Record<string, number> = {
     all: 0, act1: 0, act2: 0, act3: 0, truth: 0,
   };
   const phaseCounts: Record<CluePhase | 'all', number> = {
@@ -145,7 +141,7 @@ export function computeClueCounts(
     const actOk = curAct === 'all' || c.act === curAct;
     if (phaseOk) {
       actCounts.all += 1;
-      actCounts[c.act] += 1;
+      actCounts[c.act] = (actCounts[c.act] ?? 0) + 1;
     }
     if (actOk) {
       phaseCounts.all += 1;

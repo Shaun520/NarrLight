@@ -38,6 +38,11 @@ export interface ClueDTO extends Clue {
   updatedAt: string;
 }
 
+export interface ClueActTabDTO {
+  act: ClueAct | 'all';
+  label: string;
+}
+
 export interface CreateClueInput {
   scriptId: string;
   type: ClueType;
@@ -54,14 +59,9 @@ export interface CreateClueInput {
 
 export type UpdateCluePatch = Partial<Omit<CreateClueInput, 'scriptId'>>;
 
-const ACT_BY_SEARCH_ROUND: Record<number, ClueAct> = {
-  1: 'act1',
-  2: 'act2',
-  3: 'act3',
-};
-
 function toAct(searchRound: number | null): ClueAct {
-  return ACT_BY_SEARCH_ROUND[searchRound ?? 1] ?? 'truth';
+  if (!searchRound || searchRound < 1) return 'truth';
+  return `act${searchRound}`;
 }
 
 function toSearchRound(act?: ClueAct): number | undefined {
@@ -78,11 +78,20 @@ function toPhase(row: Pick<ClueRow, 'is_key_clue' | 'is_distractor'>): CluePhase
   return 'public';
 }
 
+function buildActLabel(sortOrder: number): string {
+  const chinese = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+  if (sortOrder <= 10) {
+    return `第${chinese[sortOrder] ?? sortOrder}幕`;
+  }
+  return `第${sortOrder}幕`;
+}
+
 function buildTag(phase: CluePhase, act: ClueAct, owner?: string): string {
   if (phase === 'key') return PHASE_LABELS.key;
   if (phase === 'trap') return PHASE_LABELS.trap;
   if (phase === 'private' && owner) return `${owner}私有`;
-  return `${PHASE_LABELS.public} · ${ACT_LABELS[act].split(' · ')[0]}`;
+  const actLabel = ACT_LABELS[act] ?? `第${act.replace('act', '')}幕`;
+  return `${PHASE_LABELS.public} · ${actLabel.split(' · ')[0]}`;
 }
 
 function buildCode(row: Pick<ClueRow, 'sort_order' | 'is_key_clue'>): string {
@@ -99,6 +108,30 @@ function parseRequires(unlockCondition: string): string[] {
  * 线索管理服务。
  */
 export class ClueService {
+  async getActTabs(scriptId: string): Promise<ClueActTabDTO[]> {
+    const supabase = this.getAdminClient();
+    const { data, error } = await supabase
+      .from('acts')
+      .select('title, sort_order')
+      .eq('script_id', scriptId)
+      .order('sort_order', { ascending: true });
+
+    if (error) {
+      throw new ApiError('DB_QUERY_ERROR', `获取幕次列表失败: ${error.message}`, 500);
+    }
+
+    const actTabs = (data ?? []).map((act) => ({
+      act: `act${act.sort_order}` as ClueAct,
+      label: buildActLabel(act.sort_order),
+    }));
+
+    return [
+      { act: 'all', label: '全部' },
+      ...actTabs,
+      { act: 'truth', label: '真相复盘' },
+    ];
+  }
+
   async getClues(scriptId: string): Promise<ClueDTO[]> {
     const supabase = this.getAdminClient();
     const { data, error } = await supabase
