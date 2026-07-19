@@ -39,6 +39,16 @@ interface EditorContentProps {
   contentId?: string;
   compareDataMap?: Record<string, ScriptNodeData>;
   diffMode?: 'highlight' | 'side-by-side';
+  changeStatus?: NodeChangeStatus;
+}
+
+type NodeChangeStatus = 'added' | 'modified' | 'removed';
+type DiffBlockStatus = 'added' | 'removed' | 'modified' | 'unchanged';
+
+interface AlignedDiffBlock {
+  previous?: string;
+  current?: string;
+  status: DiffBlockStatus;
 }
 
 function normalizeDiffText(value: string): string {
@@ -50,6 +60,173 @@ function normalizeDiffText(value: string): string {
 
 function hasTextChanged(current: string, previous = ''): boolean {
   return normalizeDiffText(current) !== normalizeDiffText(previous);
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function plainTextFromHtml(value: string): string {
+  return normalizeDiffText(value);
+}
+
+function inlineDiff(
+  previousValue: string,
+  currentValue: string,
+): { previous: string; current: string } {
+  const previous = plainTextFromHtml(previousValue);
+  const current = plainTextFromHtml(currentValue);
+  if (previous === current) {
+    return { previous: escapeHtml(previous), current: escapeHtml(current) };
+  }
+  if (!previous) {
+    return { previous: '', current: `<span class="diff-ins">${escapeHtml(current)}</span>` };
+  }
+  if (!current) {
+    return { previous: `<span class="diff-del">${escapeHtml(previous)}</span>`, current: '' };
+  }
+  if (previous.length * current.length > 250000) {
+    return {
+      previous: `<span class="diff-del">${escapeHtml(previous)}</span>`,
+      current: `<span class="diff-ins">${escapeHtml(current)}</span>`,
+    };
+  }
+
+  const rows = previous.length + 1;
+  const cols = current.length + 1;
+  const table = Array.from({ length: rows }, () => Array<number>(cols).fill(0));
+  for (let i = previous.length - 1; i >= 0; i -= 1) {
+    for (let j = current.length - 1; j >= 0; j -= 1) {
+      table[i][j] =
+        previous[i] === current[j]
+          ? table[i + 1][j + 1] + 1
+          : Math.max(table[i + 1][j], table[i][j + 1]);
+    }
+  }
+
+  const previousParts: string[] = [];
+  const currentParts: string[] = [];
+  let deleteBuffer = '';
+  let insertBuffer = '';
+  const flushDelete = () => {
+    if (!deleteBuffer) return;
+    previousParts.push(`<span class="diff-del">${escapeHtml(deleteBuffer)}</span>`);
+    deleteBuffer = '';
+  };
+  const flushInsert = () => {
+    if (!insertBuffer) return;
+    currentParts.push(`<span class="diff-ins">${escapeHtml(insertBuffer)}</span>`);
+    insertBuffer = '';
+  };
+  let i = 0;
+  let j = 0;
+  while (i < previous.length || j < current.length) {
+    if (i < previous.length && j < current.length && previous[i] === current[j]) {
+      flushDelete();
+      flushInsert();
+      previousParts.push(escapeHtml(previous[i]));
+      currentParts.push(escapeHtml(current[j]));
+      i += 1;
+      j += 1;
+    } else if (
+      j < current.length &&
+      (i === previous.length || table[i][j + 1] >= table[i + 1][j])
+    ) {
+      insertBuffer += current[j];
+      j += 1;
+    } else if (i < previous.length) {
+      deleteBuffer += previous[i];
+      i += 1;
+    }
+  }
+  flushDelete();
+  flushInsert();
+
+  return { previous: previousParts.join(''), current: currentParts.join('') };
+}
+
+function alignDiffBlocks(previousBlocks: string[], currentBlocks: string[]): AlignedDiffBlock[] {
+  const previousKeys = previousBlocks.map(normalizeDiffText);
+  const currentKeys = currentBlocks.map(normalizeDiffText);
+  const rows = previousKeys.length + 1;
+  const cols = currentKeys.length + 1;
+  const table = Array.from({ length: rows }, () => Array<number>(cols).fill(0));
+
+  for (let i = previousKeys.length - 1; i >= 0; i -= 1) {
+    for (let j = currentKeys.length - 1; j >= 0; j -= 1) {
+      table[i][j] =
+        previousKeys[i] === currentKeys[j] && previousKeys[i]
+          ? table[i + 1][j + 1] + 1
+          : Math.max(table[i + 1][j], table[i][j + 1]);
+    }
+  }
+
+  const anchors: Array<[number, number]> = [];
+  let i = 0;
+  let j = 0;
+  while (i < previousKeys.length && j < currentKeys.length) {
+    if (previousKeys[i] === currentKeys[j] && previousKeys[i]) {
+      anchors.push([i, j]);
+      i += 1;
+      j += 1;
+    } else if (table[i + 1][j] >= table[i][j + 1]) {
+      i += 1;
+    } else {
+      j += 1;
+    }
+  }
+
+  const aligned: AlignedDiffBlock[] = [];
+  let previousCursor = 0;
+  let currentCursor = 0;
+
+  const pushGap = (previousEnd: number, currentEnd: number) => {
+    const previousGap = previousBlocks.slice(previousCursor, previousEnd);
+    const currentGap = currentBlocks.slice(currentCursor, currentEnd);
+    const gapLength = Math.max(previousGap.length, currentGap.length);
+
+    for (let index = 0; index < gapLength; index += 1) {
+      const previous = previousGap[index];
+      const current = currentGap[index];
+      if (previous !== undefined && current !== undefined) {
+        aligned.push({
+          previous,
+          current,
+          status: hasTextChanged(current, previous) ? 'modified' : 'unchanged',
+        });
+      } else if (previous !== undefined) {
+        aligned.push({ previous, status: 'removed' });
+      } else if (current !== undefined) {
+        aligned.push({ current, status: 'added' });
+      }
+    }
+  };
+
+  for (const [previousIndex, currentIndex] of anchors) {
+    pushGap(previousIndex, currentIndex);
+    aligned.push({
+      previous: previousBlocks[previousIndex],
+      current: currentBlocks[currentIndex],
+      status: 'unchanged',
+    });
+    previousCursor = previousIndex + 1;
+    currentCursor = currentIndex + 1;
+  }
+  pushGap(previousBlocks.length, currentBlocks.length);
+
+  return aligned.length ? aligned : [{ previous: previousBlocks[0], current: currentBlocks[0], status: 'unchanged' }];
+}
+
+function diffBlockHtml(block: AlignedDiffBlock, side: 'previous' | 'current'): string {
+  const diff = inlineDiff(block.previous ?? '', block.current ?? '');
+  if (side === 'previous') {
+    return diff.previous || '<span class="preview-diff-empty">（无内容）</span>';
+  }
+  return diff.current || '<span class="preview-diff-empty">（无内容）</span>';
 }
 
 /**
@@ -81,16 +258,27 @@ function CharacterBookDiff({
   data,
   previous,
   mode,
+  changeStatus = 'modified',
 }: {
   data: CharacterNode;
   previous?: CharacterNode;
   mode: 'highlight' | 'side-by-side';
+  changeStatus?: NodeChangeStatus;
 }) {
+  const currentPages = changeStatus === 'removed' ? [] : data.pages;
+  const previousPages = previous?.pages ?? (changeStatus === 'removed' ? data.pages : []);
+  const pages = currentPages.length ? currentPages : previousPages;
+
   if (mode === 'side-by-side') {
     return (
       <div className="preview-diff-pair-list">
-        {data.pages.map((page, idx) => {
-          const previousPage = previous?.pages[idx];
+        {pages.map((page, idx) => {
+          const currentPage = currentPages[idx];
+          const previousPage = previousPages[idx];
+          const rows = alignDiffBlocks(
+            previousPage?.paragraphs ?? [],
+            currentPage?.paragraphs ?? [],
+          );
           return (
             <section className="act-section" data-act={idx} key={idx}>
               <h2>
@@ -100,46 +288,24 @@ function CharacterBookDiff({
               <div className="preview-diff-grid">
                 <div className="preview-diff-column">
                   <div className="preview-diff-column-title">上一版</div>
-                  {Array.from({
-                    length: Math.max(
-                      page.paragraphs.length,
-                      previousPage?.paragraphs.length ?? 0,
-                      1,
-                    ),
-                  }).map((_, pIdx) => {
-                    const text = previousPage?.paragraphs[pIdx] ?? '';
+                  {rows.map((row, pIdx) => {
                     return (
                       <p
                         key={pIdx}
-                        className={
-                          hasTextChanged(page.paragraphs[pIdx] ?? '', text)
-                            ? 'preview-diff-paragraph is-removed'
-                            : ''
-                        }
-                        dangerouslySetInnerHTML={{ __html: text || '（无内容）' }}
+                        className={`preview-diff-paragraph is-${row.status}`}
+                        dangerouslySetInnerHTML={{ __html: diffBlockHtml(row, 'previous') }}
                       />
                     );
                   })}
                 </div>
                 <div className="preview-diff-column">
                   <div className="preview-diff-column-title">当前预览版</div>
-                  {Array.from({
-                    length: Math.max(
-                      page.paragraphs.length,
-                      previousPage?.paragraphs.length ?? 0,
-                      1,
-                    ),
-                  }).map((_, pIdx) => {
-                    const text = page.paragraphs[pIdx] ?? '';
+                  {rows.map((row, pIdx) => {
                     return (
                       <p
                         key={pIdx}
-                        className={
-                          hasTextChanged(text, previousPage?.paragraphs[pIdx])
-                            ? 'preview-diff-paragraph is-added'
-                            : ''
-                        }
-                        dangerouslySetInnerHTML={{ __html: text || '（无内容）' }}
+                        className={`preview-diff-paragraph is-${row.status}`}
+                        dangerouslySetInnerHTML={{ __html: diffBlockHtml(row, 'current') }}
                       />
                     );
                   })}
@@ -154,8 +320,10 @@ function CharacterBookDiff({
 
   return (
     <>
-      {data.pages.map((page, idx) => {
-        const previousPage = previous?.pages[idx];
+      {pages.map((page, idx) => {
+        const currentPage = currentPages[idx];
+        const previousPage = previousPages[idx];
+        const rows = alignDiffBlocks(previousPage?.paragraphs ?? [], currentPage?.paragraphs ?? []);
         return (
           <div key={idx}>
             {idx > 0 && <hr className="act-divider" />}
@@ -164,15 +332,16 @@ function CharacterBookDiff({
                 <span className="act-num">{page.act}</span>
                 {page.title}
               </h2>
-              {page.paragraphs.map((text, pIdx) => (
+              {rows.map((row, pIdx) => (
                 <p
                   key={pIdx}
-                  className={
-                    hasTextChanged(text, previousPage?.paragraphs[pIdx])
-                      ? 'preview-diff-paragraph is-added'
-                      : ''
-                  }
-                  dangerouslySetInnerHTML={{ __html: text }}
+                  className={`preview-diff-paragraph is-${row.status}`}
+                  dangerouslySetInnerHTML={{
+                    __html:
+                      row.status === 'removed'
+                        ? diffBlockHtml(row, 'previous')
+                        : diffBlockHtml(row, 'current'),
+                  }}
                 />
               ))}
             </section>
@@ -199,43 +368,42 @@ function SimpleContentDiff({
   data,
   previous,
   mode,
+  changeStatus = 'modified',
 }: {
   data: SimpleNode;
   previous?: SimpleNode;
   mode: 'highlight' | 'side-by-side';
+  changeStatus?: NodeChangeStatus;
 }) {
-  const currentBlocks = splitHtmlBlocks(data.html);
-  const previousBlocks = splitHtmlBlocks(previous?.html ?? '');
+  const currentBlocks = changeStatus === 'removed' ? [] : splitHtmlBlocks(data.html);
+  const previousBlocks =
+    previous?.html || changeStatus === 'removed' ? splitHtmlBlocks(previous?.html ?? data.html) : [];
+  const rows = alignDiffBlocks(previousBlocks, currentBlocks);
 
   if (mode === 'side-by-side') {
-    const length = Math.max(currentBlocks.length, previousBlocks.length);
     return (
       <div className="preview-diff-grid">
         <div className="preview-diff-column">
           <div className="preview-diff-column-title">上一版</div>
-          {Array.from({ length }).map((_, index) => (
+          {rows.map((row, index) => (
             <div
               key={index}
-              className={
-                hasTextChanged(currentBlocks[index] ?? '', previousBlocks[index] ?? '')
-                  ? 'preview-diff-block is-removed'
-                  : 'preview-diff-block'
-              }
-              dangerouslySetInnerHTML={{ __html: previousBlocks[index] || '<p>（无内容）</p>' }}
+              className={`preview-diff-block is-${row.status}`}
+              dangerouslySetInnerHTML={{
+                __html: diffBlockHtml(row, 'previous'),
+              }}
             />
           ))}
         </div>
         <div className="preview-diff-column">
           <div className="preview-diff-column-title">当前预览版</div>
-          {Array.from({ length }).map((_, index) => (
+          {rows.map((row, index) => (
             <div
               key={index}
-              className={
-                hasTextChanged(currentBlocks[index] ?? '', previousBlocks[index] ?? '')
-                  ? 'preview-diff-block is-added'
-                  : 'preview-diff-block'
-              }
-              dangerouslySetInnerHTML={{ __html: currentBlocks[index] || '<p>（无内容）</p>' }}
+              className={`preview-diff-block is-${row.status}`}
+              dangerouslySetInnerHTML={{
+                __html: diffBlockHtml(row, 'current'),
+              }}
             />
           ))}
         </div>
@@ -245,15 +413,16 @@ function SimpleContentDiff({
 
   return (
     <>
-      {currentBlocks.map((block, index) => (
+      {rows.map((row, index) => (
         <div
           key={index}
-          className={
-            hasTextChanged(block, previousBlocks[index] ?? '')
-              ? 'preview-diff-block is-added'
-              : 'preview-diff-block'
-          }
-          dangerouslySetInnerHTML={{ __html: block }}
+          className={`preview-diff-block is-${row.status}`}
+          dangerouslySetInnerHTML={{
+            __html:
+              row.status === 'removed'
+                ? diffBlockHtml(row, 'previous')
+                : diffBlockHtml(row, 'current'),
+          }}
         />
       ))}
     </>
@@ -322,14 +491,61 @@ function ClueOverviewDiff({
   data,
   previous,
   mode,
+  changeStatus = 'modified',
 }: {
   data: ClueOverviewNode;
   previous?: ClueOverviewNode;
   mode: 'highlight' | 'side-by-side';
+  changeStatus?: NodeChangeStatus;
 }) {
-  const previousByNo = new Map(previous?.clues.map((clue) => [clue.no, clue]) ?? []);
+  const currentClues = changeStatus === 'removed' ? [] : data.clues;
+  const previousClues = previous?.clues ?? (changeStatus === 'removed' ? data.clues : []);
+  const currentByNo = new Map(currentClues.map((clue) => [clue.no, clue]));
+  const previousByNo = new Map(previousClues.map((clue) => [clue.no, clue]));
+  const clueNos = Array.from(new Set([...previousClues, ...currentClues].map((clue) => clue.no)));
   const clueText = (clue?: ScriptClue) =>
     clue ? `${clue.no} ${clue.title} ${clue.tag} ${clue.loc}` : '';
+  const getStatus = (oldClue?: ScriptClue, clue?: ScriptClue): DiffBlockStatus => {
+    if (oldClue && !clue) return 'removed';
+    if (!oldClue && clue) return 'added';
+    return clueText(clue) !== clueText(oldClue) ? 'modified' : 'unchanged';
+  };
+  const renderClue = (clueNo: string, side: 'previous' | 'current') => {
+    const clue = currentByNo.get(clueNo);
+    const oldClue = previousByNo.get(clueNo);
+    const displayClue = side === 'previous' ? oldClue : clue;
+    const status = getStatus(oldClue, clue);
+    const noDiff = inlineDiff(oldClue?.no ?? '', clue?.no ?? '');
+    const locDiff = inlineDiff(oldClue?.loc ?? '', clue?.loc ?? '');
+    const titleDiff = inlineDiff(oldClue?.title ?? '', clue?.title ?? '');
+    const tagDiff = inlineDiff(oldClue?.tag ?? '', clue?.tag ?? '');
+    const empty = '<span class="preview-diff-empty">（无内容）</span>';
+
+    return (
+      <div key={`${side}-${clueNo}`} className={`clue-overview-item preview-diff-block is-${status}`}>
+        <div className="co-no">
+          <span dangerouslySetInnerHTML={{ __html: noDiff[side] || escapeHtml(clueNo) }} /> ·{' '}
+          <span
+            dangerouslySetInnerHTML={{
+              __html: locDiff[side] || '<span class="preview-diff-empty">（无地点）</span>',
+            }}
+          />
+        </div>
+        <div
+          className="co-title"
+          dangerouslySetInnerHTML={{
+            __html: titleDiff[side] || (displayClue ? escapeHtml(displayClue.title) : empty),
+          }}
+        />
+        <span
+          className={`co-tag ${displayClue?.tagType ?? ''}`}
+          dangerouslySetInnerHTML={{
+            __html: tagDiff[side] || (displayClue ? escapeHtml(displayClue.tag) : '缺失'),
+          }}
+        />
+      </div>
+    );
+  };
 
   if (mode === 'side-by-side') {
     return (
@@ -341,46 +557,11 @@ function ClueOverviewDiff({
         <div className="preview-diff-grid">
           <div className="preview-diff-column">
             <div className="preview-diff-column-title">上一版</div>
-            {data.clues.map((clue) => {
-              const oldClue = previousByNo.get(clue.no);
-              return (
-                <div
-                  key={clue.no}
-                  className={
-                    clueText(clue) !== clueText(oldClue)
-                      ? 'clue-overview-item preview-diff-block is-removed'
-                      : 'clue-overview-item preview-diff-block'
-                  }
-                >
-                  <div className="co-no">
-                    {oldClue?.no ?? clue.no} 路 {oldClue?.loc ?? '（无地点）'}
-                  </div>
-                  <div className="co-title">{oldClue?.title ?? '（无内容）'}</div>
-                  <span className={`co-tag ${oldClue?.tagType ?? ''}`}>
-                    {oldClue?.tag ?? '缺失'}
-                  </span>
-                </div>
-              );
-            })}
+            {clueNos.map((clueNo) => renderClue(clueNo, 'previous'))}
           </div>
           <div className="preview-diff-column">
             <div className="preview-diff-column-title">当前预览版</div>
-            {data.clues.map((clue) => (
-              <div
-                key={clue.no}
-                className={
-                  clueText(clue) !== clueText(previousByNo.get(clue.no))
-                    ? 'clue-overview-item preview-diff-block is-added'
-                    : 'clue-overview-item preview-diff-block'
-                }
-              >
-                <div className="co-no">
-                  {clue.no} 路 {clue.loc}
-                </div>
-                <div className="co-title">{clue.title}</div>
-                <span className={`co-tag ${clue.tagType ?? ''}`}>{clue.tag}</span>
-              </div>
-            ))}
+            {clueNos.map((clueNo) => renderClue(clueNo, 'current'))}
           </div>
         </div>
       </>
@@ -394,22 +575,11 @@ function ClueOverviewDiff({
         {data.title}
       </h2>
       <div className="clue-overview-list">
-        {data.clues.map((clue) => (
-          <div
-            key={clue.no}
-            className={
-              clueText(clue) !== clueText(previousByNo.get(clue.no))
-                ? 'clue-overview-item preview-diff-block is-added'
-                : 'clue-overview-item'
-            }
-          >
-            <div className="co-no">
-              {clue.no} 路 {clue.loc}
-            </div>
-            <div className="co-title">{clue.title}</div>
-            <span className={`co-tag ${clue.tagType ?? ''}`}>{clue.tag}</span>
-          </div>
-        ))}
+        {clueNos.map((clueNo) => {
+          const clue = currentByNo.get(clueNo);
+          const oldClue = previousByNo.get(clueNo);
+          return renderClue(clueNo, getStatus(oldClue, clue) === 'removed' ? 'previous' : 'current');
+        })}
       </div>
     </>
   );
@@ -427,6 +597,7 @@ export function EditorContent({
   contentId = 'editorContent',
   compareDataMap,
   diffMode,
+  changeStatus,
 }: EditorContentProps) {
   const isEditing = useEditorStore((s) => s.isEditing);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -479,18 +650,21 @@ export function EditorContent({
           data={data}
           previous={compareData?.type === 'character' ? compareData : undefined}
           mode={diffMode}
+          changeStatus={changeStatus}
         />
       ) : diffMode && data?.type === 'clue-overview' ? (
         <ClueOverviewDiff
           data={data}
           previous={compareData?.type === 'clue-overview' ? compareData : undefined}
           mode={diffMode}
+          changeStatus={changeStatus}
         />
       ) : diffMode && data?.type === 'simple' ? (
         <SimpleContentDiff
           data={data}
           previous={compareData?.type === 'simple' ? compareData : undefined}
           mode={diffMode}
+          changeStatus={changeStatus}
         />
       ) : snapshot ? (
         <div dangerouslySetInnerHTML={{ __html: snapshot }} />

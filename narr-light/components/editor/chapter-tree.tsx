@@ -16,13 +16,7 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Users,
-  List,
-  CreditCard,
-  Clock,
-  type LucideIcon,
-} from 'lucide-react';
+import { Users, List, CreditCard, Clock, type LucideIcon } from 'lucide-react';
 import { NODE_LABELS, TREE_GROUPS, type TreeGroup } from './script-data';
 
 interface ChapterTreeProps {
@@ -33,7 +27,15 @@ interface ChapterTreeProps {
   groups?: TreeGroup[];
   labels?: Record<string, string>;
   changedNodeIds?: string[];
+  changeBadgeLabel?: string;
+  changeMap?: Record<string, { status: 'added' | 'modified' | 'removed' }>;
 }
+
+const CHANGE_BADGE_LABEL: Record<'added' | 'modified' | 'removed', string> = {
+  added: '新增',
+  modified: '修改',
+  removed: '删除',
+};
 
 /** 分组 → 图标映射 */
 const GROUP_ICON: Record<string, LucideIcon> = {
@@ -68,20 +70,17 @@ export function ChapterTree({
   groups = TREE_GROUPS,
   labels = NODE_LABELS,
   changedNodeIds = [],
+  changeBadgeLabel = '已修改',
+  changeMap,
 }: ChapterTreeProps) {
-  const [expanded, setExpanded] = useState<Record<string, boolean>>(
-    INITIAL_EXPANDED,
-  );
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(INITIAL_EXPANDED);
   const changedNodeSet = new Set(changedNodeIds);
 
   const toggleGroup = (group: string) => {
     setExpanded((prev) => ({ ...prev, [group]: !prev[group] }));
   };
 
-  const handleKeyDown = (
-    e: React.KeyboardEvent,
-    action: () => void,
-  ) => {
+  const handleKeyDown = (e: React.KeyboardEvent, action: () => void) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       action();
@@ -94,7 +93,9 @@ export function ChapterTree({
         const Icon = GROUP_ICON[group.group] ?? List;
         const isExpanded = expanded[group.group] ?? true;
         const count = group.count ?? (group.children.length || GROUP_COUNT[group.group] || 0);
-        const changedCount = group.children.filter((nodeId) => changedNodeSet.has(nodeId)).length;
+        const changedCount = group.children.filter(
+          (nodeId) => changedNodeSet.has(nodeId) || Boolean(changeMap?.[nodeId]),
+        ).length;
 
         return (
           <div key={group.group}>
@@ -120,30 +121,35 @@ export function ChapterTree({
               data-children={group.group}
               role="group"
             >
-              {group.children.map((nodeId) => (
-                <div
-                  key={nodeId}
-                  className={`tree-node lv2 ${
-                    activeNodeId === nodeId ? 'active' : ''
-                  }`}
-                  data-node={nodeId}
-                  role="treeitem"
-                  tabIndex={0}
-                  aria-selected={activeNodeId === nodeId}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelect(nodeId);
-                  }}
-                  onKeyDown={(e) =>
-                    handleKeyDown(e, () => onSelect(nodeId))
-                  }
-                >
-                  <span className="tree-label">{labels[nodeId] ?? nodeId}</span>
-                  {changedNodeSet.has(nodeId) && (
-                    <span className="tree-change-badge">已修改</span>
-                  )}
-                </div>
-              ))}
+              {group.children.map((nodeId) => {
+                const changeStatus = changeMap?.[nodeId]?.status;
+                const isChanged = changedNodeSet.has(nodeId) || Boolean(changeStatus);
+                const badgeLabel = changeStatus
+                  ? CHANGE_BADGE_LABEL[changeStatus]
+                  : changeBadgeLabel;
+                return (
+                  <div
+                    key={nodeId}
+                    className={`tree-node lv2 ${activeNodeId === nodeId ? 'active' : ''}`}
+                    data-node={nodeId}
+                    role="treeitem"
+                    tabIndex={0}
+                    aria-selected={activeNodeId === nodeId}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelect(nodeId);
+                    }}
+                    onKeyDown={(e) => handleKeyDown(e, () => onSelect(nodeId))}
+                  >
+                    <span className="tree-label">{labels[nodeId] ?? nodeId}</span>
+                    {isChanged && (
+                      <span className={`tree-change-badge ${changeStatus ?? 'dirty'}`}>
+                        {badgeLabel}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         );

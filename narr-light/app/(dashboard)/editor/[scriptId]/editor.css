@@ -181,6 +181,21 @@
   margin-left: auto;
   padding: 3px 5px;
 }
+.tree-change-badge.added {
+  color: #2f5a3c;
+  background: rgba(74, 124, 89, 0.1);
+  border-color: rgba(74, 124, 89, 0.28);
+}
+.tree-change-badge.modified {
+  color: #7a5c3a;
+  background: rgba(176, 141, 87, 0.12);
+  border-color: rgba(176, 141, 87, 0.3);
+}
+.tree-change-badge.removed {
+  color: var(--blood);
+  background: rgba(138, 28, 28, 0.08);
+  border-color: rgba(138, 28, 28, 0.24);
+}
 .tree-node.tree-group .tree-arrow {
   grid-column: 5;
   font-size: 11px;
@@ -1137,36 +1152,53 @@
 }
 .preview-diff-paragraph,
 .preview-diff-block {
-  border-radius: 4px;
+  border-radius: 5px;
+  padding: 8px 10px;
 }
 .preview-diff-paragraph.is-added,
 .preview-diff-block.is-added {
-  background: linear-gradient(90deg, rgba(74, 124, 89, 0.16), rgba(74, 124, 89, 0.04));
-  box-shadow: inset 3px 0 0 rgba(74, 124, 89, 0.62);
+  background: rgba(74, 124, 89, 0.07);
+}
+.preview-diff-paragraph.is-modified,
+.preview-diff-block.is-modified {
+  background: rgba(176, 141, 87, 0.08);
 }
 .preview-diff-paragraph.is-removed,
 .preview-diff-block.is-removed {
-  background: linear-gradient(90deg, rgba(138, 28, 28, 0.13), rgba(138, 28, 28, 0.04));
+  background: rgba(138, 28, 28, 0.06);
   color: rgba(61, 44, 31, 0.7);
-  box-shadow: inset 3px 0 0 rgba(138, 28, 28, 0.58);
+}
+.preview-diff-paragraph.is-unchanged,
+.preview-diff-block.is-unchanged {
+  background: transparent;
+}
+.preview-diff-empty {
+  color: rgba(122, 92, 58, 0.5);
+  font-size: 0.92em;
 }
 
 /* 字级差异高亮：新增绿色背景 + 下划线；删除浅红背景 + 删除线 */
 .diff-ins {
-  background: rgba(74, 124, 89, 0.22);
+  background: rgba(74, 124, 89, 0.2);
+  color: #2f5a3c;
   text-decoration: underline;
   text-decoration-color: rgba(74, 124, 89, 0.65);
   text-decoration-thickness: 1.5px;
   border-radius: 2px;
   padding: 0 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 .diff-del {
   background: rgba(138, 28, 28, 0.14);
   text-decoration: line-through;
-  text-decoration-color: rgba(138, 28, 28, 0.55);
-  color: rgba(61, 44, 31, 0.72);
+  text-decoration-color: rgba(138, 28, 28, 0.62);
+  text-decoration-thickness: 1.5px;
+  color: rgba(138, 28, 28, 0.78);
   border-radius: 2px;
   padding: 0 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 .preview-diff-grid {
   display: grid;

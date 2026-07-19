@@ -104,6 +104,8 @@ interface VersionPreviewState {
   title: string;
   dataMap: Record<string, ScriptNodeData>;
   baseDataMap?: Record<string, ScriptNodeData>;
+  baseGroups?: TreeGroup[];
+  baseLabels?: Record<string, string>;
   groups: TreeGroup[];
   labels: Record<string, string>;
   defaultNodeId: string;
@@ -111,12 +113,13 @@ interface VersionPreviewState {
   compareBaseVersion?: string;
   changes: Record<
     string,
-    { status: 'added' | 'modified'; currentLength: number; previousLength: number }
+    { status: NodeChangeStatus; currentLength: number; previousLength: number }
   >;
   changedNodeIds: string[];
 }
 
 type VersionPreviewMode = 'highlight' | 'side-by-side';
+type NodeChangeStatus = 'added' | 'modified' | 'removed';
 
 function filterGroupsByNodeIds(groups: TreeGroup[], nodeIds: string[]): TreeGroup[] {
   const nodeSet = new Set(nodeIds);
@@ -130,6 +133,37 @@ function filterGroupsByNodeIds(groups: TreeGroup[], nodeIds: string[]): TreeGrou
       };
     })
     .filter((group) => group.children.length > 0);
+}
+
+function mergePreviewGroups(
+  currentGroups: TreeGroup[],
+  baseGroups: TreeGroup[],
+  changes: VersionPreviewState['changes'],
+): TreeGroup[] {
+  const merged = currentGroups.map((group) => ({ ...group, children: [...group.children] }));
+  const groupById = new Map(merged.map((group) => [group.group, group]));
+  const currentNodeIds = new Set(merged.flatMap((group) => group.children));
+
+  for (const baseGroup of baseGroups) {
+    const removedChildren = baseGroup.children.filter(
+      (nodeId) => changes[nodeId]?.status === 'removed' && !currentNodeIds.has(nodeId),
+    );
+    if (!removedChildren.length) continue;
+
+    const target = groupById.get(baseGroup.group);
+    if (target) {
+      target.children.push(...removedChildren);
+      target.count = target.children.length;
+    } else {
+      merged.push({
+        ...baseGroup,
+        children: removedChildren,
+        count: removedChildren.length,
+      });
+    }
+  }
+
+  return merged;
 }
 
 interface SaveEditorNodeRequest {
@@ -234,9 +268,7 @@ function parseCharacterPages(contentEl: HTMLElement, fallback: CharacterNode): C
           !child.classList.contains('act-divider'),
       ) as HTMLElement[];
     }
-    const paragraphs = paragraphEls
-      .map((p) => stripHtml(p.innerHTML).trim())
-      .filter(Boolean);
+    const paragraphs = paragraphEls.map((p) => stripHtml(p.innerHTML).trim()).filter(Boolean);
 
     return {
       act,
@@ -393,6 +425,7 @@ export default function EditorPage({ params }: PageProps) {
   // ===== 本地状态 =====
   const [versions, setVersions] = useState<VersionItem[]>([]);
   const [snapshots, setSnapshots] = useState<Record<string, string>>({});
+  const [dirtyNodeIds, setDirtyNodeIds] = useState<string[]>([]);
   const [showCompare, setShowCompare] = useState(false);
   const [showOutline, setShowOutline] = useState(false);
   const [editorData, setEditorData] = useState<EditorDataBundle | null>();
@@ -434,12 +467,30 @@ export default function EditorPage({ params }: PageProps) {
   const isEditorDataLoading = editorData === undefined;
   const activeDataMap = useMemo(() => editorData?.dataMap ?? {}, [editorData]);
   const activeDefaultNodeId = editorData?.defaultNodeId ?? null;
+  const dirtyNodeSet = useMemo(() => new Set(dirtyNodeIds), [dirtyNodeIds]);
+  const hasDirtyDrafts = dirtyNodeIds.length > 0;
+  const previewTreeGroups = useMemo(() => {
+    if (!previewVersion) return [];
+    return mergePreviewGroups(
+      previewVersion.groups,
+      previewVersion.baseGroups ?? [],
+      previewVersion.changes,
+    );
+  }, [previewVersion]);
+  const previewLabels = useMemo(() => {
+    if (!previewVersion) return {};
+    return { ...(previewVersion.baseLabels ?? {}), ...previewVersion.labels };
+  }, [previewVersion]);
+  const previewRenderDataMap = useMemo(() => {
+    if (!previewVersion) return {};
+    return { ...(previewVersion.baseDataMap ?? {}), ...previewVersion.dataMap };
+  }, [previewVersion]);
   const previewVisibleGroups = useMemo(() => {
     if (!previewVersion) return [];
     return previewChangedOnly
-      ? filterGroupsByNodeIds(previewVersion.groups, previewVersion.changedNodeIds)
-      : previewVersion.groups;
-  }, [previewChangedOnly, previewVersion]);
+      ? filterGroupsByNodeIds(previewTreeGroups, previewVersion.changedNodeIds)
+      : previewTreeGroups;
+  }, [previewChangedOnly, previewTreeGroups, previewVersion]);
 
   useEffect(() => {
     let cancelled = false;
@@ -449,6 +500,9 @@ export default function EditorPage({ params }: PageProps) {
         if (cancelled) return;
         setEditorData(data);
         setVersions(data?.versions ?? []);
+        setSnapshots({});
+        setDirtyNodeIds([]);
+        markSaved();
         if (data?.defaultNodeId) setCurrentNode(data.defaultNodeId);
       })
       .catch((error) => {
@@ -457,7 +511,7 @@ export default function EditorPage({ params }: PageProps) {
     return () => {
       cancelled = true;
     };
-  }, [scriptId, setCurrentNode]);
+  }, [markSaved, scriptId, setCurrentNode]);
 
   // ===== 初始化默认节点 =====
   useEffect(() => {
@@ -474,6 +528,14 @@ export default function EditorPage({ params }: PageProps) {
       setPreviewNodeId(previewVersion.changedNodeIds[0] ?? previewVersion.defaultNodeId);
     }
   }, [previewChangedOnly, previewNodeId, previewVersion]);
+
+  useEffect(() => {
+    if (dirtyNodeIds.length > 0) {
+      markDirty();
+    } else {
+      markSaved();
+    }
+  }, [dirtyNodeIds.length, markDirty, markSaved]);
 
   // ===== 切换预览节点时滚动内容区到顶部 =====
   useEffect(() => {
@@ -627,17 +689,18 @@ export default function EditorPage({ params }: PageProps) {
       return;
     }
     const ts = formatNow();
+    const status = hasDirtyDrafts ? `${dirtyNodeIds.length} 个模块未保存` : `自动保存于 ${ts}`;
     if (currentNode.type === 'character') {
       const c = currentNode as CharacterNode;
-      setToolbarLabel(`人物剧本 · ${c.name} · 自动保存于 ${ts}`);
+      setToolbarLabel(`人物剧本 · ${c.name} · ${status}`);
     } else if (currentNode.type === 'clue-overview') {
       const c = currentNode as ClueOverviewNode;
-      setToolbarLabel(`${c.fullTitle} · 加载于 ${ts}`);
+      setToolbarLabel(`${c.fullTitle} · ${hasDirtyDrafts ? status : `加载于 ${ts}`}`);
     } else {
       const s = currentNode as SimpleNode;
-      setToolbarLabel(`${s.fullTitle} · 自动保存于 ${ts}`);
+      setToolbarLabel(`${s.fullTitle} · ${status}`);
     }
-  }, [currentNode]);
+  }, [currentNode, dirtyNodeIds.length, hasDirtyDrafts]);
 
   // ===== Toast 自动消失 =====
   useEffect(() => {
@@ -652,20 +715,85 @@ export default function EditorPage({ params }: PageProps) {
     setToast({ visible: true, message, icon });
   };
 
+  const markNodeDirty = (nodeId: string) => {
+    setDirtyNodeIds((prev) => (prev.includes(nodeId) ? prev : [...prev, nodeId]));
+    markDirty();
+  };
+
+  const clearSavedDrafts = (nodeIds: string[]) => {
+    const savedSet = new Set(nodeIds);
+    setSnapshots((prev) => {
+      const next = { ...prev };
+      for (const nodeId of savedSet) {
+        delete next[nodeId];
+      }
+      return next;
+    });
+    setDirtyNodeIds((prev) => {
+      return prev.filter((nodeId) => !savedSet.has(nodeId));
+    });
+  };
+
+  const captureCurrentDraft = () => {
+    if (!currentNodeId) return null;
+    const contentEl = document.getElementById('editorContent');
+    if (!contentEl) return null;
+    const html = contentEl.innerHTML;
+    setSnapshots((prev) => ({ ...prev, [currentNodeId]: html }));
+    markNodeDirty(currentNodeId);
+    return html;
+  };
+
+  const createDraftElement = (html: string): HTMLElement => {
+    const el = document.createElement('div');
+    el.innerHTML = html;
+    return el;
+  };
+
+  const getSaveElementForNode = (nodeId: string): HTMLElement | null => {
+    const liveEl =
+      nodeId === currentNodeId
+        ? (document.getElementById('editorContent') as HTMLElement | null)
+        : null;
+    if (liveEl && (dirtyNodeSet.has(nodeId) || !snapshots[nodeId])) {
+      return liveEl;
+    }
+    const draftHtml = snapshots[nodeId];
+    return typeof draftHtml === 'string' ? createDraftElement(draftHtml) : liveEl;
+  };
+
+  const applySavedContentToEditorData = (nodeId: string, contentEl: HTMLElement) => {
+    setEditorData((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, dataMap: { ...prev.dataMap } };
+      const node = updated.dataMap[nodeId];
+      if (!node) return prev;
+      if (node.type === 'character') {
+        updated.dataMap[nodeId] = {
+          ...node,
+          pages: parseCharacterPages(contentEl, node as CharacterNode),
+        } as ScriptNodeData;
+      } else if (node.type === 'simple') {
+        updated.dataMap[nodeId] = {
+          ...node,
+          html: contentEl.innerHTML,
+        } as ScriptNodeData;
+      } else if (node.type === 'clue-overview') {
+        updated.dataMap[nodeId] = {
+          ...node,
+          clues: parseClues(contentEl, node as ClueOverviewNode),
+        } as ScriptNodeData;
+      }
+      return updated;
+    });
+  };
+
   // ===== 切换节点 =====
   const handleSelectNode = (nodeId: string, options?: { keyword?: string }) => {
     if (nodeId === currentNodeId && !options?.keyword) return;
-    // 切节点前若有未保存改动，自动暂存快照
-    if (isDirty && currentNodeId) {
-      const contentEl = document.getElementById('editorContent');
-      if (contentEl) {
-        setSnapshots((prev) => ({
-          ...prev,
-          [currentNodeId]: contentEl.innerHTML,
-        }));
-      }
-      markSaved();
-      showToast('检测到未保存改动，已自动暂存', '!');
+    if (isEditing && currentNodeId && dirtyNodeSet.has(currentNodeId)) {
+      captureCurrentDraft();
+      showToast('当前改动已暂存，尚未保存', '!');
     }
     if (isEditing) exitEditMode();
     setCurrentNode(nodeId);
@@ -677,8 +805,9 @@ export default function EditorPage({ params }: PageProps) {
   // ===== 切换编辑态 =====
   const handleToggleEdit = async () => {
     if (isEditing) {
-      if (isDirty && currentNode && currentNodeId) {
-        await handleSaveContent();
+      if (currentNodeId && dirtyNodeSet.has(currentNodeId)) {
+        const saved = await handleSaveContent();
+        if (!saved) return;
         // 强制同步状态更新，确保退出编辑态前 dataMap 已是最新 DOM 内容
         flushSync(() => {});
       }
@@ -695,61 +824,56 @@ export default function EditorPage({ params }: PageProps) {
 
   // ===== 编辑内容变更 =====
   const handleContentInput = () => {
-    if (!isDirty) markDirty();
+    if (!currentNodeId) return;
+    markNodeDirty(currentNodeId);
   };
 
   // ===== 通用保存当前节点 =====
-  const saveCurrentNode = async (createVersion: boolean) => {
-    if (!currentNode || !currentNodeId) return;
+  const saveCurrentNode = async (createVersion: boolean): Promise<boolean> => {
+    if (!currentNode || !currentNodeId) return false;
     const isLoading = createVersion ? isSavingVersion : isSavingContent;
-    if (isLoading) return;
-    const contentEl = document.getElementById('editorContent');
-    if (!contentEl) return;
+    if (isLoading) return false;
+    if (dirtyNodeSet.has(currentNodeId)) {
+      captureCurrentDraft();
+    }
 
     const setLoading = createVersion ? setIsSavingVersion : setIsSavingContent;
     setLoading(true);
     try {
-      const payload = buildSavePayload(currentNode, currentNodeId, contentEl);
-      const result = await postJson<{ snapshot: { versionNumber: number } | null }>(
-        `/api/editor/${scriptId}/save`,
-        { ...payload, createVersion },
-      );
+      const dirtyIds = new Set(dirtyNodeIds);
+      if (dirtyNodeSet.has(currentNodeId)) dirtyIds.add(currentNodeId);
+      const nodeIdsToSave = createVersion
+        ? Array.from(dirtyIds.size ? dirtyIds : new Set([currentNodeId]))
+        : [currentNodeId];
+      const versionNodeId = createVersion
+        ? nodeIdsToSave.includes(currentNodeId)
+          ? currentNodeId
+          : nodeIdsToSave[nodeIdsToSave.length - 1]
+        : null;
 
-      // 编辑保存：用当前 DOM 内容更新本地 dataMap，避免退出编辑态后内容回退
-      if (!createVersion) {
-        setEditorData((prev) => {
-          if (!prev) return prev;
-          const updated = { ...prev, dataMap: { ...prev.dataMap } };
-          const node = updated.dataMap[currentNodeId];
-          if (!node) return prev;
-          if (node.type === 'character') {
-            const pages = parseCharacterPages(contentEl, node as CharacterNode);
-            updated.dataMap[currentNodeId] = {
-              ...node,
-              pages,
-            } as ScriptNodeData;
-          } else if (node.type === 'simple') {
-            updated.dataMap[currentNodeId] = {
-              ...node,
-              html: contentEl.innerHTML,
-            } as ScriptNodeData;
-          } else if (node.type === 'clue-overview') {
-            updated.dataMap[currentNodeId] = {
-              ...node,
-              clues: parseClues(contentEl, node as ClueOverviewNode),
-            } as ScriptNodeData;
-          }
-          return updated;
-        });
-        // 已持久化，清除可能残留的脏快照，避免 EditorContent 优先渲染旧快照
-        setSnapshots((prev) => {
-          const next = { ...prev };
-          delete next[currentNodeId];
-          return next;
-        });
+      let result: { snapshot: { versionNumber: number } | null } | null = null;
+      const savedNodeIds: string[] = [];
+
+      for (const nodeId of nodeIdsToSave) {
+        const node = activeDataMap[nodeId];
+        const contentEl = getSaveElementForNode(nodeId);
+        if (!node || !contentEl) continue;
+        const shouldCreateVersion = createVersion && nodeId === versionNodeId;
+        const payload = buildSavePayload(node, nodeId, contentEl);
+        result = await postJson<{ snapshot: { versionNumber: number } | null }>(
+          `/api/editor/${scriptId}/save`,
+          { ...payload, createVersion: shouldCreateVersion },
+        );
+        applySavedContentToEditorData(nodeId, contentEl);
+        savedNodeIds.push(nodeId);
       }
 
-      markSaved();
+      if (savedNodeIds.length === 0) {
+        showToast('没有可保存的编辑内容', '!');
+        return false;
+      }
+
+      clearSavedDrafts(savedNodeIds);
       const ts = formatNow();
       const labelPrefix =
         currentNode.type === 'character'
@@ -771,7 +895,7 @@ export default function EditorPage({ params }: PageProps) {
             setCurrentNode(fresh.defaultNodeId);
           }
         }
-        if (result.snapshot) {
+        if (result?.snapshot) {
           showToast(`版本已保存 · v${result.snapshot.versionNumber}`, '✓');
         } else {
           showToast('版本已保存', '✓');
@@ -780,8 +904,10 @@ export default function EditorPage({ params }: PageProps) {
         // 编辑保存：不重新加载全部数据，避免内容闪烁
         showToast('内容已保存', '✓');
       }
+      return true;
     } catch (error) {
       showToast(error instanceof Error ? error.message : '保存失败', '!');
+      return false;
     } finally {
       setLoading(false);
     }
@@ -847,6 +973,7 @@ export default function EditorPage({ params }: PageProps) {
       });
 
       setSnapshots({});
+      setDirtyNodeIds([]);
       const fresh = await loadEditorData(scriptId);
       if (fresh) {
         setEditorData(fresh);
@@ -961,7 +1088,7 @@ export default function EditorPage({ params }: PageProps) {
   // ===== 编辑徽章状态 =====
   const badge: 'editing' | 'dirty' | 'saved' | 'hidden' = !isEditing
     ? 'hidden'
-    : isDirty
+    : hasDirtyDrafts || isDirty
       ? 'dirty'
       : 'editing';
 
@@ -1019,11 +1146,7 @@ export default function EditorPage({ params }: PageProps) {
             版本对比
           </button>
           {!isEditing ? (
-            <button
-              type="button"
-              className="btn btn-edit"
-              onClick={handleToggleEdit}
-            >
+            <button type="button" className="btn btn-edit" onClick={handleToggleEdit}>
               <Pencil size={14} />
               编辑
             </button>
@@ -1035,7 +1158,11 @@ export default function EditorPage({ params }: PageProps) {
               disabled={isSavingContent || isSavingVersion || isRollingBack}
             >
               <FileText size={14} />
-              {isSavingContent ? '保存中' : '完成编辑'}
+              {isSavingContent
+                ? '保存中...'
+                : dirtyNodeSet.has(currentNodeId ?? '')
+                  ? '保存并完成'
+                  : '完成编辑'}
             </button>
           )}
           <button
@@ -1045,7 +1172,11 @@ export default function EditorPage({ params }: PageProps) {
             disabled={isSavingContent || isSavingVersion || isRollingBack}
           >
             <Save size={14} />
-            {isSavingVersion ? '保存中' : '保存版本'}
+            {isSavingVersion
+              ? '保存中...'
+              : hasDirtyDrafts
+                ? `保存版本（${dirtyNodeIds.length}）`
+                : '保存版本'}
           </button>
         </div>
       </div>
@@ -1062,6 +1193,8 @@ export default function EditorPage({ params }: PageProps) {
               onSelect={handleSelectNode}
               groups={editorData.groups}
               labels={editorData.labels}
+              changedNodeIds={dirtyNodeIds}
+              changeBadgeLabel="未保存"
             />
           ) : (
             <div style={{ padding: 24, color: 'var(--sepia)' }}>暂无真实剧本数据</div>
@@ -1133,7 +1266,8 @@ export default function EditorPage({ params }: PageProps) {
       )}
 
       {/* ===== 历史版本预览 ===== */}
-      {previewVersion && previewPortalRoot &&
+      {previewVersion &&
+        previewPortalRoot &&
         createPortal(
           <div
             className={`vd-modal-overlay${previewFullscreen ? ' is-fullscreen' : ''}`}
@@ -1141,160 +1275,163 @@ export default function EditorPage({ params }: PageProps) {
             aria-modal="true"
             aria-label={`${previewVersion.version} 预览`}
           >
-          <div className="vd-modal version-preview-modal">
-            <div className="vd-head">
-              <h3>
-                <span className="vd-tag a">{previewVersion.version}</span>
-                <span>{previewVersion.title}</span>
-                <span className="vd-summary">
-                  {previewVersion.note} · {previewVersion.time}
-                </span>
-              </h3>
-              <div className="vd-head-actions">
-                {previewVersion.compareBaseVersion && previewVersion.changedNodeIds.length > 0 && (
-                  <div className="vd-nav-changes">
-                    <button
-                      type="button"
-                      className="vd-nav-change-btn"
-                      aria-label="上一处变更"
-                      title="上一处变更"
-                      onClick={handlePrevChange}
-                    >
-                      <ChevronLeft size={14} />
-                    </button>
-                    <span className="vd-nav-change-count">
-                      {previewVersion.changedNodeIds.indexOf(
-                        previewNodeId ?? previewVersion.defaultNodeId,
-                      ) + 1}
-                      <span className="vd-nav-change-sep">/</span>
-                      {previewVersion.changedNodeIds.length}
-                    </span>
-                    <button
-                      type="button"
-                      className="vd-nav-change-btn"
-                      aria-label="下一处变更"
-                      title="下一处变更"
-                      onClick={handleNextChange}
-                    >
-                      <ChevronRight size={14} />
-                    </button>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  className="vd-fullscreen-toggle"
-                  aria-label={previewFullscreen ? '退出全屏' : '全屏预览'}
-                  title={previewFullscreen ? '退出全屏' : '全屏预览'}
-                  onClick={() => setPreviewFullscreen((v) => !v)}
-                >
-                  {previewFullscreen ? (
-                    <Minimize2 size={16} />
-                  ) : (
-                    <>
-                      <Maximize2 size={14} />
-                      <span>全屏预览</span>
-                    </>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="vd-close"
-                  aria-label="关闭"
-                  onClick={() => {
-                    setPreviewVersion(null);
-                    setPreviewNodeId(null);
-                    setPreviewMode('highlight');
-                    setPreviewChangedOnly(false);
-                    setPreviewFullscreen(false);
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-            <div className="version-preview-summary">
-              <div>
-                {previewVersion.compareBaseVersion ? (
-                  <>
-                    对比基准 <b>{previewVersion.compareBaseVersion}</b>，共{' '}
-                    <b>{previewVersion.changedNodeIds.length}</b> 个模块有变化
-                    {previewVersion.changedNodeIds.includes(
-                      previewNodeId ?? previewVersion.defaultNodeId,
-                    ) && (
-                      <span className="version-preview-current-flag">当前模块已变更</span>
+            <div className="vd-modal version-preview-modal">
+              <div className="vd-head">
+                <h3>
+                  <span className="vd-tag a">{previewVersion.version}</span>
+                  <span>{previewVersion.title}</span>
+                  <span className="vd-summary">
+                    {previewVersion.note} · {previewVersion.time}
+                  </span>
+                </h3>
+                <div className="vd-head-actions">
+                  {previewVersion.compareBaseVersion &&
+                    previewVersion.changedNodeIds.length > 0 && (
+                      <div className="vd-nav-changes">
+                        <button
+                          type="button"
+                          className="vd-nav-change-btn"
+                          aria-label="上一处变更"
+                          title="上一处变更"
+                          onClick={handlePrevChange}
+                        >
+                          <ChevronLeft size={14} />
+                        </button>
+                        <span className="vd-nav-change-count">
+                          {previewVersion.changedNodeIds.indexOf(
+                            previewNodeId ?? previewVersion.defaultNodeId,
+                          ) + 1}
+                          <span className="vd-nav-change-sep">/</span>
+                          {previewVersion.changedNodeIds.length}
+                        </span>
+                        <button
+                          type="button"
+                          className="vd-nav-change-btn"
+                          aria-label="下一处变更"
+                          title="下一处变更"
+                          onClick={handleNextChange}
+                        >
+                          <ChevronRight size={14} />
+                        </button>
+                      </div>
                     )}
-                  </>
-                ) : (
-                  '这是该剧本的第一条保存记录，暂无上一版本可对比'
+                  <button
+                    type="button"
+                    className="vd-fullscreen-toggle"
+                    aria-label={previewFullscreen ? '退出全屏' : '全屏预览'}
+                    title={previewFullscreen ? '退出全屏' : '全屏预览'}
+                    onClick={() => setPreviewFullscreen((v) => !v)}
+                  >
+                    {previewFullscreen ? (
+                      <Minimize2 size={16} />
+                    ) : (
+                      <>
+                        <Maximize2 size={14} />
+                        <span>全屏预览</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="vd-close"
+                    aria-label="关闭"
+                    onClick={() => {
+                      setPreviewVersion(null);
+                      setPreviewNodeId(null);
+                      setPreviewMode('highlight');
+                      setPreviewChangedOnly(false);
+                      setPreviewFullscreen(false);
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+              <div className="version-preview-summary">
+                <div>
+                  {previewVersion.compareBaseVersion ? (
+                    <>
+                      对比基准 <b>{previewVersion.compareBaseVersion}</b>，共{' '}
+                      <b>{previewVersion.changedNodeIds.length}</b> 个模块有变化
+                      {previewVersion.changedNodeIds.includes(
+                        previewNodeId ?? previewVersion.defaultNodeId,
+                      ) && <span className="version-preview-current-flag">当前模块已变更</span>}
+                    </>
+                  ) : (
+                    '这是该剧本的第一条保存记录，暂无上一版本可对比'
+                  )}
+                </div>
+                {previewFullscreen && (
+                  <span className="vd-esc-hint">
+                    <kbd>ESC</kbd> 退出预览
+                  </span>
                 )}
               </div>
-              {previewFullscreen && (
-                <span className="vd-esc-hint">
-                  <kbd>ESC</kbd> 退出预览
-                </span>
-              )}
-            </div>
-            <div className="version-preview-controls">
-              <div className="version-preview-segmented" role="tablist" aria-label="预览模式">
-                <button
-                  type="button"
-                  className={previewMode === 'highlight' ? 'active' : ''}
-                  onClick={() => setPreviewMode('highlight')}
-                >
-                  段落高亮
-                </button>
-                <button
-                  type="button"
-                  className={previewMode === 'side-by-side' ? 'active' : ''}
-                  onClick={() => setPreviewMode('side-by-side')}
-                  disabled={!previewVersion.compareBaseVersion}
-                >
-                  左右对比
-                </button>
+              <div className="version-preview-controls">
+                <div className="version-preview-segmented" role="tablist" aria-label="预览模式">
+                  <button
+                    type="button"
+                    className={previewMode === 'highlight' ? 'active' : ''}
+                    onClick={() => setPreviewMode('highlight')}
+                  >
+                    段落高亮
+                  </button>
+                  <button
+                    type="button"
+                    className={previewMode === 'side-by-side' ? 'active' : ''}
+                    onClick={() => setPreviewMode('side-by-side')}
+                    disabled={!previewVersion.compareBaseVersion}
+                  >
+                    左右对比
+                  </button>
+                </div>
+                <label className="version-preview-filter">
+                  <input
+                    type="checkbox"
+                    checked={previewChangedOnly}
+                    disabled={!previewVersion.changedNodeIds.length}
+                    onChange={(event) => {
+                      setPreviewChangedOnly(event.target.checked);
+                      if (event.target.checked) {
+                        setPreviewNodeId(
+                          previewVersion.changedNodeIds[0] ?? previewVersion.defaultNodeId,
+                        );
+                      }
+                    }}
+                  />
+                  只看有变化的模块
+                </label>
               </div>
-              <label className="version-preview-filter">
-                <input
-                  type="checkbox"
-                  checked={previewChangedOnly}
-                  disabled={!previewVersion.changedNodeIds.length}
-                  onChange={(event) => {
-                    setPreviewChangedOnly(event.target.checked);
-                    if (event.target.checked) {
-                      setPreviewNodeId(
-                        previewVersion.changedNodeIds[0] ?? previewVersion.defaultNodeId,
-                      );
+              <div className="version-preview-body">
+                <aside className="version-preview-tree">
+                  <ChapterTree
+                    activeNodeId={previewNodeId ?? previewVersion.defaultNodeId}
+                    onSelect={setPreviewNodeId}
+                    groups={previewVisibleGroups}
+                    labels={previewLabels}
+                    changedNodeIds={previewVersion.changedNodeIds}
+                    changeMap={previewVersion.changes}
+                  />
+                </aside>
+                <div className="version-preview-main">
+                  <EditorContent
+                    nodeId={previewNodeId ?? previewVersion.defaultNodeId}
+                    snapshots={{}}
+                    dataMap={previewRenderDataMap}
+                    compareDataMap={previewVersion.baseDataMap}
+                    changeStatus={
+                      previewVersion.changes[previewNodeId ?? previewVersion.defaultNodeId]?.status
                     }
-                  }}
-                />
-                只看有变化的模块
-              </label>
-            </div>
-            <div className="version-preview-body">
-              <aside className="version-preview-tree">
-                <ChapterTree
-                  activeNodeId={previewNodeId ?? previewVersion.defaultNodeId}
-                  onSelect={setPreviewNodeId}
-                  groups={previewVisibleGroups}
-                  labels={previewVersion.labels}
-                  changedNodeIds={previewVersion.changedNodeIds}
-                />
-              </aside>
-              <div className="version-preview-main">
-                <EditorContent
-                  nodeId={previewNodeId ?? previewVersion.defaultNodeId}
-                  snapshots={{}}
-                  dataMap={previewVersion.dataMap}
-                  compareDataMap={previewVersion.baseDataMap}
-                  diffMode={previewVersion.compareBaseVersion ? previewMode : undefined}
-                  readOnly
-                  contentId="versionPreviewContent"
-                />
+                    diffMode={previewVersion.compareBaseVersion ? previewMode : undefined}
+                    readOnly
+                    contentId="versionPreviewContent"
+                  />
+                </div>
               </div>
             </div>
-          </div>
-        </div>,
-        previewPortalRoot,
-      )}
+          </div>,
+          previewPortalRoot,
+        )}
 
       {/* ===== 恢复确认 ===== */}
       {pendingRestoreVersion && pendingRestoreItem && (

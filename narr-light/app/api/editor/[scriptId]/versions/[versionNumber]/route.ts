@@ -11,6 +11,8 @@ interface EditorSnapshotPreview {
   title: string;
   dataMap: Record<string, ScriptNodeData>;
   baseDataMap?: Record<string, ScriptNodeData>;
+  baseGroups?: TreeGroup[];
+  baseLabels?: Record<string, string>;
   groups: TreeGroup[];
   labels: Record<string, string>;
   defaultNodeId: string;
@@ -21,7 +23,7 @@ interface EditorSnapshotPreview {
 }
 
 interface NodeChangeSummary {
-  status: 'added' | 'modified';
+  status: 'added' | 'modified' | 'removed';
   currentLength: number;
   previousLength: number;
 }
@@ -121,16 +123,27 @@ function computeNodeChanges(
   previous: Record<string, ScriptNodeData>,
 ): Record<string, NodeChangeSummary> {
   const changes: Record<string, NodeChangeSummary> = {};
-  for (const [nodeId, currentNode] of Object.entries(current)) {
+  const nodeIds = new Set([...Object.keys(previous), ...Object.keys(current)]);
+
+  for (const nodeId of nodeIds) {
+    const currentNode = current[nodeId];
+    const previousNode = previous[nodeId];
     const currentText = nodeToComparableText(currentNode);
-    const previousText = nodeToComparableText(previous[nodeId]);
-    if (!previous[nodeId]) {
+    const previousText = nodeToComparableText(previousNode);
+
+    if (!previousNode && currentNode) {
       changes[nodeId] = {
         status: 'added',
         currentLength: currentText.length,
         previousLength: 0,
       };
-    } else if (currentText !== previousText) {
+    } else if (previousNode && !currentNode) {
+      changes[nodeId] = {
+        status: 'removed',
+        currentLength: 0,
+        previousLength: previousText.length,
+      };
+    } else if (currentNode && previousNode && currentText !== previousText) {
       changes[nodeId] = {
         status: 'modified',
         currentLength: currentText.length,
@@ -451,6 +464,8 @@ export async function getVersionPreviewResponse(scriptId: string, versionNumber:
       title: previewData.title,
       dataMap: previewData.dataMap,
       baseDataMap: previousPreviewData?.dataMap,
+      baseGroups: previousPreviewData?.groups,
+      baseLabels: previousPreviewData?.labels,
       groups: previewData.groups,
       labels: previewData.labels,
       defaultNodeId,
