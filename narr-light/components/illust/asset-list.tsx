@@ -7,8 +7,8 @@
  *
  * 视觉与 class 命名对齐原型 workbench2.html #view-illust .scene-item
  */
-import { Plus } from 'lucide-react';
-import type { CSSProperties } from 'react';
+import { Plus, Search, X } from 'lucide-react';
+import { useMemo, useState, type CSSProperties } from 'react';
 
 /** 插画资产类型（对齐 .if-tab[data-itype]） */
 export type AssetType = 'cover' | 'scene' | 'clue' | 'public' | 'char' | 'poster';
@@ -138,6 +138,25 @@ function buildThumbStyle(thumb: string): CSSProperties {
   return { background: thumb };
 }
 
+function normalizeSearchText(value: string): string {
+  return value.trim().toLocaleLowerCase();
+}
+
+function isFuzzyMatch(source: string, keyword: string): boolean {
+  if (!keyword) return true;
+
+  const text = normalizeSearchText(source);
+  if (text.includes(keyword)) return true;
+
+  let cursor = 0;
+  for (const char of keyword) {
+    cursor = text.indexOf(char, cursor);
+    if (cursor === -1) return false;
+    cursor += 1;
+  }
+  return true;
+}
+
 /** 状态图标映射 */
 /**
  * 资产列表组件
@@ -154,9 +173,20 @@ export function AssetList({
   onSelect,
   onGenerate,
 }: AssetListProps) {
-  // 按激活类型计算可见项与已完成数（驱动头部计数）
-  const visible = assets.filter(
-    (a) => activeType === 'all' || a.type === activeType,
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const normalizedKeyword = normalizeSearchText(searchKeyword);
+  const visible = useMemo(
+    () =>
+      assets.filter((asset) => {
+        const matchesType = activeType === 'all' || asset.type === activeType;
+        if (!matchesType) return false;
+        if (!normalizedKeyword) return true;
+        return isFuzzyMatch(
+          `${asset.title} ${asset.sub} ${asset.type} ${asset.id}`,
+          normalizedKeyword,
+        );
+      }),
+    [activeType, assets, normalizedKeyword],
   );
   const doneCount = visible.filter((a) => a.status === 'done').length;
 
@@ -166,14 +196,38 @@ export function AssetList({
         <span>ASSET LIST · {visible.length}</span>
         <span className="iah-progress">已完成 {doneCount}</span>
       </div>
+      <div className="illust-asset-search">
+        <Search size={14} aria-hidden="true" />
+        <input
+          type="search"
+          value={searchKeyword}
+          placeholder="搜索任务、类型、编号..."
+          aria-label="搜索插画任务"
+          onChange={(event) => setSearchKeyword(event.target.value)}
+        />
+        {searchKeyword ? (
+          <button
+            type="button"
+            className="ias-clear"
+            aria-label="清空搜索"
+            onClick={() => setSearchKeyword('')}
+          >
+            <X size={13} />
+          </button>
+        ) : null}
+      </div>
       <div className="illust-asset-scroll">
+        {visible.length === 0 ? (
+          <div className="illust-asset-empty">没有匹配的插画任务</div>
+        ) : null}
         {visible.map((asset) => {
           const isSelected = asset.id === selectedAssetId;
           const classNames = [
             'scene-item',
             asset.status === 'done' ? 'done' : '',
             asset.status === 'pending' ? 'pending' : '',
-            asset.status === 'active' || isSelected ? 'active' : '',
+            asset.status === 'active' ? 'active' : '',
+            isSelected ? 'selected' : '',
           ]
             .filter(Boolean)
             .join(' ');

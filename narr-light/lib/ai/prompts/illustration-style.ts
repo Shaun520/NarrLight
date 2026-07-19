@@ -142,6 +142,14 @@ export function formatVisualTone(tone: VisualTone): string {
   return `${tone.style} / ${tone.lighting} / ${tone.composition} / ${tone.mood}`;
 }
 
+function compactText(value?: string | null): string {
+  return value?.trim().replace(/\s+/g, ' ') ?? '';
+}
+
+function sentenceJoin(parts: Array<string | undefined | null>): string {
+  return parts.map((part) => compactText(part)).filter(Boolean).join('。');
+}
+
 /** 资产类型 → 中文标签 */
 const TYPE_LABEL: Record<IllustrationAssetInput['type'], string> = {
   cover: '剧本封面',
@@ -190,18 +198,19 @@ export function buildCharacterConsistencyPrompt(
     character.gender === 'male' ? '男性' : character.gender === 'female' ? '女性' : '';
   const ageLabel = character.age ? `${character.age}岁` : '';
   const identity = [genderLabel, ageLabel, character.roleIdentity]
+    .map(compactText)
     .filter(Boolean)
     .join(' · ');
 
   const lines = [
-    `人物立绘 · ${character.name}（${identity}）`,
-    `性格：${character.personality}`,
-    `背景：${character.backgroundStory}`,
+    identity ? `人物立绘 · ${character.name}（${identity}）` : `人物立绘 · ${character.name}`,
+    character.personality ? `性格：${character.personality}` : '',
+    character.backgroundStory ? `背景：${character.backgroundStory}` : '',
     `表情差分：${expressions.join(' / ')}，保持五官、发型、服饰完全一致`,
     '半身立绘，正面构图，纯色背景，便于抠图复用',
     '保持与同剧本其他人物立绘画风统一',
   ];
-  return lines.join('。');
+  return sentenceJoin(lines);
 }
 
 /**
@@ -210,10 +219,13 @@ export function buildCharacterConsistencyPrompt(
  */
 export function buildSceneStylePrompt(scene: SceneStyleInput, visualTone: VisualTone): string {
   const tone = formatVisualTone(visualTone);
-  return `${scene.title}（${scene.location}）。${scene.content.slice(0, 80)}。${tone}。强调空间纵深感与环境叙事细节，无人物或人物仅作远景剪影`.replace(
-    /\n/g,
-    ' ',
-  );
+  const title = compactText(scene.location) ? `${scene.title}（${scene.location}）` : scene.title;
+  return sentenceJoin([
+    title,
+    scene.content.slice(0, 80),
+    tone,
+    '强调空间纵深感与环境叙事细节，无人物或人物仅作远景剪影',
+  ]);
 }
 
 /**
@@ -222,8 +234,12 @@ export function buildSceneStylePrompt(scene: SceneStyleInput, visualTone: Visual
  */
 export function buildCoverPrompt(script: ScriptVisualInput, visualTone: VisualTone): string {
   const tone = formatVisualTone(visualTone);
-  return `${script.title} · 剧本封面。${script.backgroundSetting}，主题：${script.coreTheme ?? ''}。${tone}。主视觉突出，强冲击力构图，顶部或底部预留标题排版空间，不出现文字`.replace(
-    /\s+/g,
-    ' ',
-  );
+  const setting = compactText(script.backgroundSetting);
+  const theme = compactText(script.coreTheme);
+  return sentenceJoin([
+    `${script.title} · 剧本封面`,
+    theme ? `${setting}，主题：${theme}` : setting,
+    tone,
+    '主视觉突出，强冲击力构图，顶部或底部预留标题排版空间，不出现文字',
+  ]);
 }

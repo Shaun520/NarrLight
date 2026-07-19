@@ -26,3 +26,4 @@
 - 本项目是 Next.js 应用，使用 React 19、TypeScript、Supabase、Ant Design、Zustand、Vitest 和 ESLint。
 - UI 改动需保持与现有仪表盘和组件约定一致。
 - 除非任务明确要求，否则保留现有中文产品文案和领域术语。
+- 提交仓库格式，可参考：fix(editor): 编辑保存后清除脏快照防止内容回退（提交信息一定要是中文）

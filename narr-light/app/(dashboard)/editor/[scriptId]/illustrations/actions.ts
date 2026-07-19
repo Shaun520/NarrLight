@@ -51,7 +51,7 @@ export interface IllustrationWorkspaceView {
 export async function getIllustrationWorkspaceAction(
   scriptId: string,
 ): Promise<IllustrationWorkspaceView> {
-  const workspace = await illustrationWorkflowService.ensureScriptWorkspace(scriptId);
+  const workspace = await illustrationWorkflowService.getWorkspace(scriptId);
   return {
     script: {
       id: workspace.script.id,

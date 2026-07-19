@@ -182,14 +182,16 @@ export class IllustrationWorkflowService {
 
   async getWorkspace(scriptId: string): Promise<IllustrationWorkspace> {
     const supabase = this.getAdminClient();
-    const [script, characters, marketItems, taskRows, assetRows] = await Promise.all([
+    const [script, characters, marketItems, taskRows, assetRows, persistedStyleProfile] = await Promise.all([
       this.getScript(supabase, scriptId),
       this.getCharacters(supabase, scriptId),
       this.getMarketItems(supabase),
       this.getTasks(supabase, scriptId),
       this.getAssets(supabase, scriptId),
+      this.getStyleProfileOptional(supabase, scriptId),
     ]);
-    const styleProfile = await this.ensureStyleProfile(supabase, script, characters, marketItems);
+    const styleProfile =
+      persistedStyleProfile ?? (await this.ensureStyleProfile(supabase, script, characters, marketItems));
 
     const assetById = new Map(assetRows.map((row) => [row.id, row]));
     const tasks =
@@ -207,12 +209,14 @@ export class IllustrationWorkflowService {
 
   async createTaskFromMarket(scriptId: string, marketItemId: string): Promise<IllustrationTaskView> {
     const supabase = this.getAdminClient();
-    const [script, marketItems, styleProfile, characters] = await Promise.all([
+    const [script, marketItems, characters, persistedStyleProfile] = await Promise.all([
       this.getScript(supabase, scriptId),
       this.getMarketItems(supabase),
-      this.ensureStyleProfile(supabase, await this.getScript(supabase, scriptId), await this.getCharacters(supabase, scriptId), await this.getMarketItems(supabase)),
       this.getCharacters(supabase, scriptId),
+      this.getStyleProfileOptional(supabase, scriptId),
     ]);
+    const styleProfile =
+      persistedStyleProfile ?? (await this.ensureStyleProfile(supabase, script, characters, marketItems));
 
     const marketItem = marketItems.find((item) => item.id === marketItemId);
     if (!marketItem) {
@@ -239,12 +243,14 @@ export class IllustrationWorkflowService {
     },
   ): Promise<IllustrationTaskView> {
     const supabase = this.getAdminClient();
-    const [script, characters, marketItems] = await Promise.all([
+    const [script, characters, marketItems, persistedStyleProfile] = await Promise.all([
       this.getScript(supabase, scriptId),
       this.getCharacters(supabase, scriptId),
       this.getMarketItems(supabase),
+      this.getStyleProfileOptional(supabase, scriptId),
     ]);
-    const styleProfile = await this.ensureStyleProfile(supabase, script, characters, marketItems);
+    const styleProfile =
+      persistedStyleProfile ?? this.buildStyleProfileSnapshot(script, characters, marketItems);
     const taskKey = `manual-${crypto.randomUUID()}`;
     const spec: TaskSpec = {
       taskKey,
@@ -431,6 +437,21 @@ export class IllustrationWorkflowService {
     return (data ?? null) as unknown as TaskRow | null;
   }
 
+  private async getTaskByKey(
+    supabase: SupabaseClient,
+    scriptId: string,
+    taskKey: string,
+  ): Promise<TaskRow | null> {
+    const { data, error } = await supabase
+      .from('illustration_tasks')
+      .select('*')
+      .eq('script_id', scriptId)
+      .eq('task_key', taskKey)
+      .maybeSingle();
+    if (error) throw new Error(`读取插画任务失败: ${error.message}`);
+    return (data ?? null) as unknown as TaskRow | null;
+  }
+
   private async getTasksByIds(
     supabase: SupabaseClient,
     scriptId: string,
@@ -584,8 +605,56 @@ export class IllustrationWorkflowService {
       .select('*')
       .eq('script_id', scriptId)
       .maybeSingle();
-    if (error) throw new Error(`读取风格档案失败: ${error.message}`);
+    if (error) {
+      if (isMissingTableError(error)) return null;
+      throw new Error(`读取风格档案失败: ${error.message}`);
+    }
     return data ? this.mapStyleRow(data as unknown as StyleProfileRow) : null;
+  }
+
+  private buildStyleProfileSnapshot(
+    script: ScriptRow,
+    characters: CharacterRow[],
+    marketItems: IllustrationMarketItem[],
+  ): IllustrationStyleProfile {
+    const visualTone = buildVisualTone({
+      title: script.title,
+      genre: script.genre,
+      backgroundSetting: script.background_setting,
+      coreTheme: script.core_theme,
+      writingStyle: '剧本统一插画风格',
+    } satisfies ScriptVisualInput);
+
+    const masterPrompt = [
+      `剧本：${script.title}`,
+      `统一视觉基调：${formatVisualTone(visualTone)}`,
+      `背景：${script.background_setting}`,
+      script.core_theme ? `主题：${script.core_theme}` : '',
+      '所有插画必须保持同一剧本风格、同一色调、同一笔触和角色一致性。',
+    ]
+      .filter(Boolean)
+      .join('；');
+
+    const referenceNotes = [
+      `角色数 ${script.player_count}`,
+      `时长 ${script.duration_hours}h`,
+      `角色样本 ${characters.slice(0, 3).map((item) => item.name).join(' / ')}`,
+      marketItems[0]?.title ? `市场参考 ${marketItems[0].title}` : '',
+    ]
+      .filter(Boolean)
+      .join('；');
+
+    return {
+      id: script.id,
+      scriptId: script.id,
+      styleName: `${script.title} 统一风格`,
+      visualTone: formatVisualTone(visualTone),
+      masterPrompt,
+      referenceNotes,
+      marketItemId: marketItems[0]?.id ?? null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
   }
 
   private buildTaskSpecs(
@@ -762,25 +831,30 @@ export class IllustrationWorkflowService {
     styleProfileId: string,
     specs: TaskSpec[],
   ): Promise<void> {
-    for (const spec of specs) {
-      try {
-        await this.upsertSingleTaskAndAsset(supabase, scriptId, styleProfileId, spec);
-      } catch (error) {
-        if (isMissingTableError(error instanceof Error ? { message: error.message } : null)) {
-          return;
-        }
-        throw error;
-      }
-    }
-  }
+    const { data: existingRows, error: existingError } = await supabase
+      .from('illustration_tasks')
+      .select('task_key, asset_id')
+      .eq('script_id', scriptId);
 
-  private async upsertSingleTaskAndAsset(
-    supabase: SupabaseClient,
-    scriptId: string,
-    styleProfileId: string,
-    spec: TaskSpec,
-  ): Promise<{ taskRow: TaskRow; assetRow: AssetRow }> {
-    const assetPayload = {
+    if (existingError) {
+      if (isMissingTableError(existingError)) return;
+      throw new Error(`读取插画任务失败: ${existingError.message}`);
+    }
+
+    const existingByKey = new Map(
+      ((existingRows ?? []) as Array<{ task_key: string; asset_id: string | null }>).map((row) => [
+        row.task_key,
+        row.asset_id,
+      ]),
+    );
+    const now = new Date().toISOString();
+    const pairs = specs.map((spec) => ({
+      spec,
+      assetId: existingByKey.get(spec.taskKey) ?? crypto.randomUUID(),
+    }));
+
+    const assetRows = pairs.map(({ spec, assetId }) => ({
+      id: assetId,
       script_id: scriptId,
       type: spec.taskType,
       title: spec.title,
@@ -791,12 +865,78 @@ export class IllustrationWorkflowService {
       locked: false,
       sort_order: spec.sortOrder,
       source_type: 'task',
-      source_id: spec.taskKey,
+      source_id: assetId,
+      updated_at: now,
+    }));
+
+    const { error: assetError } = await supabase
+      .from('illustration_assets')
+      .upsert(assetRows, { onConflict: 'id' });
+    if (assetError) {
+      if (isMissingTableError(assetError)) return;
+      throw new Error(`创建插画资源失败: ${assetError.message}`);
+    }
+
+    const taskRows = pairs.map(({ spec, assetId }) => ({
+      script_id: scriptId,
+      style_profile_id: styleProfileId,
+      asset_id: assetId,
+      market_item_id: spec.marketItemId ?? null,
+      task_key: spec.taskKey,
+      task_type: spec.taskType,
+      source_type: spec.sourceType,
+      source_id: spec.sourceId,
+      title: spec.title,
+      subtitle: spec.subtitle,
+      prompt: spec.prompt,
+      status: 'pending',
+      progress_percent: 0,
+      sort_order: spec.sortOrder,
+      selected_model: 'openai',
+      selected_ratio: '16:9',
+      selected_count: 1,
+      result_image_url: '',
+      error_message: '',
+      started_at: null,
+      completed_at: null,
+      updated_at: now,
+    }));
+
+    const { error: taskError } = await supabase
+      .from('illustration_tasks')
+      .upsert(taskRows, { onConflict: 'script_id,task_key' });
+    if (taskError) {
+      if (isMissingTableError(taskError)) return;
+      throw new Error(`创建插画任务失败: ${taskError.message}`);
+    }
+  }
+
+  private async upsertSingleTaskAndAsset(
+    supabase: SupabaseClient,
+    scriptId: string,
+    styleProfileId: string,
+    spec: TaskSpec,
+  ): Promise<{ taskRow: TaskRow; assetRow: AssetRow }> {
+    const existingTask = await this.getTaskByKey(supabase, scriptId, spec.taskKey);
+    const assetId = existingTask?.asset_id ?? crypto.randomUUID();
+    const assetPayload = {
+      id: assetId,
+      script_id: scriptId,
+      type: spec.taskType,
+      title: spec.title,
+      sub: spec.subtitle || '待生成',
+      status: 'pending',
+      thumb: '',
+      progress: 0,
+      locked: false,
+      sort_order: spec.sortOrder,
+      source_type: 'task',
+      source_id: assetId,
     };
 
     const { data: assetData, error: assetError } = await supabase
       .from('illustration_assets')
-      .upsert(assetPayload, { onConflict: 'script_id,source_type,source_id' })
+      .upsert(assetPayload, { onConflict: 'id' })
       .select('*')
       .single();
     if (assetError) throw new Error(`创建插画资源失败: ${assetError.message}`);

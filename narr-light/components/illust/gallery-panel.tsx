@@ -69,7 +69,7 @@ export function GalleryPanel({
   const [prompt, setPrompt] = useState(defaultPrompt(asset));
   const [model, setModel] = useState<string>('openai');
   const [ratio, setRatio] = useState<string>('16:9');
-  const [count, setCount] = useState<number>(4);
+  const [count, setCount] = useState<number>(1);
 
   const cards = buildGalleryCards(asset);
   const promptTitle = asset ? `PROMPT · ${asset.title}` : 'PROMPT';
@@ -103,10 +103,6 @@ export function GalleryPanel({
             <h3>{asset.title}</h3>
             <p>{asset.sub || '线索插画任务已创建，完善 Prompt 后即可开始生成。'}</p>
           </div>
-          <button type="button" className="btn btn-primary" onClick={handleGenerate}>
-            <Play size={14} />
-            开始生成
-          </button>
         </div>
       ) : asset ? (
         <div className={`gallery ${cards.length <= 1 ? 'single-result' : ''}`}>

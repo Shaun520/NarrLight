@@ -310,6 +310,9 @@ export default function IllustrationsPage({ params }: PageProps) {
           </h1>
           <div className="page-desc">
             {workspace?.script.title ?? '当前剧本'} / 自动任务 / 统一风格 / 市场素材 / 批量执行
+            <span className="page-desc-style">
+              统一风格：{workspace?.styleProfile.styleName ?? '读取中'}
+            </span>
           </div>
         </div>
         <div className="page-actions">
@@ -326,12 +329,6 @@ export default function IllustrationsPage({ params }: PageProps) {
             新建生成任务
           </button>
         </div>
-      </div>
-
-      <div className="illust-style-strip">
-        <span className="style-label">统一风格</span>
-        <span>{workspace?.styleProfile.styleName ?? '正在读取风格档案'}</span>
-        <strong>{visualTone ?? '待生成'}</strong>
       </div>
 
       <div className="illust-filter">
