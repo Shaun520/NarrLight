@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ImagePlus, Play, Sparkles, Square } from 'lucide-react';
 import { getDefaultIllustrationRatio } from '@/lib/ai/prompts/illustration-style';
+import { getTemplatesForType } from '@/lib/ai/prompts/illustration-reference-templates';
 import { GenCard, type GenCardData } from './gen-card';
 import type { AssetType, IllustrationAsset } from './asset-list';
 
@@ -20,6 +21,7 @@ export interface GenerateConfig {
   model: string;
   ratio: string;
   count: number;
+  templateIds?: string[];
 }
 
 interface GalleryPanelProps {
@@ -28,6 +30,8 @@ interface GalleryPanelProps {
   visualTone?: string;
   initialRatio?: string;
   initialCount?: number;
+  qualityStatus?: 'unchecked' | 'passed' | 'warning';
+  qualityMessage?: string;
   isGenerating?: boolean;
   onGenerate?: (config: GenerateConfig) => void;
   onStopGenerate?: () => void;
@@ -43,7 +47,18 @@ function previewVariant(type: AssetType | undefined): Extract<GenCardData, { sta
   return 'plain';
 }
 
-function buildGalleryCards(asset: IllustrationAsset | undefined): GenCardData[] {
+function defaultTemplateIds(type: AssetType | undefined): string[] {
+  if (type === 'clue') return ['ref-clue-card-finished'];
+  if (type === 'cover' || type === 'poster') return ['ref-cover-white-poster'];
+  if (type === 'char') return ['ref-character-standee'];
+  return [];
+}
+
+function buildGalleryCards(
+  asset: IllustrationAsset | undefined,
+  qualityStatus?: 'unchecked' | 'passed' | 'warning',
+  qualityMessage?: string,
+): GenCardData[] {
   if (!asset || asset.status === 'pending') return [];
   if (asset.status === 'active') {
     return [{
@@ -61,6 +76,8 @@ function buildGalleryCards(asset: IllustrationAsset | undefined): GenCardData[] 
     variant: previewVariant(asset.type),
     title: asset.title,
     subtitle: asset.sub,
+    qualityStatus,
+    qualityMessage,
   }];
 }
 
@@ -87,6 +104,8 @@ export function GalleryPanel({
   visualTone,
   initialRatio,
   initialCount,
+  qualityStatus,
+  qualityMessage,
   isGenerating = false,
   onGenerate,
   onStopGenerate,
@@ -98,8 +117,12 @@ export function GalleryPanel({
   const [model, setModel] = useState<string>('openai');
   const [ratio, setRatio] = useState<string>(initialRatio ?? getDefaultIllustrationRatio(asset?.type ?? 'scene'));
   const [count, setCount] = useState<number>(initialCount ?? 1);
+  const [templateIds, setTemplateIds] = useState<string[]>(() => defaultTemplateIds(asset?.type));
 
-  const cards = buildGalleryCards(asset);
+  const cards = buildGalleryCards(asset, qualityStatus, qualityMessage);
+  const templates = getTemplatesForType(asset?.type ?? 'scene');
+  const referenceTemplates = templates.filter((template) => template.kind === 'reference');
+  const styleTemplates = templates.filter((template) => template.kind === 'style');
   const promptTitle = asset ? `PROMPT · ${asset.title}` : 'PROMPT';
   const assetId = asset?.id;
   const compactPreview = cards.length > 0;
@@ -108,6 +131,7 @@ export function GalleryPanel({
     setPrompt(generatedPrompt ?? defaultPrompt(asset));
     setRatio(initialRatio ?? getDefaultIllustrationRatio(asset?.type ?? 'scene'));
     setCount(initialCount ?? 1);
+    setTemplateIds(defaultTemplateIds(asset?.type));
   }, [asset, generatedPrompt, initialCount, initialRatio]);
 
   const handleGenerate = () => {
@@ -115,7 +139,15 @@ export function GalleryPanel({
       onStopGenerate?.();
       return;
     }
-    onGenerate?.({ prompt, model, ratio, count });
+    onGenerate?.({ prompt, model, ratio, count, templateIds });
+  };
+
+  const toggleTemplate = (templateId: string) => {
+    setTemplateIds((current) =>
+      current.includes(templateId)
+        ? current.filter((id) => id !== templateId)
+        : [...current, templateId],
+    );
   };
 
   const cardActions = assetId
@@ -169,6 +201,52 @@ export function GalleryPanel({
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
         />
+        {templates.length > 0 ? (
+          <div className="template-market">
+            {referenceTemplates.length > 0 ? (
+              <div className="tm-group">
+                <div className="tm-title">参考图</div>
+                <div className="tm-list">
+                  {referenceTemplates.map((template) => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      className={`tm-card ${templateIds.includes(template.id) ? 'active' : ''}`}
+                      onClick={() => toggleTemplate(template.id)}
+                    >
+                      <span className="tm-swatch" style={{ background: template.swatch }} />
+                      <span className="tm-copy">
+                        <strong>{template.title}</strong>
+                        <small>{template.subtitle}</small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {styleTemplates.length > 0 ? (
+              <div className="tm-group">
+                <div className="tm-title">风格模板</div>
+                <div className="tm-list">
+                  {styleTemplates.map((template) => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      className={`tm-card ${templateIds.includes(template.id) ? 'active' : ''}`}
+                      onClick={() => toggleTemplate(template.id)}
+                    >
+                      <span className="tm-swatch" style={{ background: template.swatch }} />
+                      <span className="tm-copy">
+                        <strong>{template.title}</strong>
+                        <small>{template.subtitle}</small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         <div className="prompt-controls">
           <div className="pc-group">
             <span className="pc-label">模型</span>

@@ -353,6 +353,8 @@ export interface Database {
           selected_count: number;
           result_image_url: string;
           error_message: string;
+          quality_status: "unchecked" | "passed" | "warning";
+          quality_message: string;
           started_at: string | null;
           completed_at: string | null;
           created_at: string;

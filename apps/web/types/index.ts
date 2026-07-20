@@ -64,6 +64,9 @@ export type IllustrationTaskType = 'cover' | 'scene' | 'clue' | 'public' | 'char
 /** 插画任务状态 */
 export type IllustrationTaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 
+/** 插画生成后质检状态 */
+export type IllustrationQualityStatus = 'unchecked' | 'passed' | 'warning';
+
 /** 插画风格档案 */
 export interface IllustrationStyleProfile {
   id: string;
@@ -99,6 +102,8 @@ export interface IllustrationTask {
   selectedCount: number;
   resultImageUrl: string;
   errorMessage: string;
+  qualityStatus: IllustrationQualityStatus;
+  qualityMessage: string;
   startedAt: string | null;
   completedAt: string | null;
   createdAt: string;

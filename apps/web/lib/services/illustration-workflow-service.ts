@@ -11,9 +11,12 @@ import {
   type ScriptVisualInput,
   type VisualTone,
 } from '@/lib/ai/prompts/illustration-style';
+import { applyIllustrationTemplates } from '@/lib/ai/prompts/illustration-reference-templates';
 import { illustrationGenerateService } from '@/lib/services/illustration-generate-service';
+import { evaluateIllustrationQuality } from '@/lib/services/illustration-quality';
 import type {
   IllustrationMarketItem,
+  IllustrationQualityStatus,
   IllustrationStyleProfile,
   IllustrationTask,
   IllustrationTaskStatus,
@@ -108,6 +111,8 @@ interface TaskRow {
   selected_count: number;
   result_image_url: string;
   error_message: string;
+  quality_status: IllustrationQualityStatus;
+  quality_message: string;
   started_at: string | null;
   completed_at: string | null;
   created_at: string;
@@ -323,7 +328,14 @@ export class IllustrationWorkflowService {
 
   async runTask(
     taskId: string,
-    config?: { prompt?: string; model?: string; ratio?: string; count?: number; signal?: AbortSignal },
+    config?: {
+      prompt?: string;
+      model?: string;
+      ratio?: string;
+      count?: number;
+      templateIds?: string[];
+      signal?: AbortSignal;
+    },
   ): Promise<IllustrationTaskView> {
     const supabase = this.getAdminClient();
     let task = await this.getTaskById(supabase, taskId);
@@ -331,12 +343,16 @@ export class IllustrationWorkflowService {
     if (!task.asset_id) throw new Error('插画任务缺少资源绑定');
     const assetId = task.asset_id;
 
+    const nextPrompt = applyIllustrationTemplates(config?.prompt?.trim() || task.prompt, config?.templateIds ?? []);
+
     task = await this.updateTask(supabase, taskId, {
       status: 'running',
       progress_percent: 8,
       started_at: new Date().toISOString(),
       error_message: '',
-      prompt: config?.prompt?.trim() || task.prompt,
+      quality_status: 'unchecked',
+      quality_message: '',
+      prompt: nextPrompt,
       selected_model: config?.model || task.selected_model,
       selected_ratio: config?.ratio || task.selected_ratio,
       selected_count: config?.count || task.selected_count,
@@ -360,12 +376,20 @@ export class IllustrationWorkflowService {
         },
       );
 
+      const quality = evaluateIllustrationQuality({
+        taskType: task.task_type,
+        prompt: task.prompt,
+        ratio: task.selected_ratio,
+      });
+
       const updated = await this.updateTask(supabase, taskId, {
         status: 'completed',
         progress_percent: 100,
         completed_at: new Date().toISOString(),
         result_image_url: result.imageUrl,
         error_message: '',
+        quality_status: quality.status,
+        quality_message: quality.message,
       });
 
       const asset = await this.getAssetById(supabase, assetId);
@@ -939,6 +963,8 @@ export class IllustrationWorkflowService {
       selected_count: spec.selectedCount ?? 1,
       result_image_url: '',
       error_message: '',
+      quality_status: 'unchecked',
+      quality_message: '',
       started_at: null,
       completed_at: null,
       updated_at: now,
@@ -1003,6 +1029,8 @@ export class IllustrationWorkflowService {
       selected_count: spec.selectedCount ?? 1,
       result_image_url: '',
       error_message: '',
+      quality_status: 'unchecked',
+      quality_message: '',
       started_at: null,
       completed_at: null,
       updated_at: new Date().toISOString(),
@@ -1097,6 +1125,8 @@ export class IllustrationWorkflowService {
       selectedCount: 1,
       resultImageUrl: row.thumb,
       errorMessage: '',
+      qualityStatus: 'unchecked',
+      qualityMessage: '',
       startedAt: null,
       completedAt: row.status === 'done' ? row.updated_at : null,
       createdAt: row.created_at,
@@ -1130,6 +1160,8 @@ export class IllustrationWorkflowService {
       selectedCount: row.selected_count,
       resultImageUrl: row.result_image_url,
       errorMessage: row.error_message,
+      qualityStatus: row.quality_status ?? 'unchecked',
+      qualityMessage: row.quality_message ?? '',
       startedAt: row.started_at,
       completedAt: row.completed_at,
       createdAt: row.created_at,

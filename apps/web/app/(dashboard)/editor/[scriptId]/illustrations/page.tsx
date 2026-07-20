@@ -249,6 +249,7 @@ export default function IllustrationsPage({ params }: PageProps) {
           model: config?.model,
           ratio: config?.ratio,
           count: config?.count,
+          templateIds: config?.templateIds,
         }),
         signal: controller.signal,
       });
@@ -477,6 +478,8 @@ export default function IllustrationsPage({ params }: PageProps) {
           visualTone={visualTone}
           initialRatio={selectedTask?.selectedRatio}
           initialCount={selectedTask?.selectedCount}
+          qualityStatus={selectedTask?.qualityStatus}
+          qualityMessage={selectedTask?.qualityMessage}
         />
       </div>
 

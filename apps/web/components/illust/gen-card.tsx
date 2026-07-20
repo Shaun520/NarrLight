@@ -8,7 +8,7 @@
  *
  * 视觉与 class 命名对齐原型 workbench2.html #view-illust .gen-card
  */
-import { ImagePlus } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ImagePlus } from 'lucide-react';
 import type { CSSProperties } from 'react';
 
 /** 生成结果卡数据（判别联合） */
@@ -26,6 +26,8 @@ export type GenCardData =
       variant?: 'plain' | 'clue-card' | 'cover' | 'character';
       title?: string;
       subtitle?: string;
+      qualityStatus?: 'unchecked' | 'passed' | 'warning';
+      qualityMessage?: string;
     }
   | {
       /** 生成中 */
@@ -105,7 +107,7 @@ export function GenCard({ card, actions }: GenCardProps) {
         <div className="gen-img gen-material gen-clue-card">
           <div className="gmc-head">{card.title ?? '线索卡'}</div>
           <div className="gmc-image" style={buildImageStyle(card.image)} />
-          <div className="gmc-text">{card.subtitle ?? '线索正文由系统模板排版，图片仅作为证据配图层。'}</div>
+          <div className="gmc-text">{card.subtitle ?? '线索卡成品预览，需包含标题、证物图和简短说明区。'}</div>
         </div>
       );
     }
@@ -135,6 +137,12 @@ export function GenCard({ card, actions }: GenCardProps) {
   return (
     <div className="gen-card">
       {renderDoneImage()}
+      {card.qualityStatus && card.qualityStatus !== 'unchecked' ? (
+        <div className={`gen-quality ${card.qualityStatus}`}>
+          {card.qualityStatus === 'warning' ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
+          <span>{card.qualityMessage || (card.qualityStatus === 'warning' ? '类型可能不符，建议重绘' : '质检通过')}</span>
+        </div>
+      ) : null}
       <div className="gen-meta">
         <span className="gen-model">{card.model}</span>
         {card.seed ? <span className="gen-seed">seed {card.seed}</span> : null}

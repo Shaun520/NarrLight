@@ -6,6 +6,7 @@ interface RunIllustrationTaskBody {
   model?: string;
   ratio?: string;
   count?: number;
+  templateIds?: string[];
 }
 
 function normalizeBody(body: unknown): RunIllustrationTaskBody {
@@ -16,6 +17,9 @@ function normalizeBody(body: unknown): RunIllustrationTaskBody {
     model: typeof source.model === 'string' ? source.model : undefined,
     ratio: typeof source.ratio === 'string' ? source.ratio : undefined,
     count: typeof source.count === 'number' ? source.count : undefined,
+    templateIds: Array.isArray(source.templateIds)
+      ? source.templateIds.filter((item): item is string => typeof item === 'string')
+      : undefined,
   };
 }
 

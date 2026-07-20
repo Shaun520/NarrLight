@@ -138,7 +138,7 @@ export async function getIllustrationCharactersAction(
 
 export async function runIllustrationTaskAction(
   taskId: string,
-  config?: { prompt?: string; model?: string; ratio?: string; count?: number },
+  config?: { prompt?: string; model?: string; ratio?: string; count?: number; templateIds?: string[] },
 ) {
   const result = await illustrationWorkflowService.runTask(taskId, config);
   return result;

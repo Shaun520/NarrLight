@@ -163,7 +163,7 @@ const TYPE_LABEL: Record<IllustrationAssetInput['type'], string> = {
 export const DEFAULT_ILLUSTRATION_RATIOS: Record<IllustrationAssetInput['type'], string> = {
   cover: '3:4',
   scene: '16:9',
-  clue: '4:3',
+  clue: '3:4',
   public: '16:9',
   char: '3:4',
   poster: '3:4',
@@ -183,10 +183,10 @@ function typedMaterialInstruction(type: IllustrationAssetInput['type']): string 
   switch (type) {
     case 'clue':
       return [
-        '输出目标：线索卡配图层，不是完整插画场景',
-        '画面只呈现线索物件、局部现场或证据特写，适合嵌入线索卡中部图片区',
-        '禁止生成卡牌边框、标题栏、说明文字、二维码、水印、UI按钮',
-        '构图干净，主体居中，预留四周安全边距，方便后续系统模板排版正文',
+        '输出目标：线索卡成品，不是单独证物插画',
+        '画面必须包含纸质卡片边框、顶部标题栏、中部证物图、底部简短说明区，整体像可打印线索卡',
+        '证物图服务于卡片版式，不要只生成纯物件、纯酒瓶、纯现场特写或无卡框插画',
+        '允许出现卡片排版文字感，但避免乱码、水印、二维码和UI按钮',
       ].join('。');
     case 'cover':
       return [
