@@ -1,4 +1,0 @@
-context_file: .trae/rules/project_rules.md
-context_markers:
-  start: <!-- SPECKIT START -->
-  end: <!-- SPECKIT END -->
