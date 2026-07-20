@@ -88,7 +88,7 @@ export default function ValidationPage({ params }: PageProps) {
   const [validatedAt, setValidatedAt] = useState<number>(Date.now() - 60 * 60 * 1000); // 1 小时前
 
   // 剧本数据（后续由真实接口填充；当前保持 null）
-  const [scriptData, setScriptData] = useState<GeneratedScriptJson | null>(null);
+  const [scriptData] = useState<GeneratedScriptJson | null>(null);
 
   // 漏洞 / 叙诡数据（由校验流程刷新；初始为空）
   const [issues, setIssues] = useState<AiValidationIssue[]>([]);

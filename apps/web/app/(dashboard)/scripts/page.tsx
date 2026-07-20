@@ -58,7 +58,7 @@ export default function ScriptsPage() {
             我的剧本 <span className="seal">{list.length}</span>
           </h1>
           <div className="page-desc">
-            // 全部创作项目 · 按更新时间倒序 · 点击进入编辑器
+            全部创作项目 · 按更新时间倒序 · 点击进入编辑器
           </div>
         </div>
         <div className="page-actions">

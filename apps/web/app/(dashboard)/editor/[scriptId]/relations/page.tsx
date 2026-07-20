@@ -317,7 +317,7 @@ export default function RelationsPage({ params }: PageProps) {
             人物关系图谱 <span className="seal">{graphData.nodes.length} 人</span>
           </h1>
           <div className="page-desc">
-            // 明暗双线可视化 · SVG 节点可拖拽 · 实时联动剧本段落
+            明暗双线可视化 · SVG 节点可拖拽 · 实时联动剧本段落
           </div>
         </div>
         <div className="page-actions">

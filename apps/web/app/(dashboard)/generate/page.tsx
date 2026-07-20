@@ -17,7 +17,7 @@
 
 import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Loader2, Play, FileDown, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Play, FileDown, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { ParamForm } from '@/components/generate/param-form';
 import { usePhasedGeneration } from '@/lib/hooks/use-phased-generation';
 import { PhasedGenProgress } from '@/components/generate/phased-gen-progress';
@@ -151,7 +151,7 @@ function GeneratePageInner() {
           <h1 className="page-title">
             剧本 AI 生成 <span className="seal">P1 核心</span>
           </h1>
-          <div className="page-desc">// 设定参数 → 分阶段生成 · 设定本确认 → 全本产出 · 支持中断续传</div>
+          <div className="page-desc">设定参数 → 分阶段生成 · 设定本确认 → 全本产出 · 支持中断续传</div>
         </div>
         <div className="page-actions">
           <button
@@ -206,7 +206,7 @@ function GeneratePageInner() {
           {state.orchestrationStatus === 'idle' && (
             <div className="gen-stream">
               <span className="content-line" style={{ opacity: 0.5 }}>
-                // 点击「开始生成」启动 AI 分阶段创作，设定本生成后将暂停等待确认…
+                点击「开始生成」启动 AI 分阶段创作，设定本生成后将暂停等待确认…
               </span>
               {state.globalError && (
                 <div className="phased-global-error" style={{ marginTop: 16 }}>

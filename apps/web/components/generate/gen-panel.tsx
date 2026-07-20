@@ -70,7 +70,7 @@ export function GenPanel({
       <div className="gen-stream">
         {lines.length === 0 && !isGenerating ? (
           <span className="content-line" style={{ opacity: 0.5 }}>
-            // 点击「开始生成」启动 AI 全本创作，流式输出将在此实时呈现…
+            点击「开始生成」启动 AI 全本创作，流式输出将在此实时呈现…
           </span>
         ) : (
           lines.map((line, i) => {

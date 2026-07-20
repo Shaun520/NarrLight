@@ -529,7 +529,7 @@ export default function TimelinePage({ params }: PageProps) {
             时间线校验 <span className="seal">P1</span>
           </h1>
           <div className="page-desc">
-            // 全角色时间轴可视化 · 自动标注时序冲突 · 支持手动修正
+            全角色时间轴可视化 · 自动标注时序冲突 · 支持手动修正
           </div>
         </div>
         <div className="page-actions">
