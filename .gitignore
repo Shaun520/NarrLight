@@ -18,6 +18,8 @@ UI/
 !apps/web/components/ui/**
 coverage/
 *.tsbuildinfo
+__pycache__/
+*.py[cod]
 **/.next*/
 **/.dev-smoke*.log
 **/.dev-smoke.pid

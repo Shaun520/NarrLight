@@ -1,6 +1,10 @@
 # NarrLight 开发指令
 
-在本应用中进行代码开发、审查和重构时，使用 Codex skill：`karpathy-guidelines`。
+Agent 每次接到任务时，先自主判断是否需要启用 Codex skill。
+
+- 写代码、代码审查、重构、排查缺陷或需要控制改动范围时，使用 `karpathy-guidelines`。
+- 设计、实现或评审 UI/UX、页面、组件、交互、响应式、动效、配色、排版或可访问性时，使用 `ui-ux-pro-max`。
+- 纯文档、Git 操作、环境配置、部署排查、数据查询等不涉及上述范围的任务，可不启用这两个 skill。
 
 ## 代码质量规则
 
