@@ -288,6 +288,56 @@ export class QuotaService {
     }
   }
 
+  async grantCredits(
+    userId: string,
+    amount: number,
+    reason: string,
+    metadata: Json = {},
+  ): Promise<string | null> {
+    if (amount <= 0) return null;
+
+    const supabase = this.getBillingWriteClient();
+    const planType = await this.getPlanType(userId);
+    const credit = await this.ensureCreditAccount(userId, planType);
+
+    const { error: updateError } = await supabase
+      .from("user_credits")
+      .update({
+        balance: credit.balance + amount,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId);
+
+    if (updateError) {
+      throw new ApiError("DB_UPDATE_ERROR", updateError.message, 500);
+    }
+
+    const { data: transaction, error: txError } = await supabase
+      .from("credit_transactions")
+      .insert({
+        user_id: userId,
+        amount,
+        type: "grant",
+        reason,
+        metadata,
+      })
+      .select("id")
+      .single();
+
+    if (txError) {
+      await supabase
+        .from("user_credits")
+        .update({
+          balance: credit.balance,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", userId);
+      throw new ApiError("DB_INSERT_ERROR", txError.message, 500);
+    }
+
+    return (transaction as { id: string }).id;
+  }
+
   async consumeGenerationPhase(
     userId: string,
     phase: GenerationCreditPhase,

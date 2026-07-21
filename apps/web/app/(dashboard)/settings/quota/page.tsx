@@ -1,24 +1,3 @@
-/**
- * 额度计费管理页（T203）
- *
- * 路由：/settings/quota
- *
- * 服务端组件，直接从 layout 已查的 profile（React cache 共享）构造当前
- * 套餐信息，并查询 credit_transactions 表获取最近创作点流水。
- *
- * 视觉对齐项目古风系统：朱砂红 + 纸张色 + 印章质感。
- * 包含：
- *   1. 当前套餐卡（免费版 / 专业版 + 创作点余额）
- *   2. 三档套餐卡（入门版 / 专业版 / 工作室版）
- *   3. 升级专业版按钮（开发期 mock：直接调用 upgradePlan）
- *   4. 创作点流水（最近 20 条消费/返还/发放记录）
- *
- * 性能优化（T418）：
- * - 通过 React `cache()` 共享 layout 已查的 `getUser()` 与 users 表查询，
- *   避免重复 DB 往返（详见 `lib/queries/dashboard-queries.ts`）；
- * - 额度信息从 profile 直接构造，不再调用 QuotaService.getQuotaInfo，
- *   消除 users 表的重复查询；upgradePlan server action 仍走 QuotaService。
- */
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
@@ -26,14 +5,15 @@ import {
   Crown,
   History,
   Layers,
+  QrCode,
   Sparkles,
   TrendingUp,
   Users,
   Zap,
 } from 'lucide-react';
 import {
-  getCachedUser,
   getCachedProfile,
+  getCachedUser,
 } from '@/lib/queries/dashboard-queries';
 import {
   QuotaService,
@@ -41,10 +21,16 @@ import {
   type CreditTransaction,
   type QuotaInfo,
 } from '@/lib/services/quota-service';
-import { EmptyState } from '@/components/common/state-views';
+import {
+  MANUAL_PAYMENT_PRODUCTS,
+  ManualPaymentService,
+  type ManualPaymentChannel,
+  type ManualPaymentOrder,
+  type ManualPaymentProductCode,
+} from '@/lib/services/manual-payment-service';
 import './quota.css';
+import './manual-payment.css';
 
-/** 套餐标签映射 */
 const PLAN_LABEL: Record<QuotaInfo['planType'], string> = {
   free: '免费版',
   pro: '专业版',
@@ -67,59 +53,86 @@ const PRICING_PLANS: PricingPlan[] = [
   {
     id: 'starter',
     name: '入门版',
-    price: '¥49/月',
-    audience: '新手作者、低频创作',
+    price: '￥49 / 月',
+    audience: '轻量使用',
     credits: '300 创作点',
-    output: '约 1 本完整短中篇剧本',
-    features: ['基础逻辑校验', '少量线索卡 / 插画', '失败生成自动返还'],
-    actionLabel: '暂未开通',
+    output: '适合低频内容生成',
+    features: ['基础逻辑校验', '少量素材生成', '失败自动返还'],
+    actionLabel: '暂未开放',
     disabled: true,
   },
   {
     id: 'pro',
     name: '专业版',
-    price: '¥129/月',
-    audience: '职业作者、稳定创作',
+    price: '￥129 / 月',
+    audience: '稳定创作',
     credits: '1000 创作点',
-    output: '约 3-4 本剧本',
-    features: ['完整逻辑校验', '版本历史', '高清无水印导出'],
+    output: '适合持续生产内容',
+    features: ['完整逻辑校验', '版本历史', '高清导出'],
     highlighted: true,
     actionLabel: '升级专业版',
   },
   {
     id: 'studio',
     name: '工作室版',
-    price: '¥399/月',
-    audience: '小团队 / 发行工作室',
+    price: '￥399 / 月',
+    audience: '小团队协作',
     credits: '4000 创作点',
-    output: '约 10 本剧本',
-    features: ['团队协作', '素材批量导出', '优先队列'],
-    actionLabel: '暂未开通',
+    output: '适合团队生产',
+    features: ['团队协作', '批量导出', '优先队列'],
+    actionLabel: '暂未开放',
     disabled: true,
   },
 ];
 
 const TRANSACTION_TYPE_LABEL: Record<CreditTransaction['type'], string> = {
   grant: '发放',
-  consume: '消费',
+  consume: '消耗',
   refund: '返还',
   adjustment: '调整',
 };
 
-/** 升级套餐 server action（开发期 mock：直接置为 pro） */
 async function upgradeToPro() {
   'use server';
-  // 复用 layout 已查的 user（React cache 命中，避免重复 getUser 调用）
+
   const user = await getCachedUser();
   if (!user) redirect('/auth/login');
-  const service = new QuotaService();
-  await service.upgradePlan(user.id);
-  redirect('/settings/quota');
+
+  const service = new ManualPaymentService();
+  const order = await service.createOrder({
+    userId: user.id,
+    productCode: 'pro_month',
+    paymentChannel: 'wechat',
+  });
+
+  redirect(`/settings/quota/pay/${order.id}`);
 }
 
-/** 格式化日期为 "MM-DD HH:mm" */
+async function createManualPaymentOrder(formData: FormData) {
+  'use server';
+
+  const user = await getCachedUser();
+  if (!user) redirect('/auth/login');
+
+  const productCode = String(
+    formData.get('productCode') ?? 'pro_month',
+  ) as ManualPaymentProductCode;
+  const paymentChannel = String(
+    formData.get('paymentChannel') ?? 'wechat',
+  ) as ManualPaymentChannel;
+
+  const service = new ManualPaymentService();
+  const order = await service.createOrder({
+    userId: user.id,
+    productCode,
+    paymentChannel,
+  });
+
+  redirect(`/settings/quota/pay/${order.id}`);
+}
+
 function formatTime(iso: string | null): string {
-  if (!iso) return '—';
+  if (!iso) return '--';
   const d = new Date(iso);
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
@@ -128,7 +141,6 @@ function formatTime(iso: string | null): string {
   return `${mm}-${dd} ${hh}:${mi}`;
 }
 
-/** 由 profile 构造 QuotaInfo（profile 为空时回退默认值） */
 function buildQuotaFromProfile(
   profile: {
     free_quota_used: number;
@@ -139,11 +151,13 @@ function buildQuotaFromProfile(
   if (!profile) {
     return {
       info: { used: 0, limit: 10, remaining: 10, planType: 'free' },
-      error: '未能读取额度信息，已显示默认值。',
+      error: '未能读取额度信息，已展示默认值。',
     };
   }
+
   const used = profile.free_quota_used;
   const limit = profile.free_quota_limit;
+
   return {
     info: {
       used,
@@ -168,22 +182,29 @@ function describeTransaction(row: CreditTransaction): string {
   if (row.reason) return row.reason;
   if (row.type === 'grant') return '创作点发放';
   if (row.type === 'refund') return '生成失败返还';
-  if (row.type === 'consume') return 'AI 生成消费';
+  if (row.type === 'consume') return 'AI 生成消耗';
   return '额度调整';
 }
 
+function formatYuan(amountCents: number): string {
+  return `￥${(amountCents / 100).toFixed(2)}`;
+}
+
 export default async function QuotaPage() {
-  // 复用 layout 已查的 user（React cache 命中，无重复 getUser 调用）
   const user = await getCachedUser();
   if (!user) redirect('/auth/login');
 
-  // 复用 layout 已查的 profile，直接构造额度信息（避免重复查询 users 表）
   const profile = await getCachedProfile(user.id);
   const { info: quotaInfo, error: quotaError } = buildQuotaFromProfile(profile);
+
   const quotaService = new QuotaService();
+  const manualPaymentService = new ManualPaymentService();
+
   let creditInfo = buildCreditFallback(quotaInfo);
   let historyRows: CreditTransaction[] = [];
+  let manualOrders: ManualPaymentOrder[] = [];
   let creditError: string | null = null;
+  let manualOrderError: string | null = null;
 
   try {
     [creditInfo, historyRows] = await Promise.all([
@@ -193,29 +214,45 @@ export default async function QuotaPage() {
   } catch (error) {
     creditError =
       error instanceof Error
-        ? `创作点账户暂不可用，已显示旧额度估算：${error.message}`
-        : '创作点账户暂不可用，已显示旧额度估算。';
+        ? `创作点账户暂不可用，已展示旧额度估算：${error.message}`
+        : '创作点账户暂不可用，已展示旧额度估算。';
+  }
+
+  try {
+    manualOrders = await manualPaymentService.listUserOrders(user.id);
+  } catch (error) {
+    manualOrderError =
+      error instanceof Error
+        ? `手动收款单暂不可用：${error.message}`
+        : '手动收款单暂不可用。';
   }
 
   const isPro = creditInfo.planType === 'pro';
   const usedPercent =
     creditInfo.monthlyGrant > 0
-      ? Math.min(100, Math.round(((creditInfo.monthlyGrant - creditInfo.balance) / creditInfo.monthlyGrant) * 100))
+      ? Math.min(
+          100,
+          Math.round(
+            ((creditInfo.monthlyGrant - creditInfo.balance) /
+              creditInfo.monthlyGrant) *
+              100,
+          ),
+        )
       : 0;
-  const isQuotaLow = creditInfo.balance <= Math.max(15, Math.round(creditInfo.monthlyGrant * 0.15));
+  const isQuotaLow =
+    creditInfo.balance <=
+    Math.max(15, Math.round(creditInfo.monthlyGrant * 0.15));
 
   return (
     <section className="quota-page">
-      {/* ============ 页头 ============ */}
       <div className="page-head">
         <div>
           <h1 className="page-title">
             <Crown size={22} />
-            额度与套餐 <span className="seal">QUOTA</span>
+            额度与套餐
+            <span className="seal">QUOTA</span>
           </h1>
-          <div className="page-desc">
-            管理你的 AI 创作点与订阅套餐
-          </div>
+          <div className="page-desc">管理你的 AI 创作点与订阅套餐</div>
         </div>
         <div className="page-actions">
           <Link href="/dashboard" className="btn btn-ghost">
@@ -225,13 +262,16 @@ export default async function QuotaPage() {
       </div>
 
       {quotaError ? (
-        <div className="quota-warn" role="alert">{quotaError}</div>
+        <div className="quota-warn" role="alert">
+          {quotaError}
+        </div>
       ) : null}
       {creditError ? (
-        <div className="quota-warn" role="alert">{creditError}</div>
+        <div className="quota-warn" role="alert">
+          {creditError}
+        </div>
       ) : null}
 
-      {/* ============ 当前套餐 + 进度条 ============ */}
       <div className={`quota-current-card ${isPro ? 'is-pro' : ''}`}>
         <div className="qc-left">
           <div className="qc-plan-badge">
@@ -269,7 +309,6 @@ export default async function QuotaPage() {
         </div>
       </div>
 
-      {/* ============ 套餐价格卡 ============ */}
       <div className="quota-compare-card">
         <div className="card-head">
           <h3>
@@ -282,13 +321,21 @@ export default async function QuotaPage() {
           <div className="pricing-grid">
             {PRICING_PLANS.map((plan) => {
               const isCurrentPro = isPro && plan.id === 'pro';
-              const Icon = plan.id === 'studio' ? Users : plan.id === 'starter' ? Layers : Crown;
+              const Icon =
+                plan.id === 'studio'
+                  ? Users
+                  : plan.id === 'starter'
+                    ? Layers
+                    : Crown;
+
               return (
                 <article
                   key={plan.id}
                   className={`pricing-card ${plan.highlighted ? 'is-highlighted' : ''}`}
                 >
-                  {plan.highlighted ? <div className="pricing-ribbon">推荐</div> : null}
+                  {plan.highlighted ? (
+                    <div className="pricing-ribbon">推荐</div>
+                  ) : null}
                   <div className="pricing-head">
                     <div className="pricing-icon" aria-hidden="true">
                       <Icon size={17} />
@@ -298,9 +345,7 @@ export default async function QuotaPage() {
                       <p>{plan.audience}</p>
                     </div>
                   </div>
-                  <div className="pricing-price">
-                    {plan.price}
-                  </div>
+                  <div className="pricing-price">{plan.price}</div>
                   <div className="pricing-credit">{plan.credits}</div>
                   <div className="pricing-output">{plan.output}</div>
                   <ul className="pricing-features">
@@ -318,14 +363,21 @@ export default async function QuotaPage() {
                     </div>
                   ) : plan.id === 'pro' ? (
                     <form action={upgradeToPro}>
-                      <button type="submit" className="btn btn-primary qc-upgrade-btn pricing-action">
+                      <button
+                        type="submit"
+                        className="btn btn-primary qc-upgrade-btn pricing-action"
+                      >
                         <Crown size={15} />
                         {plan.actionLabel}
                         <span className="qc-mock-tag">开发期 mock</span>
                       </button>
                     </form>
                   ) : (
-                    <button type="button" className="btn btn-ghost pricing-action" disabled>
+                    <button
+                      type="button"
+                      className="btn btn-ghost pricing-action"
+                      disabled={plan.disabled}
+                    >
                       {plan.actionLabel}
                     </button>
                   )}
@@ -336,16 +388,141 @@ export default async function QuotaPage() {
         </div>
       </div>
 
-      {/* ============ 创作点流水 ============ */}
+      <div className="manual-pay-card">
+        <div className="card-head">
+          <h3>
+            <QrCode size={16} />
+            手动收款单
+          </h3>
+          <span className="pricing-note">
+            先生成固定金额订单，再扫码付款
+          </span>
+        </div>
+        <div className="card-body">
+          <div className="manual-pay-grid">
+            <form action={createManualPaymentOrder} className="manual-pay-form">
+              <div className="manual-field">
+                <label className="manual-label" htmlFor="productCode">
+                  套餐
+                </label>
+                <select
+                  id="productCode"
+                  name="productCode"
+                  className="manual-select"
+                  defaultValue="pro_month"
+                >
+                  {MANUAL_PAYMENT_PRODUCTS.map((product) => (
+                    <option key={product.code} value={product.code}>
+                      {product.name} · {formatYuan(product.amountCents)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="manual-field">
+                <label className="manual-label" htmlFor="paymentChannel">
+                  收款渠道
+                </label>
+                <select
+                  id="paymentChannel"
+                  name="paymentChannel"
+                  className="manual-select"
+                  defaultValue="wechat"
+                >
+                  <option value="wechat">微信收款码</option>
+                  <option value="alipay">支付宝收款码</option>
+                </select>
+              </div>
+              <div className="manual-help">
+                订单创建后会跳到付款页，付款完成后再上传截图和交易号。金额固定，避免自行修改。
+              </div>
+              <button type="submit" className="btn btn-primary">
+                生成收款单
+              </button>
+            </form>
+
+            <div className="manual-channel-card">
+              <div className="manual-qr">
+                <div className="manual-section-note">
+                  收款码图片地址配置在环境变量里，支持微信和支付宝分别展示。
+                </div>
+                <div className="manual-qr-placeholder">
+                  <div>
+                    微信二维码：
+                    {process.env.NEXT_PUBLIC_MANUAL_PAYMENT_WECHAT_QR_URL
+                      ? '已配置'
+                      : '未配置'}
+                  </div>
+                  <div>
+                    支付宝二维码：
+                    {process.env.NEXT_PUBLIC_MANUAL_PAYMENT_ALIPAY_QR_URL
+                      ? '已配置'
+                      : '未配置'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ height: '14px' }} />
+
+          {manualOrderError ? (
+            <div className="quota-warn" role="alert">
+              {manualOrderError}
+            </div>
+          ) : null}
+
+          <div className="manual-order-list">
+            {manualOrders.length > 0 ? (
+              manualOrders.map((order) => (
+                <div key={order.id} className="manual-order-row">
+                  <div className="manual-order-main">
+                    <div className="manual-order-title">{order.productName}</div>
+                    <div className="manual-order-sub">
+                      订单号：{order.orderNo} ·{' '}
+                      {order.paymentChannel === 'wechat' ? '微信' : '支付宝'} ·{' '}
+                      {order.createdAt.slice(0, 10)}
+                    </div>
+                  </div>
+                  <div className="manual-order-meta">
+                    <div className="manual-order-amount">
+                      {formatYuan(order.amountCents)}
+                    </div>
+                    <span className={`manual-status ${order.status}`}>
+                      {order.status}
+                    </span>
+                  </div>
+                  <div className="manual-order-action">
+                    <Link
+                      href={`/settings/quota/pay/${order.id}`}
+                      className="btn btn-ghost"
+                    >
+                      去处理
+                    </Link>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="manual-empty-state">
+                <div className="manual-empty-icon" aria-hidden="true">
+                  <QrCode size={20} />
+                </div>
+                <div className="manual-empty-title">暂无收款单</div>
+                <div className="manual-empty-desc">
+                  先生成一笔固定金额订单，付款后再去详情页上传截图。
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="quota-history-card">
         <div className="card-head">
           <h3>
             <History size={16} />
             创作点流水
           </h3>
-          <span className="qh-count">
-            最近 {historyRows?.length ?? 0} 条
-          </span>
+          <span className="qh-count">最近 {historyRows?.length ?? 0} 条</span>
         </div>
         {historyRows && historyRows.length > 0 ? (
           <div className="qh-list">
@@ -356,27 +533,29 @@ export default async function QuotaPage() {
                   : row.type === 'consume'
                     ? 'gen'
                     : 'warn';
+
               return (
                 <div key={row.id} className="qh-row">
-                  <div className="qh-type">
-                    {describeTransaction(row)}
-                  </div>
-                  <div className="qh-time">
-                    {formatTime(row.createdAt)}
-                  </div>
+                  <div className="qh-type">{describeTransaction(row)}</div>
+                  <div className="qh-time">{formatTime(row.createdAt)}</div>
                   <div className={`qh-status qh-${statusClass}`}>
-                    {row.amount > 0 ? '+' : ''}{row.amount} 点 · {TRANSACTION_TYPE_LABEL[row.type]}
+                    {row.amount > 0 ? '+' : ''}
+                    {row.amount} 点 · {TRANSACTION_TYPE_LABEL[row.type]}
                   </div>
                 </div>
               );
             })}
           </div>
         ) : (
-          <EmptyState
-            title="暂无使用记录"
-            description="开始使用 AI 生成功能后，这里会展示最近的创作点消费和返还。"
-            Icon={History}
-          />
+          <div className="manual-empty-state">
+            <div className="manual-empty-icon" aria-hidden="true">
+              <History size={20} />
+            </div>
+            <div className="manual-empty-title">暂无使用记录</div>
+            <div className="manual-empty-desc">
+              开始使用 AI 生成功能后，这里会展示最近的创作点消费和返还。
+            </div>
+          </div>
         )}
       </div>
     </section>

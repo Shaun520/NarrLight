@@ -1,0 +1,105 @@
+.manual-admin-page .page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(138, 28, 28, 0.2);
+}
+
+.manual-admin-page .page-title {
+  font-family: "Noto Serif SC", serif;
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.manual-admin-page .page-title svg {
+  color: var(--blood);
+}
+
+.manual-admin-page .page-desc {
+  font-family: "Courier Prime", monospace;
+  font-size: 12px;
+  color: var(--sepia);
+  margin-top: 5px;
+}
+
+.manual-admin-list {
+  display: grid;
+  gap: 12px;
+}
+
+.manual-admin-item {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(122, 92, 58, 0.16);
+  border-radius: 4px;
+  background: rgba(255, 252, 246, 0.86);
+}
+
+.manual-admin-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 280px);
+  gap: 12px;
+  align-items: start;
+}
+
+.manual-admin-text {
+  display: grid;
+  gap: 4px;
+}
+
+.manual-admin-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.manual-admin-desc {
+  font-size: 12px;
+  color: var(--sepia);
+  line-height: 1.6;
+}
+
+.manual-admin-proof img {
+  width: 100%;
+  border-radius: 4px;
+  border: 1px solid rgba(122, 92, 58, 0.18);
+}
+
+.manual-admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.manual-admin-actions form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.manual-admin-token {
+  width: 120px;
+  border: 1px solid rgba(122, 92, 58, 0.24);
+  background: rgba(255, 252, 246, 0.94);
+  color: var(--ink);
+  border-radius: 3px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 12px;
+}
+
+@media (max-width: 960px) {
+  .manual-admin-top {
+    grid-template-columns: 1fr;
+  }
+}

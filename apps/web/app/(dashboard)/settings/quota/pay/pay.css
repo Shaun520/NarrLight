@@ -1,0 +1,59 @@
+.manual-pay-page .page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(138, 28, 28, 0.2);
+}
+
+.manual-pay-page .page-title {
+  font-family: "Noto Serif SC", serif;
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.manual-pay-page .page-title svg {
+  color: var(--blood);
+}
+
+.manual-pay-page .page-desc {
+  font-family: "Courier Prime", monospace;
+  font-size: 12px;
+  color: var(--sepia);
+  margin-top: 5px;
+}
+
+.manual-pay-page .manual-pay-card {
+  background: rgba(253, 248, 240, 0.82);
+  border: 1px solid rgba(122, 92, 58, 0.22);
+  border-radius: 4px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.manual-pay-page .card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.16);
+}
+
+.manual-pay-page .card-head h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.manual-pay-page .card-body {
+  padding: 16px;
+}
