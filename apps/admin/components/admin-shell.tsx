@@ -21,7 +21,6 @@ type NavItem = {
   href: string;
   label: string;
   Icon: LucideIcon;
-  badge?: number;
 };
 
 const navSections: Array<{ title: string; items: NavItem[] }> = [
@@ -33,7 +32,7 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
     title: "业务管理",
     items: [
       { href: "/users", label: "用户管理", Icon: Users },
-      { href: "/scripts", label: "剧本管理", Icon: BookOpen, badge: 8 },
+      { href: "/scripts", label: "剧本管理", Icon: BookOpen },
       { href: "/tasks/generation", label: "生成任务", Icon: Activity },
       { href: "/tasks/illustration", label: "插画任务", Icon: FileText },
     ],
@@ -41,7 +40,7 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
   {
     title: "审核运营",
     items: [
-      { href: "/moderation", label: "社区审核", Icon: ShieldAlert, badge: 5 },
+      { href: "/moderation", label: "社区审核", Icon: ShieldAlert },
       { href: "/analytics", label: "数据看板", Icon: BarChart3 },
     ],
   },
@@ -75,7 +74,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           {navSections.map((section) => (
             <div className="admin-nav-section" key={section.title}>
               <div className="admin-nav-title">{section.title}</div>
-              {section.items.map(({ href, label, Icon, badge }) => {
+              {section.items.map(({ href, label, Icon }) => {
                 const active = pathname === href || pathname.startsWith(`${href}/`);
                 return (
                   <Link
@@ -85,11 +84,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   >
                     <Icon className="admin-nav-icon" aria-hidden="true" />
                     <span>{label}</span>
-                    {typeof badge === "number" && (
-                      <span className="admin-nav-badge" aria-label={`${label}待处理 ${badge} 项`}>
-                        {badge}
-                      </span>
-                    )}
                   </Link>
                 );
               })}
