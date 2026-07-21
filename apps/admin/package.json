@@ -1,0 +1,32 @@
+{
+  "name": "narr-admin",
+  "private": true,
+  "packageManager": "pnpm@10.12.1",
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.2.5",
+    "@narrlight/shared": "workspace:*",
+    "@supabase/ssr": "latest",
+    "@supabase/supabase-js": "latest",
+    "antd": "^6.4.5",
+    "lucide-react": "^0.511.0",
+    "next": "latest",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.1",
+    "typescript": "^5"
+  }
+}

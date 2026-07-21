@@ -23,6 +23,7 @@ __pycache__/
 **/.next*/
 **/.dev-smoke*.log
 **/.dev-smoke.pid
+.admin-dev.pid
 supabase/.branches/
 supabase/logs/
 supabase/.temp/

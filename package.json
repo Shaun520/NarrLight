@@ -5,6 +5,9 @@
     "dev:web": "pnpm --dir apps/web dev",
     "build:web": "pnpm --dir apps/web build",
     "lint:web": "pnpm --dir apps/web lint",
+    "dev:admin": "pnpm --dir apps/admin dev",
+    "build:admin": "pnpm --dir apps/admin build",
+    "lint:admin": "pnpm --dir apps/admin lint",
     "dev:app": "pnpm run dev:web",
     "build:app": "pnpm run build:web",
     "lint:app": "pnpm run lint:web"

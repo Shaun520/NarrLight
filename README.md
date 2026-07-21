@@ -1,10 +1,134 @@
 # **叙光**
 
-“叙” 对应剧本叙事、故事创作，“光” 既代表 AI 技术赋能，也寓意 “照亮逻辑盲区、梳理叙事脉络”，氛围感与寓意兼具，适合内容向品牌。
+"叙" 对应剧本叙事、故事创作，"光" 既代表 AI 技术赋能，也寓意 "照亮逻辑盲区、梳理叙事脉络"，氛围感与寓意兼具，适合内容向品牌。
 
 这是一个**AI 驱动的剧本杀全生命周期一站式平台**，覆盖「创作辅助 - 内容生产 - 分发变现 - 用户社区」全链路，核心是用 AI 解决剧本杀行业「创作门槛高、生产周期长、美术成本高、逻辑校验难」四大痛点。
 
-### 核心用户分层
+---
+
+## 多端架构
+
+本项目采用 **pnpm Monorepo** 架构，包含多个独立部署的应用端：
+
+| 端 | 目录 | 域名 | 说明 |
+|---|---|---|---|
+| **Web 端** | `apps/web` | `narrlight.app` | 创作者工作台，面向剧本杀作者和玩家 |
+| **Admin 端** | `apps/admin` | `admin.narrlight.app` | 运营后台，供超级管理员管理平台 |
+| Mini 端 | `apps/mini` | — | 小程序（规划中） |
+| Mobile 端 | `apps/mobile` | — | 移动端 App（规划中） |
+
+### Web 端 (`apps/web`)
+
+创作者和玩家的核心工作台，包含以下模块：
+
+- **营销首页** (`/`)：产品介绍、定价、落地页
+- **创作工作台** (`/dashboard`)：概览、剧本列表、继续创作
+- **剧本编辑器** (`/editor/[scriptId]`)：大纲、人物、幕次、线索、时间线、校验、插画
+- **生成页** (`/generate`)：新建剧本、分阶段生成
+- **社区** (`/community`)：帖子、测评、互动
+- **设置** (`/settings`)：账号、配额、支付
+
+技术栈：Next.js 15 + React 19 + TypeScript + Tailwind CSS + Ant Design + Zustand + Supabase
+
+### Admin 端 (`apps/admin`)
+
+公司内部运营后台，供超级管理员使用，功能模块包括：
+
+- **工作台** (`/dashboard`)：平台核心指标、运营待办、服务健康度
+- **用户管理** (`/users`)：用户列表、配额调整、封禁操作
+- **剧本管理** (`/scripts`)：剧本审核、内容下架
+- **生成任务** (`/tasks/generation`)：任务监控、失败重试
+- **插画任务** (`/tasks/illustration`)：插画生成监控
+- **社区审核** (`/moderation`)：举报处理、内容审核
+- **数据看板** (`/analytics`)：平台运营数据可视化
+- **系统配置** (`/system`)：AI Provider、配额默认值、内容安全策略
+- **审计日志** (`/audit`)：管理员操作记录
+
+技术栈：Next.js 15 + React 19 + TypeScript + Ant Design + Zustand + Supabase
+
+**权限模型**：本期只设置超级管理员一种角色，通过 `admin_users` 表 + 邮箱白名单控制访问。
+
+---
+
+## 目录结构
+
+```
+NarrLight/
+├── apps/
+│   ├── web/                 # 创作者 Web 端
+│   │   ├── app/             # Next.js App Router
+│   │   ├── components/      # React 组件
+│   │   ├── lib/             # 服务、工具、hooks
+│   │   └── types/           # TypeScript 类型定义
+│   ├── admin/               # 运营后台 Admin 端
+│   │   ├── app/             # Next.js App Router
+│   │   └── components/      # React 组件
+│   ├── mini/                # 小程序（规划中）
+│   └── mobile/              # 移动端 App（规划中）
+├── packages/
+│   ├── shared/              # 共享代码（类型、常量、权限）
+│   ├── api-client/          # API 客户端
+│   └── ui/                  # 共享 UI 组件
+├── supabase/
+│   ├── migrations/          # 数据库迁移
+│   ├── functions/           # Edge Functions
+│   └── config.toml          # Supabase 配置
+├── docs/
+│   ├── prototype/           # UI 原型 HTML 文件
+│   ├── admin-design.md      # Admin 端设计文档
+│   └── web-design.md        # Web 端设计文档
+└── skills/                  # AI 开发辅助规则
+```
+
+---
+
+## 快速开始
+
+### 环境要求
+
+- Node.js 20+
+- pnpm 10.12.1+
+- Supabase CLI（本地开发）
+
+### 安装依赖
+
+```bash
+pnpm install
+```
+
+### 启动开发服务器
+
+```bash
+# Web 端
+pnpm dev:web
+
+# Admin 端
+pnpm dev:admin
+```
+
+### 构建生产版本
+
+```bash
+# Web 端
+pnpm build:web
+
+# Admin 端
+pnpm build:admin
+```
+
+### 代码检查
+
+```bash
+# Web 端
+pnpm lint:web
+
+# Admin 端
+pnpm lint:admin
+```
+
+---
+
+## 核心用户分层
 
 1. **核心付费用户**：新手作者、职业作者、发行工作室（降本提效需求最强）
 2. **B 端延伸用户**：线下剧本杀店家、DM（开本辅助、物料自动生成）
