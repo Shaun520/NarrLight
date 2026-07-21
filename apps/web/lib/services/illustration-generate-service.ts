@@ -4,6 +4,12 @@ import { fetchWithOptionalProxy } from '@/lib/ai/providers/fetch-with-proxy';
 import { ApiError } from '@/lib/api/response';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { Json } from '@/lib/supabase/types';
+import {
+  getImageProviderConfig,
+  isProviderKeyConfigured,
+  resolveImageProvider,
+} from '@/lib/services/ai-config-service';
+import type { ImageProviderName as ConfigImageProviderName } from '@narrlight/shared';
 
 const IMAGE_BUCKET = 'illustration-assets';
 
@@ -79,6 +85,53 @@ function resolveProviderModel(provider: ImageProviderName): string {
   return process.env.GLM_IMAGE_MODEL ?? 'cogview-3-plus';
 }
 
+/**
+ * 根据用户请求的 model 与 admin 配置，解析最终使用的 provider / runtime 配置
+ * - 若用户请求的 provider 在 admin 配置中已启用且 key 已配置，使用它
+ * - 否则回退到 admin 配置的 primary / fallback
+ */
+async function resolveImageProviderFromConfig(
+  userModel: string,
+): Promise<{
+  providerName: ImageProviderName;
+  runtime: { model: string; size?: string; timeout: number; retries: number };
+}> {
+  const config = await getImageProviderConfig();
+  const requested = normalizeProvider(userModel);
+  const requestedRuntime = config.providers[requested as ConfigImageProviderName];
+
+  if (requestedRuntime?.enabled && isProviderKeyConfigured(requested as ConfigImageProviderName)) {
+    return {
+      providerName: requested,
+      runtime: {
+        model: requestedRuntime.model || resolveProviderModel(requested),
+        size: requestedRuntime.size,
+        timeout: requestedRuntime.timeout,
+        retries: requestedRuntime.retries,
+      },
+    };
+  }
+
+  // 回退到 admin 配置的 primary / fallback
+  const { name, runtime } = resolveImageProvider(config);
+  if (!isProviderKeyConfigured(name)) {
+    throw new ApiError(
+      'AI_PROVIDER_NOT_CONFIGURED',
+      `所有图像 provider 的 API Key 均未配置，无法执行插画生成。`,
+      500,
+    );
+  }
+  return {
+    providerName: name as ImageProviderName,
+    runtime: {
+      model: runtime.model || resolveProviderModel(name),
+      size: runtime.size,
+      timeout: runtime.timeout,
+      retries: runtime.retries,
+    },
+  };
+}
+
 function isInvalidKey(key: string | undefined): boolean {
   const value = key?.trim();
   return (
@@ -92,27 +145,7 @@ function isInvalidKey(key: string | undefined): boolean {
   );
 }
 
-function assertRealImageProviderConfigured(provider: ImageProviderName) {
-  const keyByProvider: Record<ImageProviderName, string | undefined> = {
-    glm: process.env.GLM_API_KEY,
-    'openai-image': process.env.OPENAI_API_KEY,
-    seedream: process.env.ARK_API_KEY ?? process.env.VOLCENGINE_API_KEY,
-  };
-  const envNameByProvider: Record<ImageProviderName, string> = {
-    glm: 'GLM_API_KEY',
-    'openai-image': 'OPENAI_API_KEY',
-    seedream: 'ARK_API_KEY',
-  };
-  const hasInvalidPlaceholder =
-    isInvalidKey(keyByProvider[provider]);
-  if (hasInvalidPlaceholder) {
-    throw new ApiError(
-      'AI_PROVIDER_NOT_CONFIGURED',
-      `${envNameByProvider[provider]} 未配置为有效值，无法执行真实插画生成。`,
-      500,
-    );
-  }
-}
+void isInvalidKey; // 保留用于未来 key 校验扩展
 
 function extensionFromContentType(contentType: string | null): string {
   if (contentType?.includes('png')) return 'png';
@@ -149,12 +182,16 @@ export class IllustrationGenerateService {
     params: GenerateSingleParams,
     onProgress?: ProgressCallback,
   ): Promise<GenerateResult> {
-    const providerName = normalizeProvider(params.model);
-    assertRealImageProviderConfigured(providerName);
+    const { providerName, runtime } = await resolveImageProviderFromConfig(params.model);
 
     const supabase = this.getAdminClient();
     const asset = await this.getAssetForGeneration(supabase, params.scriptId, params.assetId);
-    const provider = getProvider(providerName);
+    const provider = getProvider(providerName, {
+      model: runtime.model,
+      size: runtime.size,
+      timeout: runtime.timeout,
+      retries: runtime.retries,
+    });
 
     onProgress?.(10, '准备生成');
     await this.markAssetActive(supabase, params.assetId);
@@ -162,7 +199,7 @@ export class IllustrationGenerateService {
     try {
       onProgress?.(35, '调用图像模型');
       const result = await provider.illustrate(params.prompt, {
-        model: resolveProviderModel(providerName),
+        model: runtime.model,
         size: mapRatioToSize(params.ratio, providerName),
         n: Math.max(1, Math.min(params.count, 4)),
         output_format: 'png',

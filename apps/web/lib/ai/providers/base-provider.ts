@@ -4,6 +4,7 @@
 
 // 注意：provider 实现文件使用 import type 引用本文件的接口，
 // 因此此处静态 import 不会产生运行时循环依赖
+import type { ProviderRuntimeConfig } from "@narrlight/shared";
 import { DeepSeekProvider } from "./deepseek-provider";
 import { GLMProvider } from "./glm-provider";
 import { OpenAIImageProvider } from "./openai-image-provider";
@@ -79,19 +80,23 @@ export interface AIProvider {
 /**
  * Provider 工厂
  * 根据 name 返回对应的 Provider 实例
+ * 可传入 runtime config 覆盖默认模型 / 重试次数 / 超时
  */
-export function getProvider(name: "deepseek" | "glm" | "openai-image" | "seedream"): AIProvider {
+export function getProvider(
+  name: "deepseek" | "glm" | "openai-image" | "seedream",
+  config?: Partial<ProviderRuntimeConfig>,
+): AIProvider {
   if (name === "deepseek") {
-    return new DeepSeekProvider();
+    return new DeepSeekProvider(config);
   }
   if (name === "glm") {
-    return new GLMProvider();
+    return new GLMProvider(config);
   }
   if (name === "openai-image") {
-    return new OpenAIImageProvider();
+    return new OpenAIImageProvider(config);
   }
   if (name === "seedream") {
-    return new SeedreamProvider();
+    return new SeedreamProvider(config);
   }
   throw new Error(`Unknown provider: ${name}`);
 }

@@ -159,6 +159,13 @@ export default function IllustrationsPage({ params }: PageProps) {
   const [batchMessage, setBatchMessage] = useState('');
   const [batchStatus, setBatchStatus] = useState<'running' | 'completed' | 'failed'>('running');
 
+  const [modelOptions, setModelOptions] = useState<Array<{ id: string; label: string }>>([
+    { id: 'openai', label: 'OpenAI Images' },
+    { id: 'glm', label: 'GLM CogView' },
+    { id: 'seedream', label: '豆包 Seedream' },
+  ]);
+  const [defaultModel, setDefaultModel] = useState<string>('openai');
+
   const assets = useMemo(() => workspace?.assets ?? [], [workspace]);
   const tasks = useMemo(() => workspace?.tasks ?? [], [workspace]);
   const { counts, total, done } = useMemo(() => countAssetsByType(assets), [assets]);
@@ -227,6 +234,29 @@ export default function IllustrationsPage({ params }: PageProps) {
       cancelled = true;
     };
   }, [loadWorkspace, message]);
+
+  // 拉取 admin 配置的可用插画模型列表
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/illustration/model-options')
+      .then(async (response) => {
+        if (!response.ok) throw new Error('读取模型配置失败');
+        const data = (await response.json()) as {
+          options: Array<{ id: string; label: string }>;
+          defaultModel: string;
+        };
+        if (cancelled) return;
+        setModelOptions(data.options);
+        setDefaultModel(data.defaultModel);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error('Failed to load illustration model options:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const runTask = async (taskId: string, config?: GenerateConfig): Promise<void> => {
     if (generationControllersRef.current.has(taskId)) {
@@ -468,6 +498,8 @@ export default function IllustrationsPage({ params }: PageProps) {
           asset={selectedAsset}
           generatedPrompt={selectedTask?.taskPromptSeed ?? selectedAsset?.taskPrompt}
           isGenerating={selectedTask ? generatingIds.has(selectedTask.id) : false}
+          modelOptions={modelOptions}
+          defaultModel={defaultModel}
           onGenerate={handleGenerate}
           onStopGenerate={() => {
             if (selectedTask) stopTask(selectedTask.id);

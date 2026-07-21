@@ -9,6 +9,7 @@ import type {
   StreamChunk,
   ValidationResult,
 } from "./base-provider";
+import type { ProviderRuntimeConfig } from "@narrlight/shared";
 import { parseJSONWithTolerance } from "./deepseek-provider";
 
 // 逻辑校验专用 system prompt（GLM 版本，强调严格 JSON 格式）
@@ -47,13 +48,18 @@ const COGVIEW_MODEL = "cogview-3-plus";
  */
 export class GLMProvider implements AIProvider {
   readonly name = "glm";
-  readonly model = "glm-5.1";
+  model: string;
 
   private apiKey: string;
   private baseUrl = "https://open.bigmodel.cn/api/paas/v4";
+  private readonly timeout: number;
+  private readonly retries: number;
 
-  constructor() {
+  constructor(config?: Partial<ProviderRuntimeConfig>) {
     this.apiKey = process.env.GLM_API_KEY ?? "";
+    this.model = config?.model || "glm-5.1";
+    this.timeout = config?.timeout ?? 60;
+    this.retries = config?.retries ?? 2;
   }
 
   /** 是否处于 Mock 模式（无 API Key） */
@@ -64,6 +70,7 @@ export class GLMProvider implements AIProvider {
   /**
    * 文本生成（非流式）
    * 调用 GLM chat/completions 接口，返回完整文本
+   * 带超时与重试（由 ai-config-service 的 retries 控制）
    */
   async generate(options: GenerateOptions): Promise<string> {
     if (this.isMockMode) {
@@ -71,30 +78,50 @@ export class GLMProvider implements AIProvider {
     }
 
     const messages = this.buildMessages(options);
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: this.buildHeaders(),
-      body: JSON.stringify({
-        model: this.model,
-        messages,
-        temperature: options.temperature ?? 0.7,
-        max_tokens: options.maxTokens,
-        stream: false,
-      }),
-      signal: options.signal,
-    });
+    let lastError: Error | null = null;
+    const maxAttempts = Math.max(1, this.retries + 1);
 
-    if (!response.ok) {
-      throw await this.wrapError(response);
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.timeout * 1000);
+      const signal = options.signal ?? controller.signal;
+      try {
+        const response = await fetch(`${this.baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: this.buildHeaders(),
+          body: JSON.stringify({
+            model: this.model,
+            messages,
+            temperature: options.temperature ?? 0.7,
+            max_tokens: options.maxTokens,
+            stream: false,
+          }),
+          signal,
+        });
+        clearTimeout(timeoutId);
+        if (!response.ok) {
+          throw await this.wrapError(response);
+        }
+        const data = (await response.json()) as GLMChatResponse;
+        return data.choices?.[0]?.message?.content ?? "";
+      } catch (error) {
+        clearTimeout(timeoutId);
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (signal.aborted && options.signal?.aborted) {
+          throw lastError;
+        }
+        if (attempt < maxAttempts) {
+          await delay(500 * attempt);
+        }
+      }
     }
-
-    const data = (await response.json()) as GLMChatResponse;
-    return data.choices?.[0]?.message?.content ?? "";
+    throw lastError ?? new Error("GLM generate failed after retries");
   }
 
   /**
    * 流式文本生成
    * 调用 chat/completions with stream=true，逐片段 yield StreamChunk
+   * 带超时控制（流式不重试，避免重复输出）
    */
   async *generateStream(
     options: GenerateOptions,
@@ -105,57 +132,64 @@ export class GLMProvider implements AIProvider {
     }
 
     const messages = this.buildMessages(options);
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: this.buildHeaders(),
-      body: JSON.stringify({
-        model: this.model,
-        messages,
-        temperature: options.temperature ?? 0.7,
-        max_tokens: options.maxTokens,
-        stream: true,
-      }),
-      signal: options.signal,
-    });
-
-    if (!response.ok) {
-      throw await this.wrapError(response);
-    }
-
-    if (!response.body) {
-      throw new Error("GLM stream response body is empty");
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout * 1000);
+    const signal = options.signal ?? controller.signal;
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          break;
-        }
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: this.buildHeaders(),
+        body: JSON.stringify({
+          model: this.model,
+          messages,
+          temperature: options.temperature ?? 0.7,
+          max_tokens: options.maxTokens,
+          stream: true,
+        }),
+        signal,
+      });
 
-        for (const line of lines) {
-          const chunk = this.parseSSELine(line);
-          if (chunk) {
-            if (chunk.content) {
-              options.onChunk?.(chunk.content);
-              yield chunk;
-            }
-            if (chunk.done) {
-              return;
+      if (!response.ok) {
+        throw await this.wrapError(response);
+      }
+
+      if (!response.body) {
+        throw new Error("GLM stream response body is empty");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            const chunk = this.parseSSELine(line);
+            if (chunk) {
+              if (chunk.content) {
+                options.onChunk?.(chunk.content);
+                yield chunk;
+              }
+              if (chunk.done) {
+                return;
+              }
             }
           }
         }
+        yield { content: "", done: true, progress: 1 };
+      } finally {
+        reader.releaseLock();
       }
-      yield { content: "", done: true, progress: 1 };
     } finally {
-      reader.releaseLock();
+      clearTimeout(timeoutId);
     }
   }
 

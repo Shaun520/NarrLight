@@ -1072,6 +1072,12 @@
   border-color: var(--ink);
 }
 
+.pc-hint {
+  font-size: 11.5px;
+  color: var(--blood);
+  font-family: 'Noto Serif SC', serif;
+}
+
 .prompt-box .pb-inject {
   margin-top: 12px;
   padding-top: 10px;

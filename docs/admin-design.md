@@ -238,17 +238,25 @@ ALTER TABLE public.scripts
 
 ### 4.5 system_configs
 
-系统配置 KV 表。
+系统配置 KV 表。**仅存放非敏感运行时配置**（模型选择 / 启用开关 / 重试次数 / 超时），敏感凭据（API Key）继续使用环境变量，不写入本表。
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.system_configs (
   key VARCHAR(100) PRIMARY KEY,
   value JSONB NOT NULL DEFAULT '{}',
-  description TEXT DEFAULT '',
-  updated_by UUID REFERENCES public.admin_users(id),
+  description TEXT NOT NULL DEFAULT '',
+  updated_by UUID REFERENCES auth.users(id),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
+
+预置配置 key：
+- `text_provider`：文本生成路由（primary / fallback / 各 provider 的 enabled / model / timeout / retries）
+- `image_provider`：插画生成路由（同上，额外含 size）
+- `content_safety`：内容安全开关与人工复核策略
+- `quota_defaults`：配额默认值（free_quota_limit / pro_monthly_quota / max_script_words）
+
+web 端通过 `lib/services/ai-config-service.ts` 读取本表，用 React `cache()` 在单次请求内共享配置。
 
 ### 4.6 RLS 策略
 
@@ -311,10 +319,11 @@ CREATE TABLE IF NOT EXISTS public.system_configs (
 
 ### 模块 8：系统配置
 
-- AI 提供商配置：DeepSeek / GLM / OpenAI Image / Seedream 的 API Key、模型、超时、重试次数。
+- AI 提供商配置：DeepSeek / GLM / OpenAI Image / Seedream 的**模型选择、启用开关、超时、重试次数**（API Key 继续由环境变量管理，不在此配置）。
 - 配额默认值：`free_quota_limit` 默认值、各 `plan_type` 配额。
 - 内容安全：敏感词词库、`content-safety.ts` 规则开关。
 - 操作：增删改查 `system_configs` 表，所有变更落审计日志。
+- 消费链路：web 端 `ai-config-service.ts` 通过 service role client 读取 `system_configs`，根据 primary / fallback 与 enabled 标志选择 provider，将 model / retries / timeout 传给 Provider 构造函数。
 
 ### 模块 9：审计日志
 

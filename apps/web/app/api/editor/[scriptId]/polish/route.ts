@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { DeepSeekProvider } from '@/lib/ai/providers/deepseek-provider';
+import { getTextProviderInstance, isProviderKeyConfigured } from '@/lib/services/ai-config-service';
 
 interface PolishRequestBody {
   sourceText?: string;
@@ -22,9 +22,10 @@ export async function POST(
 ) {
   await params;
 
-  if (!process.env.DEEPSEEK_API_KEY) {
+  const { provider, name } = await getTextProviderInstance();
+  if (!isProviderKeyConfigured(name)) {
     return NextResponse.json(
-      { error: 'AI 润色暂未配置模型密钥，无法生成真实建议' },
+      { error: `AI provider ${name} 的 API Key 未配置，无法生成润色建议` },
       { status: 503 },
     );
   }
@@ -43,7 +44,6 @@ export async function POST(
   }
 
   try {
-    const provider = new DeepSeekProvider();
     const suggestion = await provider.generate({
       systemPrompt: [
         '你是一名剧本杀文本编辑，擅长悬疑叙事、人物视角和线索伏笔表达。',

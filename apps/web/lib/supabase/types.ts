@@ -415,6 +415,23 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["illustration_tasks"]["Row"]>;
       };
+      system_configs: {
+        Row: {
+          key: string;
+          value: Json;
+          description: string;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          key: string;
+          value?: Json;
+          description?: string;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["system_configs"]["Row"]>;
+      };
     };
   };
 }

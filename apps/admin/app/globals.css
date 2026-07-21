@@ -1234,6 +1234,82 @@ a {
   font-size: 13px;
 }
 
+/* 加载旋转动画 */
+.spin {
+  animation: admin-spin 0.8s linear infinite;
+}
+
+@keyframes admin-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Toast 通知 */
+.toast {
+  position: fixed;
+  top: 72px;
+  right: 24px;
+  z-index: 100;
+  min-width: 320px;
+  max-width: 480px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  animation: toast-slide-in 0.25s ease-out;
+}
+
+.toast-success {
+  border: 1px solid #b7eb8f;
+  background: #f6ffed;
+  color: #389e0d;
+}
+
+.toast-error {
+  border: 1px solid #ffccc7;
+  background: #fff2f0;
+  color: #cf1322;
+}
+
+.toast span {
+  flex: 1;
+  line-height: 1.5;
+}
+
+.toast-close {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.6;
+  display: grid;
+  place-items: center;
+}
+
+.toast-close:hover {
+  opacity: 1;
+}
+
+@keyframes toast-slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 .login-page {
   min-height: 100vh;
   display: grid;

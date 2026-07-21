@@ -9,6 +9,7 @@ import type {
   StreamChunk,
   ValidationResult,
 } from "./base-provider";
+import type { ProviderRuntimeConfig } from "@narrlight/shared";
 
 // 逻辑校验专用 system prompt
 const VALIDATE_SYSTEM_PROMPT = `你是一名剧本杀逻辑校验专家。请分析用户提供的剧本内容，识别其中的逻辑漏洞、时间线冲突、未回收伏笔、孤立线索、动机薄弱、不可能手法、OOC 行为、叙诡等问题。
@@ -53,13 +54,18 @@ const MOCK_CONTENT = `【Mock 模式 - 未配置 DEEPSEEK_API_KEY】
  */
 export class DeepSeekProvider implements AIProvider {
   readonly name = "deepseek";
-  readonly model = "deepseek-chat"; // 或 deepseek-v4-pro
+  model: string;
 
   private apiKey: string;
   private baseUrl = "https://api.deepseek.com/v1";
+  private readonly timeout: number;
+  private readonly retries: number;
 
-  constructor() {
+  constructor(config?: Partial<ProviderRuntimeConfig>) {
     this.apiKey = process.env.DEEPSEEK_API_KEY ?? "";
+    this.model = config?.model || "deepseek-chat";
+    this.timeout = config?.timeout ?? 60;
+    this.retries = config?.retries ?? 2;
   }
 
   /** 是否处于 Mock 模式（无 API Key） */
@@ -70,6 +76,7 @@ export class DeepSeekProvider implements AIProvider {
   /**
    * 文本生成（非流式）
    * 调用 chat/completions，返回完整文本
+   * 带超时与重试（由 ai-config-service 的 retries 控制）
    */
   async generate(options: GenerateOptions): Promise<string> {
     if (this.isMockMode) {
@@ -77,30 +84,51 @@ export class DeepSeekProvider implements AIProvider {
     }
 
     const messages = this.buildMessages(options);
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: this.buildHeaders(),
-      body: JSON.stringify({
-        model: this.model,
-        messages,
-        temperature: options.temperature ?? 0.7,
-        max_tokens: options.maxTokens,
-        stream: false,
-      }),
-      signal: options.signal,
-    });
+    let lastError: Error | null = null;
+    const maxAttempts = Math.max(1, this.retries + 1);
 
-    if (!response.ok) {
-      throw await this.wrapError(response);
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.timeout * 1000);
+      const signal = options.signal ?? controller.signal;
+      try {
+        const response = await fetch(`${this.baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: this.buildHeaders(),
+          body: JSON.stringify({
+            model: this.model,
+            messages,
+            temperature: options.temperature ?? 0.7,
+            max_tokens: options.maxTokens,
+            stream: false,
+          }),
+          signal,
+        });
+        clearTimeout(timeoutId);
+        if (!response.ok) {
+          throw await this.wrapError(response);
+        }
+        const data = (await response.json()) as DeepSeekChatResponse;
+        return data.choices?.[0]?.message?.content ?? "";
+      } catch (error) {
+        clearTimeout(timeoutId);
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (signal.aborted && options.signal?.aborted) {
+          // 调用方主动中断，不重试
+          throw lastError;
+        }
+        if (attempt < maxAttempts) {
+          await delay(500 * attempt);
+        }
+      }
     }
-
-    const data = (await response.json()) as DeepSeekChatResponse;
-    return data.choices?.[0]?.message?.content ?? "";
+    throw lastError ?? new Error("DeepSeek generate failed after retries");
   }
 
   /**
    * 流式文本生成
    * 调用 chat/completions with stream=true，逐片段 yield StreamChunk
+   * 带超时控制（流式不重试，避免重复输出）
    */
   async *generateStream(
     options: GenerateOptions,
@@ -111,59 +139,66 @@ export class DeepSeekProvider implements AIProvider {
     }
 
     const messages = this.buildMessages(options);
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: this.buildHeaders(),
-      body: JSON.stringify({
-        model: this.model,
-        messages,
-        temperature: options.temperature ?? 0.7,
-        max_tokens: options.maxTokens,
-        stream: true,
-      }),
-      signal: options.signal,
-    });
-
-    if (!response.ok) {
-      throw await this.wrapError(response);
-    }
-
-    if (!response.body) {
-      throw new Error("DeepSeek stream response body is empty");
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout * 1000);
+    const signal = options.signal ?? controller.signal;
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          break;
-        }
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        // 保留最后一行（可能不完整）
-        buffer = lines.pop() ?? "";
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: this.buildHeaders(),
+        body: JSON.stringify({
+          model: this.model,
+          messages,
+          temperature: options.temperature ?? 0.7,
+          max_tokens: options.maxTokens,
+          stream: true,
+        }),
+        signal,
+      });
 
-        for (const line of lines) {
-          const chunk = this.parseSSELine(line);
-          if (chunk) {
-            if (chunk.content) {
-              options.onChunk?.(chunk.content);
-              yield chunk;
-            }
-            if (chunk.done) {
-              return;
+      if (!response.ok) {
+        throw await this.wrapError(response);
+      }
+
+      if (!response.body) {
+        throw new Error("DeepSeek stream response body is empty");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          // 保留最后一行（可能不完整）
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            const chunk = this.parseSSELine(line);
+            if (chunk) {
+              if (chunk.content) {
+                options.onChunk?.(chunk.content);
+                yield chunk;
+              }
+              if (chunk.done) {
+                return;
+              }
             }
           }
         }
+        // 流正常结束
+        yield { content: "", done: true, progress: 1 };
+      } finally {
+        reader.releaseLock();
       }
-      // 流正常结束
-      yield { content: "", done: true, progress: 1 };
     } finally {
-      reader.releaseLock();
+      clearTimeout(timeoutId);
     }
   }
 

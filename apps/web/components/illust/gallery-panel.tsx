@@ -7,7 +7,7 @@ import { getTemplatesForType } from '@/lib/ai/prompts/illustration-reference-tem
 import { GenCard, type GenCardData } from './gen-card';
 import type { AssetType, IllustrationAsset } from './asset-list';
 
-const MODEL_OPTIONS = [
+const DEFAULT_MODEL_OPTIONS = [
   { id: 'openai', label: 'OpenAI Images' },
   { id: 'glm', label: 'GLM CogView' },
   { id: 'seedream', label: '豆包 Seedream' },
@@ -33,6 +33,8 @@ interface GalleryPanelProps {
   qualityStatus?: 'unchecked' | 'passed' | 'warning';
   qualityMessage?: string;
   isGenerating?: boolean;
+  modelOptions?: Array<{ id: string; label: string }>;
+  defaultModel?: string;
   onGenerate?: (config: GenerateConfig) => void;
   onStopGenerate?: () => void;
   onAdopt?: (assetId: string) => void;
@@ -107,14 +109,19 @@ export function GalleryPanel({
   qualityStatus,
   qualityMessage,
   isGenerating = false,
+  modelOptions,
+  defaultModel,
   onGenerate,
   onStopGenerate,
   onAdopt,
   onRegenerate,
   onUpscale,
 }: GalleryPanelProps) {
+  const options = modelOptions ?? DEFAULT_MODEL_OPTIONS.slice();
+  const effectiveDefault = defaultModel ?? options[0]?.id ?? 'openai';
+
   const [prompt, setPrompt] = useState(defaultPrompt(asset));
-  const [model, setModel] = useState<string>('openai');
+  const [model, setModel] = useState<string>(effectiveDefault);
   const [ratio, setRatio] = useState<string>(initialRatio ?? getDefaultIllustrationRatio(asset?.type ?? 'scene'));
   const [count, setCount] = useState<number>(initialCount ?? 1);
   const [templateIds, setTemplateIds] = useState<string[]>(() => defaultTemplateIds(asset?.type));
@@ -132,7 +139,12 @@ export function GalleryPanel({
     setRatio(initialRatio ?? getDefaultIllustrationRatio(asset?.type ?? 'scene'));
     setCount(initialCount ?? 1);
     setTemplateIds(defaultTemplateIds(asset?.type));
-  }, [asset, generatedPrompt, initialCount, initialRatio]);
+    // 当 admin 配置变化导致可用模型改变时，同步默认模型并兜底到首个可用选项
+    setModel((current) => {
+      if (options.some((o) => o.id === current)) return current;
+      return effectiveDefault;
+    });
+  }, [asset, generatedPrompt, initialCount, initialRatio, options, effectiveDefault]);
 
   const handleGenerate = () => {
     if (isGenerating) {
@@ -250,17 +262,21 @@ export function GalleryPanel({
         <div className="prompt-controls">
           <div className="pc-group">
             <span className="pc-label">模型</span>
-            {MODEL_OPTIONS.map((m) => (
-              <div
-                key={m.id}
-                className={`pc-chip ${model === m.id ? 'active' : ''}`}
-                onClick={() => setModel(m.id)}
-                role="button"
-                tabIndex={0}
-              >
-                {m.label}
-              </div>
-            ))}
+            {options.length === 0 ? (
+              <span className="pc-hint">当前无可用模型，请联系管理员配置</span>
+            ) : (
+              options.map((m) => (
+                <div
+                  key={m.id}
+                  className={`pc-chip ${model === m.id ? 'active' : ''}`}
+                  onClick={() => setModel(m.id)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  {m.label}
+                </div>
+              ))
+            )}
           </div>
           <div className="pc-group">
             <span className="pc-label">比例</span>

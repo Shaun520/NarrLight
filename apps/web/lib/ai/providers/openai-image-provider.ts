@@ -5,6 +5,7 @@ import type {
   StreamChunk,
   ValidationResult,
 } from './base-provider';
+import type { ProviderRuntimeConfig } from '@narrlight/shared';
 import { fetchWithOptionalProxy } from './fetch-with-proxy';
 
 interface OpenAIImageResponse {
@@ -21,10 +22,20 @@ function randomSeed(): number {
 
 export class OpenAIImageProvider implements AIProvider {
   readonly name = 'openai-image';
-  readonly model = process.env.OPENAI_IMAGE_MODEL ?? 'gpt-image-1.5';
+  model: string;
+  private readonly defaultSize: string;
+  private readonly timeout: number;
+  private readonly retries: number;
 
   private readonly apiKey = process.env.OPENAI_API_KEY ?? '';
   private readonly baseUrl = process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1';
+
+  constructor(config?: Partial<ProviderRuntimeConfig>) {
+    this.model = config?.model || process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1.5';
+    this.defaultSize = config?.size || '1024x1024';
+    this.timeout = config?.timeout ?? 60;
+    this.retries = config?.retries ?? 3;
+  }
 
   async illustrate(
     prompt: string,
@@ -47,13 +58,15 @@ export class OpenAIImageProvider implements AIProvider {
         body: JSON.stringify({
           model,
           prompt,
-          size: options?.size ?? '1024x1024',
+          size: options?.size ?? this.defaultSize,
           quality: options?.quality ?? 'medium',
           output_format: outputFormat,
         }),
         signal: (options?.signal ?? undefined) as AbortSignal | undefined,
       },
       process.env.OPENAI_PROXY_URL,
+      this.retries,
+      this.timeout,
     );
 
     if (!response.ok) {
@@ -118,18 +131,38 @@ async function requestWithRetry(
   input: string | URL,
   init: RequestInit = {},
   explicitProxyUrl?: string,
+  retries = 3,
+  timeoutSec = 60,
 ): Promise<Response> {
-  const maxAttempts = 3;
+  const maxAttempts = Math.max(1, retries + 1);
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const response = await fetchWithOptionalProxy(input, init, explicitProxyUrl);
-    if (response.ok || !shouldRetry(response.status) || attempt === maxAttempts) {
-      return response;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutSec * 1000);
+    const externalSignal = (init.signal ?? undefined) as AbortSignal | undefined;
+    const onAbort = () => controller.abort();
+    externalSignal?.addEventListener('abort', onAbort, { once: true });
+    try {
+      const response = await fetchWithOptionalProxy(input, { ...init, signal: controller.signal }, explicitProxyUrl);
+      if (response.ok || !shouldRetry(response.status) || attempt === maxAttempts) {
+        return response;
+      }
+      lastError = new Error(`OpenAI Images temporary failure ${response.status}`);
+      await delay(200 * 2 ** (attempt - 1), externalSignal);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (externalSignal?.aborted) {
+        throw lastError;
+      }
+      if (attempt === maxAttempts) {
+        throw lastError;
+      }
+      await delay(200 * 2 ** (attempt - 1), externalSignal);
+    } finally {
+      clearTimeout(timeoutId);
+      externalSignal?.removeEventListener('abort', onAbort);
     }
-
-    lastError = new Error(`OpenAI Images temporary failure ${response.status}`);
-    await delay(200 * 2 ** (attempt - 1), (init.signal ?? undefined) as AbortSignal | undefined);
   }
 
   throw lastError ?? new Error('OpenAI Images request failed');

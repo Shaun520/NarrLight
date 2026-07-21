@@ -22,7 +22,8 @@
  */
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { DeepSeekProvider, parseJSONWithTolerance } from '@/lib/ai/providers/deepseek-provider';
+import { parseJSONWithTolerance } from '@/lib/ai/providers/deepseek-provider';
+import { getTextProviderInstance } from '@/lib/services/ai-config-service';
 import {
   buildTimelineStructurePrompt,
   type TimelineStructureJson,
@@ -311,7 +312,7 @@ export async function POST(request: Request) {
         })),
       });
 
-      const provider = new DeepSeekProvider();
+      const { provider } = await getTextProviderInstance();
       const raw = await provider.generate({
         systemPrompt,
         prompt: userPrompt,

@@ -1842,8 +1842,9 @@
             <button class="switch on" title="启用或停用" onclick="this.classList.toggle('on')"></button>
           </div>
           <div class="config-field"><label>模型</label><input class="input" value="deepseek-chat"></div>
-          <div class="config-field"><label>API Key</label><input class="input" type="password" value="sk-••••••••••••9d2a"></div>
-          <div class="config-field"><label>请求超时（秒）</label><input class="input" value="120"></div>
+          <div class="config-field"><label>请求超时（秒）</label><input class="input" value="60"></div>
+          <div class="config-field"><label>最大重试次数</label><input class="input" value="2"></div>
+          <div class="config-field"><label>环境变量</label><input class="input" value="DEEPSEEK_API_KEY" disabled style="opacity: 0.6;"></div>
         </div>
 
         <div class="card config-card">
@@ -1854,9 +1855,10 @@
             </div>
             <button class="switch on" title="启用或停用" onclick="this.classList.toggle('on')"></button>
           </div>
-          <div class="config-field"><label>模型</label><input class="input" value="glm-4-plus"></div>
-          <div class="config-field"><label>API Key</label><input class="input" type="password" value="••••••••••••••3f01"></div>
-          <div class="config-field"><label>最大重试次数</label><input class="input" value="3"></div>
+          <div class="config-field"><label>模型</label><input class="input" value="glm-5.1"></div>
+          <div class="config-field"><label>请求超时（秒）</label><input class="input" value="60"></div>
+          <div class="config-field"><label>最大重试次数</label><input class="input" value="2"></div>
+          <div class="config-field"><label>环境变量</label><input class="input" value="GLM_API_KEY" disabled style="opacity: 0.6;"></div>
         </div>
 
         <div class="card config-card">
@@ -1867,9 +1869,11 @@
             </div>
             <button class="switch on" title="启用或停用" onclick="this.classList.toggle('on')"></button>
           </div>
-          <div class="config-field"><label>模型</label><input class="input" value="gpt-image-1"></div>
-          <div class="config-field"><label>API Key</label><input class="input" type="password" value="sk-proj-••••••••••••"></div>
-          <div class="config-field"><label>默认质量</label><input class="input" value="high"></div>
+          <div class="config-field"><label>模型</label><input class="input" value="gpt-image-1.5"></div>
+          <div class="config-field"><label>默认尺寸</label><input class="input" value="1024x1024"></div>
+          <div class="config-field"><label>请求超时（秒）</label><input class="input" value="60"></div>
+          <div class="config-field"><label>最大重试次数</label><input class="input" value="3"></div>
+          <div class="config-field"><label>环境变量</label><input class="input" value="OPENAI_API_KEY" disabled style="opacity: 0.6;"></div>
         </div>
 
         <div class="card config-card">
@@ -1881,8 +1885,10 @@
             <button class="switch" title="启用或停用" onclick="this.classList.toggle('on')"></button>
           </div>
           <div class="config-field"><label>模型</label><input class="input" value="seedream-3.0"></div>
-          <div class="config-field"><label>API Key</label><input class="input" type="password" value="••••••••••••••••"></div>
-          <div class="config-field"><label>最大重试次数</label><input class="input" value="2"></div>
+          <div class="config-field"><label>默认尺寸</label><input class="input" value="1024x1024"></div>
+          <div class="config-field"><label>请求超时（秒）</label><input class="input" value="60"></div>
+          <div class="config-field"><label>最大重试次数</label><input class="input" value="3"></div>
+          <div class="config-field"><label>环境变量</label><input class="input" value="ARK_API_KEY" disabled style="opacity: 0.6;"></div>
         </div>
       </div>
 

@@ -14,13 +14,17 @@ export function createClient() {
   if (!url || !anonKey || url === "your-supabase-project-url") {
     // 占位客户端：所有方法静默失败，不触发网络请求
     const noop = () => Promise.resolve({ data: null, error: new Error("Supabase 环境变量未配置") });
+    const noopUser = () =>
+      Promise.resolve({ data: { user: null }, error: new Error("Supabase 环境变量未配置") });
     return {
       auth: {
         getSession: noop,
-        getUser: noop,
+        getUser: noopUser,
+        signInWithPassword: noop,
         signInWithOtp: noop,
         verifyOtp: noop,
         signOut: noop,
+        updateUser: noop,
         onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
       },
     } as unknown as ReturnType<typeof createBrowserClient>;

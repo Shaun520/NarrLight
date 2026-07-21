@@ -1,5 +1,9 @@
 import { NextRequest } from 'next/server';
-import { DeepSeekProvider, parseJSONWithTolerance } from '@/lib/ai/providers/deepseek-provider';
+import { parseJSONWithTolerance } from '@/lib/ai/providers/deepseek-provider';
+import {
+  getTextProviderInstance,
+  isProviderKeyConfigured,
+} from '@/lib/services/ai-config-service';
 import { buildStoryBiblePrompt, type StoryBibleJson } from '@/lib/ai/prompts/story-bible';
 import type { ScriptGenerationParams } from '@/lib/ai/prompts/script-generation';
 import {
@@ -116,7 +120,7 @@ async function parseOrRepairJson<T>(text: string, schemaHint: string): Promise<T
   try {
     return parseJSONWithTolerance<T>(text);
   } catch (error) {
-    const provider = new DeepSeekProvider();
+    const { provider } = await getTextProviderInstance();
     const repaired = await provider.generate({
       systemPrompt:
         'You repair malformed JSON. Return only valid JSON. Do not add markdown, comments, or explanation. Preserve the original meaning and fields.',
@@ -517,16 +521,16 @@ async function runJsonPhase<T>(
       let accumulated = '';
 
       try {
-        if (!process.env.DEEPSEEK_API_KEY) {
+        const { provider, name } = await getTextProviderInstance();
+        if (!isProviderKeyConfigured(name)) {
           controller.enqueue(
             encodeSse(encoder, 'error', {
-              message: 'AI_GENERATION_MODE=real requires DEEPSEEK_API_KEY',
+              message: `AI provider ${name} 的 API Key 未配置，请在环境变量中设置`,
             }),
           );
           return;
         }
 
-        const provider = new DeepSeekProvider();
         controller.enqueue(encodeSse(encoder, 'start', { scriptId, stage: `${phase}-init`, ...generationMeta() }));
 
         for await (const chunk of provider.generateStream({
@@ -760,10 +764,11 @@ async function handleCharacterProfiles(body: GenerateRequestBody): Promise<Respo
       let accumulated = '';
 
       try {
-        if (!process.env.DEEPSEEK_API_KEY) {
+        const { provider, name } = await getTextProviderInstance();
+        if (!isProviderKeyConfigured(name)) {
           controller.enqueue(
             encodeSse(encoder, 'error', {
-              message: 'AI_GENERATION_MODE=real requires DEEPSEEK_API_KEY',
+              message: `AI provider ${name} 的 API Key 未配置，请在环境变量中设置`,
             }),
           );
           return;
@@ -771,7 +776,6 @@ async function handleCharacterProfiles(body: GenerateRequestBody): Promise<Respo
 
         const storyBible = await getStoryBibleForPhase(body);
         const { systemPrompt, userPrompt } = buildCharacterProfilesPrompt({ params, storyBible });
-        const provider = new DeepSeekProvider();
 
         controller.enqueue(encodeSse(encoder, 'start', { scriptId, stage: 'character-profiles-init', ...generationMeta() }));
         for await (const chunk of provider.generateStream({
@@ -832,10 +836,11 @@ async function handleActStructure(body: GenerateRequestBody): Promise<Response> 
       let accumulated = '';
 
       try {
-        if (!process.env.DEEPSEEK_API_KEY) {
+        const { provider, name } = await getTextProviderInstance();
+        if (!isProviderKeyConfigured(name)) {
           controller.enqueue(
             encodeSse(encoder, 'error', {
-              message: 'AI_GENERATION_MODE=real requires DEEPSEEK_API_KEY',
+              message: `AI provider ${name} 的 API Key 未配置，请在环境变量中设置`,
             }),
           );
           return;
@@ -843,7 +848,6 @@ async function handleActStructure(body: GenerateRequestBody): Promise<Response> 
 
         const storyBible = await getStoryBibleForPhase(body);
         const { systemPrompt, userPrompt } = buildActStructurePrompt({ params, storyBible });
-        const provider = new DeepSeekProvider();
 
         controller.enqueue(encodeSse(encoder, 'start', { scriptId, stage: 'act-structure-init', ...generationMeta() }));
         for await (const chunk of provider.generateStream({
@@ -1266,10 +1270,11 @@ async function handleCharacterScript(body: GenerateRequestBody): Promise<Respons
       let accumulated = '';
 
       try {
-        if (!process.env.DEEPSEEK_API_KEY) {
+        const { provider, name } = await getTextProviderInstance();
+        if (!isProviderKeyConfigured(name)) {
           controller.enqueue(
             encodeSse(encoder, 'error', {
-              message: 'AI_GENERATION_MODE=real requires DEEPSEEK_API_KEY',
+              message: `AI provider ${name} 的 API Key 未配置，请在环境变量中设置`,
             }),
           );
           return;
@@ -1287,7 +1292,6 @@ async function handleCharacterScript(body: GenerateRequestBody): Promise<Respons
           character,
           actStructure,
         });
-        const provider = new DeepSeekProvider();
 
         controller.enqueue(
           encodeSse(encoder, 'start', {
@@ -1570,7 +1574,6 @@ async function handleTimelineStructureMock(body: GenerateRequestBody): Promise<R
 async function handleStoryBible(body: GenerateRequestBody): Promise<Response> {
   const { scriptId, params } = body;
   const { systemPrompt, userPrompt } = buildStoryBiblePrompt(params);
-  const provider = new DeepSeekProvider();
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -1595,10 +1598,11 @@ async function handleStoryBible(body: GenerateRequestBody): Promise<Response> {
           return;
         }
 
-        if (!process.env.DEEPSEEK_API_KEY) {
+        const { provider, name } = await getTextProviderInstance();
+        if (!isProviderKeyConfigured(name)) {
           controller.enqueue(
             encodeSse(encoder, 'error', {
-              message: 'AI_GENERATION_MODE=real requires DEEPSEEK_API_KEY',
+              message: `AI provider ${name} 的 API Key 未配置，请在环境变量中设置`,
             }),
           );
           return;
