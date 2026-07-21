@@ -249,27 +249,29 @@
       background: var(--card-bg);
       border-radius: var(--radius);
       border: 1px solid var(--border-color);
-      padding: 20px;
+      padding: 16px 20px;
       box-shadow: var(--shadow-sm);
       transition: all 0.2s;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px;
     }
     .stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
-    .stat-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .stat-card-main { display: flex; flex-direction: column; gap: 6px; }
     .stat-card-label { font-size: 13px; color: var(--text-secondary); }
-    .stat-card-icon {
-      width: 36px; height: 36px; border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .stat-card-icon svg { width: 18px; height: 18px; }
     .stat-card-value {
-      font-size: 28px; font-weight: 700; color: var(--text);
+      font-size: 26px; font-weight: 700; color: var(--text);
       font-family: "JetBrains Mono", monospace;
       line-height: 1.2;
     }
     .stat-card-trend {
-      margin-top: 8px; font-size: 12px;
+      font-size: 12px;
       display: flex; align-items: center; gap: 4px;
     }
+    .stat-card-icon {
+      width: 44px; height: 44px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .stat-card-icon svg { width: 22px; height: 22px; }
     .trend-up { color: var(--success); }
     .trend-down { color: var(--error); }
 
@@ -376,6 +378,21 @@
     .page-btn:disabled { color: var(--text-tertiary); cursor: not-allowed; }
     .page-total { font-size: 13px; color: var(--text-secondary); margin-right: 12px; }
 
+    /* Data list view - table style */
+    .data-list { display: none; }
+    .data-list.active { display: table; width: 100%; border-collapse: collapse; border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; animation: fadeIn 0.2s ease; }
+    .data-list-header { display: table-header-group; }
+    .data-list-header-row { display: table-row; background: #f5f5f5; }
+    .data-list-header-cell { display: table-cell; padding: 10px 16px; font-size: 12px; font-weight: 600; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+    .data-list-item { display: table-row; }
+    .data-list-item:hover { background: #fafafa; }
+    .data-list-cell { display: table-cell; padding: 10px 16px; font-size: 13px; color: var(--text); border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+    .data-list-cell:last-child { border-bottom: none; }
+    .data-list-item:last-child .data-list-cell { border-bottom: none; }
+    .data-list-cell-title { font-weight: 500; }
+    .data-list-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+    .data-list-actions .btn-link { padding: 2px 4px; }
+
     /* Drawer */
     .drawer-mask {
       position: fixed; inset: 0;
@@ -460,25 +477,63 @@
     .todo-label { font-size: 13px; color: var(--text-secondary); }
     .todo-value { font-size: 18px; font-weight: 600; color: var(--text); }
     .todo-arrow { color: var(--text-tertiary); }
+    .todo-list { display: flex; flex-direction: column; }
+    .todo-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 20px;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .todo-row:hover { background: var(--primary-bg); }
+    .todo-row-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .todo-row-icon svg { width: 20px; height: 20px; }
+    .todo-row-main { display: flex; flex-direction: column; gap: 2px; }
+    .todo-row-title { font-size: 14px; font-weight: 500; color: var(--text); }
+    .todo-row-sub { font-size: 12px; color: var(--text-secondary); }
 
     /* Charts */
-    .chart-grid {
+    .dashboard-grid {
       display: grid;
       grid-template-columns: 2fr 1fr;
       gap: 16px;
       margin-bottom: 20px;
     }
-    .bar-chart { display: flex; align-items: flex-end; gap: 16px; height: 200px; padding: 20px; }
-    .bar { flex: 1; background: var(--primary); border-radius: 4px 4px 0 0; position: relative; transition: all 0.2s; }
-    .bar:hover { background: var(--primary-hover); }
-    .bar-label {
-      position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%);
-      font-size: 11px; color: var(--text-secondary); white-space: nowrap;
+    .chart-card { display: flex; flex-direction: column; }
+    .chart-tabs {
+      display: flex; gap: 4px;
     }
+    .chart-tab {
+      padding: 4px 10px; border-radius: 4px; font-size: 12px;
+      border: 1px solid transparent; background: transparent; cursor: pointer; color: var(--text-secondary);
+    }
+    .chart-tab:hover { color: var(--primary); }
+    .chart-tab.active { border-color: var(--primary); color: var(--primary); background: var(--primary-bg); }
+    .chart-legend { display: flex; gap: 16px; font-size: 12px; margin-bottom: 16px; }
+    .chart-legend-item { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+    .chart-legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+    .bar-chart { display: flex; align-items: flex-end; gap: 20px; height: 220px; padding: 20px 0; }
+    .bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .bar-pair { display: flex; align-items: flex-end; gap: 6px; height: 170px; width: 100%; justify-content: center; }
+    .bar { width: 16px; border-radius: 3px 3px 0 0; position: relative; transition: all 0.2s; }
+    .bar-primary { background: var(--primary); }
+    .bar-secondary { background: var(--success); }
+    .bar:hover { opacity: 0.85; }
+    .bar-label { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
     .bar-value {
-      position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
-      font-size: 11px; color: var(--text); font-weight: 500;
+      position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+      font-size: 10px; color: var(--text); font-weight: 500; white-space: nowrap;
     }
+
+    /* Health */
+    .health-list { display: flex; flex-direction: column; gap: 16px; }
+    .health-item { display: grid; grid-template-columns: 140px 1fr 60px; align-items: center; gap: 16px; }
+    .health-label { font-size: 13px; color: var(--text); }
+    .health-bar-wrap { background: #f5f5f5; border-radius: 4px; height: 10px; overflow: hidden; }
+    .health-bar { height: 100%; border-radius: 4px; }
+    .health-value { font-size: 13px; color: var(--text); font-weight: 500; text-align: right; font-family: "JetBrains Mono", monospace; }
 
     /* Progress */
     .progress {
@@ -492,6 +547,18 @@
     .progress.success .progress-inner { background: var(--success); }
     .progress.warning .progress-inner { background: var(--warning); }
     .progress.error .progress-inner { background: var(--error); }
+
+    /* Rank list */
+    .rank-list { display: flex; flex-direction: column; gap: 12px; }
+    .rank-item { display: grid; grid-template-columns: 22px 56px 1fr 40px; align-items: center; gap: 10px; }
+    .rank-num { width: 22px; height: 22px; border-radius: 50%; background: #f5f5f5; color: var(--text-secondary); font-size: 11px; font-weight: 600; display: grid; place-items: center; }
+    .rank-num.rank-1 { background: #fff2f0; color: #ff4d4f; }
+    .rank-num.rank-2 { background: #e6f4ff; color: #1677ff; }
+    .rank-num.rank-3 { background: #f6ffed; color: #52c41a; }
+    .rank-name { font-size: 13px; color: var(--text); }
+    .rank-bar-wrap { background: #f5f5f5; border-radius: 4px; height: 8px; overflow: hidden; }
+    .rank-bar { display: block; height: 100%; border-radius: 4px; }
+    .rank-value { font-size: 12px; color: var(--text-secondary); text-align: right; font-family: "JetBrains Mono", monospace; }
 
     /* JSON Diff */
     .json-diff {
@@ -574,6 +641,20 @@
     }
 
     /* Config */
+    .config-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .config-card { padding: 18px; }
+    .config-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .provider { display: flex; align-items: center; gap: 10px; }
+    .provider-logo {
+      width: 34px; height: 34px; border-radius: 6px;
+      display: grid; place-items: center; color: #fff; font-weight: 700; background: #20242d;
+      font-size: 12px;
+    }
+    .provider b { display: block; font-size: 13px; }
+    .provider small { color: var(--text-secondary); font-size: 10px; }
+    .config-field { margin-top: 12px; }
+    .config-field label { display: block; color: var(--text-secondary); font-size: 12px; margin-bottom: 6px; }
+    .config-field .input { width: 100%; }
     .config-row {
       display: flex; align-items: center; justify-content: space-between;
       padding: 16px 0; border-bottom: 1px solid var(--border-color);
@@ -600,13 +681,15 @@
     /* Responsive */
     @media (max-width: 1280px) {
       .stat-grid { grid-template-columns: repeat(3, 1fr); }
-      .chart-grid { grid-template-columns: 1fr; }
+      .dashboard-grid { grid-template-columns: 1fr; }
       .todo-grid { grid-template-columns: 1fr; }
+      .config-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 768px) {
       .app { grid-template-columns: 0 1fr; }
       .sidebar { display: none; }
       .stat-grid { grid-template-columns: 1fr; }
+      .health-item { grid-template-columns: 1fr; gap: 8px; }
     }
   </style>
 </head>
@@ -722,142 +805,151 @@
       <div class="page-head">
         <div>
           <div class="page-title">工作台</div>
-          <div class="page-sub">2026-07-20 周一 · 欢迎回来，超级管理员</div>
+          <div class="page-sub">上午好，今日平台有 8 项内容待处理。</div>
         </div>
         <div>
           <button class="btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> 刷新数据</button>
+          <button class="btn btn-primary" style="margin-left: 8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> 查看审计</button>
         </div>
       </div>
 
       <div class="stat-grid">
         <div class="stat-card">
-          <div class="stat-card-head">
+          <div class="stat-card-main">
             <div class="stat-card-label">今日新增用户</div>
-            <div class="stat-card-icon" style="background: var(--info-bg); color: var(--info);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg></div>
+            <div class="stat-card-value">128</div>
+            <div class="stat-card-trend trend-up"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg> 12.6% 较昨日</div>
           </div>
-          <div class="stat-card-value">128</div>
-          <div class="stat-card-trend trend-up"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg> 12.5% 较昨日</div>
+          <div class="stat-card-icon" style="background: var(--info-bg); color: var(--info);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg></div>
         </div>
         <div class="stat-card">
-          <div class="stat-card-head">
+          <div class="stat-card-main">
             <div class="stat-card-label">今日生成任务</div>
-            <div class="stat-card-icon" style="background: var(--success-bg); color: var(--success);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+            <div class="stat-card-value">462</div>
+            <div class="stat-card-trend trend-up"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg> 8.2% 成功率 96.4%</div>
           </div>
-          <div class="stat-card-value">342</div>
-          <div class="stat-card-trend trend-up"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg> 8.3% 较昨日</div>
+          <div class="stat-card-icon" style="background: var(--success-bg); color: var(--success);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
         </div>
         <div class="stat-card">
-          <div class="stat-card-head">
+          <div class="stat-card-main">
             <div class="stat-card-label">活跃剧本</div>
-            <div class="stat-card-icon" style="background: #f9f0ff; color: #531dab;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+            <div class="stat-card-value">1,284</div>
+            <div class="stat-card-trend trend-up"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg> 5.7% 近 7 日</div>
           </div>
-          <div class="stat-card-value">1,247</div>
-          <div class="stat-card-trend trend-up"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg> 5.1% 较上周</div>
+          <div class="stat-card-icon" style="background: #f9f0ff; color: #531dab;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
         </div>
         <div class="stat-card">
-          <div class="stat-card-head">
+          <div class="stat-card-main">
             <div class="stat-card-label">待审核举报</div>
-            <div class="stat-card-icon" style="background: var(--error-bg); color: var(--error);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+            <div class="stat-card-value">8</div>
+            <div class="stat-card-trend">其中 2 项已超 24 小时</div>
           </div>
-          <div class="stat-card-value">5</div>
-          <div class="stat-card-trend trend-down"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/></svg> 2 较昨日</div>
+          <div class="stat-card-icon" style="background: var(--error-bg); color: var(--error);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
         </div>
         <div class="stat-card">
-          <div class="stat-card-head">
-            <div class="stat-card-label">AI 调用总量</div>
-            <div class="stat-card-icon" style="background: var(--warning-bg); color: var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg></div>
+          <div class="stat-card-main">
+            <div class="stat-card-label">AI 调用量</div>
+            <div class="stat-card-value">18.6K</div>
+            <div class="stat-card-trend trend-up"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg> 16.1% Token 4.82M</div>
           </div>
-          <div class="stat-card-value">28.6k</div>
-          <div class="stat-card-trend trend-up"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg> 18.2% 较昨日</div>
+          <div class="stat-card-icon" style="background: var(--warning-bg); color: var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg></div>
         </div>
       </div>
 
-      <div class="card" style="margin-bottom: 20px;">
+      <div class="dashboard-grid">
+        <div class="card chart-card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">核心业务趋势</div>
+              <div class="card-sub">近 7 天</div>
+            </div>
+            <div class="chart-tabs">
+              <button class="chart-tab active">7 天</button>
+              <button class="chart-tab">30 天</button>
+              <button class="chart-tab">90 天</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="chart-legend">
+              <span class="chart-legend-item"><span class="chart-legend-dot" style="background: var(--primary);"></span>生成任务</span>
+              <span class="chart-legend-item"><span class="chart-legend-dot" style="background: var(--success);"></span>新增用户</span>
+            </div>
+            <div class="bar-chart">
+              <div class="bar-group"><div class="bar-pair"><div class="bar bar-primary" style="height: 40%;"><span class="bar-value">245</span></div><div class="bar bar-secondary" style="height: 12%;"><span class="bar-value">78</span></div></div><span class="bar-label">07/14</span></div>
+              <div class="bar-group"><div class="bar-pair"><div class="bar bar-primary" style="height: 55%;"><span class="bar-value">332</span></div><div class="bar bar-secondary" style="height: 16%;"><span class="bar-value">106</span></div></div><span class="bar-label">07/15</span></div>
+              <div class="bar-group"><div class="bar-pair"><div class="bar bar-primary" style="height: 48%;"><span class="bar-value">288</span></div><div class="bar bar-secondary" style="height: 14%;"><span class="bar-value">92</span></div></div><span class="bar-label">07/16</span></div>
+              <div class="bar-group"><div class="bar-pair"><div class="bar bar-primary" style="height: 68%;"><span class="bar-value">410</span></div><div class="bar bar-secondary" style="height: 22%;"><span class="bar-value">150</span></div></div><span class="bar-label">07/17</span></div>
+              <div class="bar-group"><div class="bar-pair"><div class="bar bar-primary" style="height: 62%;"><span class="bar-value">375</span></div><div class="bar bar-secondary" style="height: 18%;"><span class="bar-value">118</span></div></div><span class="bar-label">07/18</span></div>
+              <div class="bar-group"><div class="bar-pair"><div class="bar bar-primary" style="height: 75%;"><span class="bar-value">452</span></div><div class="bar bar-secondary" style="height: 26%;"><span class="bar-value">176</span></div></div><span class="bar-label">07/19</span></div>
+              <div class="bar-group"><div class="bar-pair"><div class="bar bar-primary" style="height: 70%;"><span class="bar-value">462</span></div><div class="bar bar-secondary" style="height: 24%;"><span class="bar-value">128</span></div></div><span class="bar-label">今日</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">运营待办</div>
+              <div class="card-sub">需立即处理</div>
+            </div>
+          </div>
+          <div class="card-body" style="padding: 12px 0;">
+            <div class="todo-list">
+              <div class="todo-row" onclick="switchView('moderation')">
+                <div class="todo-row-icon" style="background: var(--error-bg); color: var(--error);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+                <div class="todo-row-main">
+                  <div class="todo-row-title">待处理举报</div>
+                  <div class="todo-row-sub">2 项已超出处理时限</div>
+                </div>
+              </div>
+              <div class="todo-row" onclick="switchView('scripts')">
+                <div class="todo-row-icon" style="background: var(--warning-bg); color: var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                <div class="todo-row-main">
+                  <div class="todo-row-title">待审核剧本</div>
+                  <div class="todo-row-sub">最早提交于 3 小时前</div>
+                </div>
+              </div>
+              <div class="todo-row" onclick="switchView('tasks-generation')">
+                <div class="todo-row-icon" style="background: var(--info-bg); color: var(--info);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="21 4 21 9 16 9"/></svg></div>
+                <div class="todo-row-main">
+                  <div class="todo-row-title">失败生成任务</div>
+                  <div class="todo-row-sub">需要人工确认后重试</div>
+                </div>
+              </div>
+              <div class="todo-row">
+                <div class="todo-row-icon" style="background: #f9f0ff; color: #531dab;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg></div>
+                <div class="todo-row-main">
+                  <div class="todo-row-title">画质警告</div>
+                  <div class="todo-row-sub">内容安全模型标记</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-head">
           <div>
-            <div class="card-title">待办事项</div>
-            <div class="card-sub">需立即处理的运营任务</div>
+            <div class="card-title">服务健康度</div>
+            <div class="card-sub">近 1 小时</div>
           </div>
         </div>
         <div class="card-body">
-          <div class="todo-grid">
-            <div class="todo-item" onclick="switchView('scripts')">
-              <div class="todo-item-info">
-                <div class="todo-icon" style="background: var(--warning-bg); color: var(--warning);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-                <div class="todo-text">
-                  <span class="todo-label">待审核剧本</span>
-                  <span class="todo-value">8 个</span>
-                </div>
-              </div>
-              <span class="todo-arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></span>
+          <div class="health-list">
+            <div class="health-item">
+              <div class="health-label">剧本生成成功率</div>
+              <div class="health-bar-wrap"><div class="health-bar" style="width: 96.4%; background: var(--primary);"></div></div>
+              <div class="health-value">96.4%</div>
             </div>
-            <div class="todo-item" onclick="switchView('moderation')">
-              <div class="todo-item-info">
-                <div class="todo-icon" style="background: var(--error-bg); color: var(--error);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
-                <div class="todo-text">
-                  <span class="todo-label">待处理举报</span>
-                  <span class="todo-value">5 条</span>
-                </div>
-              </div>
-              <span class="todo-arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></span>
+            <div class="health-item">
+              <div class="health-label">插画生成成功率</div>
+              <div class="health-bar-wrap"><div class="health-bar" style="width: 91.8%; background: #722ed1;"></div></div>
+              <div class="health-value">91.8%</div>
             </div>
-            <div class="todo-item" onclick="switchView('tasks-generation')">
-              <div class="todo-item-info">
-                <div class="todo-icon" style="background: var(--info-bg); color: var(--info);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="21 4 21 9 16 9"/></svg></div>
-                <div class="todo-text">
-                  <span class="todo-label">失败任务待重试</span>
-                  <span class="todo-value">12 个</span>
-                </div>
-              </div>
-              <span class="todo-arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="chart-grid">
-        <div class="card">
-          <div class="card-head">
-            <div>
-              <div class="card-title">近 7 日用户增长</div>
-              <div class="card-sub">单位：人</div>
-            </div>
-          </div>
-          <div class="card-body">
-            <div class="bar-chart">
-              <div class="bar" style="height: 45%;"><span class="bar-value">76</span><span class="bar-label">7/14</span></div>
-              <div class="bar" style="height: 60%;"><span class="bar-value">102</span><span class="bar-label">7/15</span></div>
-              <div class="bar" style="height: 50%;"><span class="bar-value">85</span><span class="bar-label">7/16</span></div>
-              <div class="bar" style="height: 70%;"><span class="bar-value">119</span><span class="bar-label">7/17</span></div>
-              <div class="bar" style="height: 55%;"><span class="bar-value">94</span><span class="bar-label">7/18</span></div>
-              <div class="bar" style="height: 80%;"><span class="bar-value">136</span><span class="bar-label">7/19</span></div>
-              <div class="bar" style="height: 75%; background: var(--primary-hover);"><span class="bar-value">128</span><span class="bar-label">今日</span></div>
-            </div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-head">
-            <div>
-              <div class="card-title">任务成功率</div>
-              <div class="card-sub">近 24 小时</div>
-            </div>
-          </div>
-          <div class="card-body">
-            <div style="text-align: center; padding: 20px 0;">
-              <div style="font-size: 48px; font-weight: 700; color: var(--success); font-family: 'JetBrains Mono', monospace;">94.2%</div>
-              <div style="font-size: 13px; color: var(--text-secondary); margin-top: 8px;">成功 322 / 失败 20</div>
-              <div style="margin-top: 24px;">
-                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
-                  <span style="color: var(--success);"><svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg> 成功</span>
-                  <span>322 (94.2%)</span>
-                </div>
-                <div class="progress success"><div class="progress-inner" style="width: 94.2%;"></div></div>
-                <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 12px 0 6px;">
-                  <span style="color: var(--error);"><svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg> 失败</span>
-                  <span>20 (5.8%)</span>
-                </div>
-                <div class="progress error"><div class="progress-inner" style="width: 5.8%;"></div></div>
-              </div>
+            <div class="health-item">
+              <div class="health-label">API 平均响应</div>
+              <div class="health-bar-wrap"><div class="health-bar" style="width: 32.8%; background: var(--success);"></div></div>
+              <div class="health-value">328ms</div>
             </div>
           </div>
         </div>
@@ -879,7 +971,7 @@
       <div class="card">
         <div class="toolbar">
           <div class="toolbar-left">
-            <input class="input" placeholder="搜索手机号 / 昵称 / ID">
+            <input class="input" placeholder="搜索邮箱 / 昵称 / ID">
             <select class="select">
               <option>全部套餐</option>
               <option>免费版</option>
@@ -901,7 +993,7 @@
               <tr>
                 <th>用户 ID</th>
                 <th>昵称</th>
-                <th>手机号</th>
+                <th>邮箱</th>
                 <th>套餐</th>
                 <th>配额使用</th>
                 <th>剧本数</th>
@@ -922,7 +1014,7 @@
                     </div>
                   </div>
                 </td>
-                <td>138****2847</td>
+                <td>shen.mobai@example.com</td>
                 <td><span class="tag tag-purple">Pro</span></td>
                 <td>— / 无限</td>
                 <td>4</td>
@@ -942,7 +1034,7 @@
                     <div><div class="user-cell-name">苏沐</div></div>
                   </div>
                 </td>
-                <td>139****1923</td>
+                <td>su.mu@example.com</td>
                 <td><span class="tag tag-default">免费版</span></td>
                 <td>7 / 10</td>
                 <td>2</td>
@@ -962,7 +1054,7 @@
                     <div><div class="user-cell-name">陈一鸣</div></div>
                   </div>
                 </td>
-                <td>137****5647</td>
+                <td>chen.yiming@example.com</td>
                 <td><span class="tag tag-default">免费版</span></td>
                 <td>10 / 10</td>
                 <td>1</td>
@@ -982,7 +1074,7 @@
                     <div><div class="user-cell-name">夜行者</div></div>
                   </div>
                 </td>
-                <td>135****8201</td>
+                <td>nightwalker@example.com</td>
                 <td><span class="tag tag-purple">Pro</span></td>
                 <td>— / 无限</td>
                 <td>5</td>
@@ -1002,7 +1094,7 @@
                     <div><div class="user-cell-name">林晚秋</div></div>
                   </div>
                 </td>
-                <td>136****4729</td>
+                <td>lin.wanqiu@example.com</td>
                 <td><span class="tag tag-default">免费版</span></td>
                 <td>3 / 10</td>
                 <td>1</td>
@@ -1076,6 +1168,7 @@
               <option>新手</option>
               <option>进阶</option>
               <option>烧脑</option>
+              <option>专家</option>
             </select>
             <button class="btn btn-primary">查询</button>
           </div>
@@ -1134,7 +1227,7 @@
                 <td class="table-cell-id">s_c1a8f3...</td>
                 <td><b>雨夜独行</b></td>
                 <td>夜行者</td>
-                <td><span class="tag tag-purple">悬疑</span></td>
+                <td><span class="tag tag-purple">恐怖</span></td>
                 <td><span class="tag tag-default">进阶</span></td>
                 <td>5 人</td>
                 <td>38,640</td>
@@ -1607,8 +1700,8 @@
         </div>
       </div>
 
-      <div class="chart-grid">
-        <div class="card">
+      <div class="dashboard-grid">
+        <div class="card chart-card">
           <div class="card-head">
             <div>
               <div class="card-title">剧本题材分布</div>
@@ -1628,17 +1721,41 @@
         <div class="card">
           <div class="card-head">
             <div>
-              <div class="card-title">难度分布</div>
-              <div class="card-sub">基于 difficulty_assessments 表</div>
+              <div class="card-title">热门题材 TOP5</div>
+              <div class="card-sub">按剧本数量排序</div>
             </div>
           </div>
-          <div class="card-body">
-            <div style="padding: 8px 0;">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px;"><span><svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" style="color: var(--success);"><circle cx="12" cy="12" r="10"/></svg> 新手</span><span>423 (34%)</span></div>
+          <div class="card-body" style="padding: 8px 0;">
+            <div class="rank-list">
+              <div class="rank-item"><span class="rank-num rank-1">1</span><span class="rank-name">硬核</span><span class="rank-bar-wrap"><span class="rank-bar" style="width: 100%; background: var(--error);"></span></span><span class="rank-value">386</span></div>
+              <div class="rank-item"><span class="rank-num rank-2">2</span><span class="rank-name">情感</span><span class="rank-bar-wrap"><span class="rank-bar" style="width: 82%; background: var(--info);"></span></span><span class="rank-value">318</span></div>
+              <div class="rank-item"><span class="rank-num rank-3">3</span><span class="rank-name">欢乐</span><span class="rank-bar-wrap"><span class="rank-bar" style="width: 70%; background: var(--success);"></span></span><span class="rank-value">272</span></div>
+              <div class="rank-item"><span class="rank-num">4</span><span class="rank-name">恐怖</span><span class="rank-bar-wrap"><span class="rank-bar" style="width: 53%; background: var(--warning);"></span></span><span class="rank-value">204</span></div>
+              <div class="rank-item"><span class="rank-num">5</span><span class="rank-name">机制</span><span class="rank-bar-wrap"><span class="rank-bar" style="width: 35%; background: #722ed1;"></span></span><span class="rank-value">136</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 16px;">
+        <div class="card-head">
+          <div>
+            <div class="card-title">难度分布</div>
+            <div class="card-sub">基于 difficulty_assessments 表</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+            <div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;"><span><svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" style="color: var(--success);"><circle cx="12" cy="12" r="10"/></svg> 新手</span><span>423 (34%)</span></div>
               <div class="progress"><div class="progress-inner" style="width: 34%; background: var(--success);"></div></div>
-              <div style="display: flex; justify-content: space-between; margin: 12px 0 6px; font-size: 13px;"><span><svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" style="color: var(--info);"><circle cx="12" cy="12" r="10"/></svg> 进阶</span><span>512 (41%)</span></div>
+            </div>
+            <div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;"><span><svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" style="color: var(--info);"><circle cx="12" cy="12" r="10"/></svg> 进阶</span><span>512 (41%)</span></div>
               <div class="progress"><div class="progress-inner" style="width: 41%; background: var(--info);"></div></div>
-              <div style="display: flex; justify-content: space-between; margin: 12px 0 6px; font-size: 13px;"><span><svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" style="color: var(--error);"><circle cx="12" cy="12" r="10"/></svg> 烧脑</span><span>312 (25%)</span></div>
+            </div>
+            <div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;"><span><svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" style="color: var(--error);"><circle cx="12" cy="12" r="10"/></svg> 烧脑</span><span>312 (25%)</span></div>
               <div class="progress"><div class="progress-inner" style="width: 25%; background: var(--error);"></div></div>
             </div>
           </div>
@@ -1710,128 +1827,62 @@
       <div class="page-head">
         <div>
           <div class="page-title">系统配置</div>
-          <div class="page-sub">AI 提供商 / 配额 / 内容安全配置</div>
+          <div class="page-sub">管理 AI 提供商、默认配额及内容安全策略。保存时必须填写变更原因。</div>
         </div>
-        <button class="btn btn-primary" onclick="openModal('save-config-modal')">保存配置</button>
+        <button class="btn btn-primary" onclick="openModal('save-config-modal')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 保存变更</button>
       </div>
 
-      <div class="tabs">
-        <div class="tab active">AI 提供商</div>
-        <div class="tab">配额默认值</div>
-        <div class="tab">内容安全</div>
-      </div>
-
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <div class="card-title">AI 提供商配置</div>
-            <div class="card-sub">修改 API Key 后立即生效，所有变更落审计日志</div>
+      <div class="config-grid">
+        <div class="card config-card">
+          <div class="config-head">
+            <div class="provider">
+              <span class="provider-logo">DS</span>
+              <span><b>DeepSeek</b><small>剧本生成主模型</small></span>
+            </div>
+            <button class="switch on" title="启用或停用" onclick="this.classList.toggle('on')"></button>
           </div>
+          <div class="config-field"><label>模型</label><input class="input" value="deepseek-chat"></div>
+          <div class="config-field"><label>API Key</label><input class="input" type="password" value="sk-••••••••••••9d2a"></div>
+          <div class="config-field"><label>请求超时（秒）</label><input class="input" value="120"></div>
         </div>
-        <div class="card-body">
 
-          <div style="font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color);">DeepSeek（文本生成主用）</div>
-          <div class="config-row">
-            <div class="config-info">
-              <div class="config-label">启用状态</div>
-              <div class="config-desc">关闭后所有文本生成任务将路由到 GLM</div>
+        <div class="card config-card">
+          <div class="config-head">
+            <div class="provider">
+              <span class="provider-logo" style="background: #1677ff;">GLM</span>
+              <span><b>智谱 GLM</b><small>备用文本生成模型</small></span>
             </div>
-            <div class="switch on" onclick="this.classList.toggle('on')"></div>
+            <button class="switch on" title="启用或停用" onclick="this.classList.toggle('on')"></button>
           </div>
-          <div class="config-row">
-            <div class="config-info">
-              <div class="config-label">API Key</div>
-              <div class="config-desc">服务端环境变量级别覆盖</div>
-            </div>
-            <input class="input" type="password" value="sk-****************************a3f9" style="width: 320px;">
-          </div>
-          <div class="config-row">
-            <div class="config-info">
-              <div class="config-label">模型</div>
-              <div class="config-desc">影响生成质量与成本</div>
-            </div>
-            <select class="select">
-              <option>deepseek-chat</option>
-              <option>deepseek-reasoner</option>
-            </select>
-          </div>
-          <div class="config-row">
-            <div class="config-info">
-              <div class="config-label">超时（秒）</div>
-              <div class="config-desc">单次请求最大等待时间</div>
-            </div>
-            <input class="input" type="number" value="60" style="width: 100px;">
-          </div>
+          <div class="config-field"><label>模型</label><input class="input" value="glm-4-plus"></div>
+          <div class="config-field"><label>API Key</label><input class="input" type="password" value="••••••••••••••3f01"></div>
+          <div class="config-field"><label>最大重试次数</label><input class="input" value="3"></div>
+        </div>
 
-          <div style="font-size: 13px; font-weight: 600; color: var(--text); margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color);">OpenAI Image（图像生成主用）</div>
-          <div class="config-row">
-            <div class="config-info">
-              <div class="config-label">启用状态</div>
-              <div class="config-desc">关闭后插画任务将路由到 Seedream</div>
+        <div class="card config-card">
+          <div class="config-head">
+            <div class="provider">
+              <span class="provider-logo" style="background: #10a37f;">OI</span>
+              <span><b>OpenAI Image</b><small>插画生成模型</small></span>
             </div>
-            <div class="switch on" onclick="this.classList.toggle('on')"></div>
+            <button class="switch on" title="启用或停用" onclick="this.classList.toggle('on')"></button>
           </div>
-          <div class="config-row">
-            <div class="config-info">
-              <div class="config-label">API Key</div>
-              <div class="config-desc">服务端环境变量级别覆盖</div>
-            </div>
-            <input class="input" type="password" value="sk-****************************b7e2" style="width: 320px;">
-          </div>
-          <div class="config-row">
-            <div class="config-info">
-              <div class="config-label">默认模型</div>
-              <div class="config-desc">用户未指定时使用</div>
-            </div>
-            <select class="select">
-              <option>dall-e-3</option>
-              <option>gpt-image-1</option>
-            </select>
-          </div>
-          <div class="config-row">
-            <div class="config-info">
-              <div class="config-label">默认比例</div>
-              <div class="config-desc">用户未指定时使用</div>
-            </div>
-            <select class="select">
-              <option>1024x1024</option>
-              <option>1024x1536</option>
-              <option>1536x1024</option>
-              <option>1792x1024</option>
-            </select>
-          </div>
+          <div class="config-field"><label>模型</label><input class="input" value="gpt-image-1"></div>
+          <div class="config-field"><label>API Key</label><input class="input" type="password" value="sk-proj-••••••••••••"></div>
+          <div class="config-field"><label>默认质量</label><input class="input" value="high"></div>
+        </div>
 
-          <div style="font-size: 13px; font-weight: 600; color: var(--text); margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color);">GLM（文本生成备用）</div>
-          <div class="config-row">
-            <div class="config-info">
-              <div class="config-label">启用状态</div>
-              <div class="config-desc">DeepSeek 不可用时自动 fallback</div>
+        <div class="card config-card">
+          <div class="config-head">
+            <div class="provider">
+              <span class="provider-logo" style="background: #e35b32;">SD</span>
+              <span><b>Seedream</b><small>插画备用模型</small></span>
             </div>
-            <div class="switch on" onclick="this.classList.toggle('on')"></div>
+            <button class="switch" title="启用或停用" onclick="this.classList.toggle('on')"></button>
           </div>
-          <div class="config-row">
-            <div class="config-info">
-              <div class="config-label">API Key</div>
-              <div class="config-desc">服务端环境变量级别覆盖</div>
-            </div>
-            <input class="input" type="password" value="sk-****************************c1a8" style="width: 320px;">
-          </div>
-
-          <div style="font-size: 13px; font-weight: 600; color: var(--text); margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color);">Seedream（图像生成备用）</div>
-          <div class="config-row">
-            <div class="config-info">
-              <div class="config-label">启用状态</div>
-              <div class="config-desc">OpenAI Image 不可用时自动 fallback</div>
-            </div>
-            <div class="switch on" onclick="this.classList.toggle('on')"></div>
-          </div>
-          <div class="config-row">
-            <div class="config-info">
-              <div class="config-label">API Key</div>
-              <div class="config-desc">服务端环境变量级别覆盖</div>
-            </div>
-            <input class="input" type="password" value="sk-****************************d9c4" style="width: 320px;">
-          </div>
+          <div class="config-field"><label>模型</label><input class="input" value="seedream-3.0"></div>
+          <div class="config-field"><label>API Key</label><input class="input" type="password" value="••••••••••••••••"></div>
+          <div class="config-field"><label>最大重试次数</label><input class="input" value="2"></div>
         </div>
       </div>
 
@@ -2042,7 +2093,6 @@
     <div class="desc-list">
       <div class="desc-term">用户 ID</div><div class="desc-detail">a3f9c1e2-8b5d-4f8a-9c1e-2a3b4c5d6e7f</div>
       <div class="desc-term">昵称</div><div class="desc-detail">沈墨白</div>
-      <div class="desc-term">手机号</div><div class="desc-detail">138****2847</div>
       <div class="desc-term">邮箱</div><div class="desc-detail">shen.mobai@example.com</div>
       <div class="desc-term">套餐</div><div class="desc-detail"><span class="tag tag-purple">Pro</span></div>
       <div class="desc-term">配额</div><div class="desc-detail">— / 无限</div>
@@ -2061,7 +2111,7 @@
       <div class="card" style="margin-bottom: 12px;">
         <div class="card-body" style="padding: 12px 16px;">
           <div style="font-weight: 500;">雨夜独行</div>
-          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">悬疑 · 进阶 · 5 人 · 38,640 字</div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">恐怖 · 进阶 · 5 人 · 38,640 字</div>
         </div>
       </div>
     </div>
@@ -2092,7 +2142,7 @@
       <div class="card" style="margin-bottom: 12px;">
         <div class="card-body" style="padding: 12px 16px;">
           <div style="display: flex; justify-content: space-between; font-weight: 500;"><span>第一幕 · 雾起</span><span style="color: var(--text-secondary); font-size: 12px;">3 场</span></div>
-          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">引入人物与背景，奠定悬疑基调</div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">引入人物与背景，奠定恐怖氛围</div>
         </div>
       </div>
       <div class="card" style="margin-bottom: 12px;">
@@ -2430,6 +2480,164 @@
     document.querySelectorAll('.modal').forEach(el => el.classList.remove('active'));
   }
 
+  // Data view: build list view from table for data sections
+  function initDataViews() {
+    document.querySelectorAll('section.view').forEach(section => {
+      const tableWrap = section.querySelector('.table-wrap');
+      const table = tableWrap && tableWrap.querySelector('table.table');
+      if (!table || !tableWrap) return;
+
+      let listContainer = section.querySelector('.data-list');
+      if (!listContainer) {
+        listContainer = document.createElement('div');
+        listContainer.className = 'data-list active';
+        buildListFromTable(table, listContainer);
+        tableWrap.parentNode.insertBefore(listContainer, tableWrap.nextSibling);
+      }
+
+      tableWrap.style.display = 'none';
+      listContainer.classList.add('active');
+    });
+  }
+
+  function buildListFromTable(table, container) {
+    const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
+    container.innerHTML = '';
+
+    // Build header
+    const headerGroup = document.createElement('div');
+    headerGroup.className = 'data-list-header';
+    const headerRow = document.createElement('div');
+    headerRow.className = 'data-list-header-row';
+    headers.forEach((header, idx) => {
+      if (shouldHideField(header)) return;
+      const cell = document.createElement('div');
+      cell.className = 'data-list-header-cell';
+      cell.textContent = header;
+      headerRow.appendChild(cell);
+    });
+    headerGroup.appendChild(headerRow);
+    container.appendChild(headerGroup);
+
+    // Build data rows
+    table.querySelectorAll('tbody tr').forEach(row => {
+      const cells = Array.from(row.querySelectorAll('td'));
+      if (!cells.length) return;
+
+      let startIdx = 0;
+      if (cells[0] && cells[0].querySelector('input[type="checkbox"]')) startIdx = 1;
+
+      const titleIdx = pickTitleCell(cells, startIdx);
+      const actionIdx = findActionIndex(cells);
+
+      const item = document.createElement('div');
+      item.className = 'data-list-item';
+
+      cells.forEach((cell, idx) => {
+        if (idx < startIdx) return;
+        if (shouldHideField(headers[idx])) return;
+        const content = translateContent(cell.innerHTML.trim(), headers[idx]);
+        if (!content) return;
+        const div = document.createElement('div');
+        div.className = 'data-list-cell' + (idx === titleIdx ? ' data-list-cell-title' : '');
+        if (idx === actionIdx) div.className = 'data-list-cell data-list-actions';
+        div.innerHTML = content;
+        item.appendChild(div);
+      });
+
+      container.appendChild(item);
+    });
+  }
+
+  function shouldHideField(header) {
+    if (!header) return false;
+    const h = header.toLowerCase();
+    return h.includes('id') || h.includes('ip') || h.includes('api') || h.includes('密钥');
+  }
+
+  function translateContent(html, header) {
+    if (!html) return html;
+    const typeMap = {
+      // 生成任务类型
+      'STORY_BIBLE': '故事大纲',
+      'CHARACTER_PROFILES': '人物档案',
+      'ACT_STRUCTURE': '幕次结构',
+      'CHARACTER_SCRIPT': '角色剧本',
+      'CLUES': '线索',
+      'ORGANIZER_MANUAL': 'DM手册',
+      'TRUTH_REVIEW': '真相复盘',
+      'TIMELINE_STRUCTURE': '时间线',
+      // 任务状态
+      'pending': '等待中',
+      'running': '运行中',
+      'completed': '已完成',
+      'failed': '失败',
+      'cancelled': '已取消',
+      // 校验状态
+      'unchecked': '未检查',
+      'passed': '通过',
+      'warning': '警告',
+      // 插画类型
+      'cover': '封面',
+      'scene': '场景',
+      'clue': '线索卡',
+      'public': '公共线',
+      'char': '人物',
+      'poster': '海报',
+      // 举报类型
+      'post': '帖子',
+      'comment': '评论',
+      'user': '用户',
+      // 剧本类型 (genre) - 对齐 web 端
+      'hardcore': '硬核',
+      'emotion': '情感',
+      'horror': '恐怖',
+      'funny': '欢乐',
+      'mechanism': '机制',
+      // 剧本难度 - 对齐 web 端
+      'beginner': '新手',
+      'intermediate': '进阶',
+      'advanced': '烧脑',
+      'expert': '专家',
+      // 剧本状态 - 对齐 web 端
+      'draft': '草稿',
+      'generating': '生成中',
+      'archived': '已归档',
+      // 用户套餐
+      'free': '免费',
+      'pro': 'Pro',
+      // 性别
+      'male': '男',
+      'female': '女',
+      'unknown': '未知'
+    };
+    let result = html;
+    for (const [en, zh] of Object.entries(typeMap)) {
+      const regex = new RegExp('>(\\s*)' + en + '(\\s*)<', 'g');
+      result = result.replace(regex, '>$1' + zh + '$2<');
+      result = result.replace(new RegExp('^(\\s*)' + en + '(\\s*)$', 'g'), '$1' + zh + '$2');
+    }
+    return result;
+  }
+
+  function pickTitleCell(cells, startIdx) {
+    for (let i = startIdx; i < cells.length; i++) {
+      const html = cells[i].innerHTML;
+      if (/<b[\s>]/.test(html) || /<strong[\s>]/.test(html)) return i;
+    }
+    if (cells[startIdx] && cells[startIdx].classList.contains('table-cell-id') && cells[startIdx + 1]) {
+      return startIdx + 1;
+    }
+    return startIdx;
+  }
+
+  function findActionIndex(cells) {
+    for (let i = cells.length - 1; i >= 0; i--) {
+      if (cells[i].classList.contains('table-cell-actions')) return i;
+    }
+    return -1;
+  }
+
   // Nav click handlers
   document.querySelectorAll('.nav-item[data-view]').forEach(item => {
     item.addEventListener('click', () => switchView(item.dataset.view));
@@ -2445,6 +2653,9 @@
       });
     });
   });
+
+  // Initialize list view for data sections
+  initDataViews();
 
   // Expose globals for inline onclick handlers
   window.switchView = switchView;
