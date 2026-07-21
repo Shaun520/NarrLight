@@ -60,6 +60,18 @@ export default async function DashboardLayout({
   const user = await getCachedUser();
   if (!user) redirect('/auth/login');
 
+  const supabase = await createClient();
+  const { data: userStatus } = await supabase
+    .from('users')
+    .select('is_banned')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (userStatus?.is_banned) {
+    await supabase.auth.signOut();
+    redirect('/auth/error?error=account_banned');
+  }
+
   // 并行查询用户档案与剧本列表（getCached* 已用 React cache 包装，
   // 子页面相同参数调用会命中缓存，避免重复 DB 往返）
   const [profile, scriptsTyped] = await Promise.all([

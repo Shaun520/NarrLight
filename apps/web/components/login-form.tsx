@@ -127,10 +127,16 @@ async function syncPublicUser(
   if (!user) return;
   const { data: existing } = await supabase
     .from("users")
-    .select("id")
+    .select("id,is_banned")
     .eq("id", user.id)
     .maybeSingle();
-  if (existing) return;
+  if (existing) {
+    if (existing.is_banned) {
+      await supabase.auth.signOut();
+      throw new Error("账号已被封禁，请联系管理员");
+    }
+    return;
+  }
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const nickname = await createDefaultNickname(supabase);
     const { error } = await supabase.from("users").insert({
@@ -161,6 +167,7 @@ function mapAuthError(err: unknown): string {
   if (msg.includes("Invalid login credentials")) return "邮箱或密码错误";
   if (msg.includes("Email not confirmed")) return "邮箱尚未确认，请检查邮件";
   if (msg.includes("Rate limit")) return "操作过于频繁，请稍后再试";
+  if (msg.includes("账号已被封禁")) return msg;
   return msg || "登录失败，请稍后重试";
 }
 

@@ -652,9 +652,14 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
         if (user.email) {
           const { data: existingUser } = await supabase
             .from('users')
-            .select('id')
+            .select('id,is_banned')
             .eq('id', user.id)
             .maybeSingle();
+
+          if (existingUser?.is_banned) {
+            await supabase.auth.signOut();
+            throw new Error('账号已被封禁，请联系管理员');
+          }
 
           let upsertError: { code?: string; message?: string } | null = null;
           if (!existingUser) {
