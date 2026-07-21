@@ -1,46 +1,323 @@
-/* eslint-disable react/jsx-key */
-import { AdminTable, DetailPreview, ExportButton, FilterButton, PageHeader, RowActions, Tag, Toolbar } from "@/components/admin-static";
+import Link from "next/link";
+import { DetailPreview, PageHeader, Tag, UserCell } from "@/components/admin-static";
+import {
+  getAdminScripts,
+  type AdminScriptRow,
+  type ScriptDifficulty,
+  type ScriptGenre,
+  type ScriptStatus,
+} from "@/lib/services/scripts";
 
-export default function ScriptsPage() {
+type SearchParams = {
+  q?: string;
+  status?: string;
+  genre?: string;
+  difficulty?: string;
+  scriptId?: string;
+};
+
+export default async function ScriptsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const params = await searchParams;
+  const filters = normalizeFilters(params);
+  const result = await getAdminScripts(filters);
+
   return (
     <div className="page-stack">
       <PageHeader
         title="剧本管理"
-        description="审核剧本内容、追踪生成状态并处理违规作品。"
-        actions={
-          <>
-            <ExportButton />
-            <FilterButton>审核队列</FilterButton>
-          </>
-        }
+        description="查看平台剧本、作者归属、生成进度与内容完整度。"
       />
+
       <div className="content-grid">
-        <div className="admin-card">
-          <Toolbar search="搜索剧本标题或作者" filters={["全部状态", "全部题材", "全部难度"]} />
-          <AdminTable
-            headers={["剧本标题", "作者", "题材", "难度", "字数", "状态", "更新时间", "操作"]}
-            total="共 3,826 条"
-            rows={[
-              ["雾港夜话", "沈墨白", <Tag tone="info">情感</Tag>, <Tag>进阶</Tag>, "42,180", <Tag tone="warning">待审核</Tag>, "12 分钟前", <RowActions actions={[{ label: "查看" }, { label: "通过" }, { label: "驳回", danger: true }]} />],
-              ["长夜无声", "墨客十三", <Tag tone="error">硬核</Tag>, <Tag tone="warning">烧脑</Tag>, "112,835", <Tag tone="success">已通过</Tag>, "今天 09:31", <RowActions actions={[{ label: "查看" }, { label: "下架", danger: true }]} />],
-              ["玻璃房间", "叶青禾", <Tag tone="purple">恐怖</Tag>, <Tag>进阶</Tag>, "38,640", <Tag tone="error">已驳回</Tag>, "昨天 18:03", <RowActions actions={[{ label: "查看" }, { label: "复审" }]} />],
-              ["机关城", "夜行者", <Tag tone="success">机制</Tag>, <Tag>进阶</Tag>, "76,420", <Tag tone="info">生成中</Tag>, "今天 08:42", <RowActions actions={[{ label: "查看任务" }]} />],
-            ]}
-          />
-        </div>
-        <DetailPreview
-          title="剧本详情"
-          rows={[
-            ["剧本", "雾港夜话"],
-            ["作者", "沈墨白"],
-            ["题材 / 难度", <><Tag tone="info">情感</Tag> <Tag>进阶</Tag></>],
-            ["玩家 / 时长", "6 人 · 4 小时"],
-            ["字数", "42,180"],
-            ["审核状态", <Tag tone="warning">待审核</Tag>],
-            ["核心立意", "旧案重启，群像关系在真相逼近中被迫重组。"],
-          ]}
-        />
+        <section className="admin-card">
+          <form className="toolbar" action="/scripts">
+            <div className="toolbar-left">
+              <input
+                className="input input-wide"
+                name="q"
+                placeholder="搜索剧本标题 / 作者 / ID"
+                defaultValue={filters.q}
+              />
+              <select className="select" name="status" defaultValue={filters.status}>
+                <option value="all">全部状态</option>
+                <option value="draft">草稿</option>
+                <option value="generating">生成中</option>
+                <option value="completed">已完成</option>
+                <option value="archived">已归档</option>
+              </select>
+              <select className="select" name="genre" defaultValue={filters.genre}>
+                <option value="all">全部题材</option>
+                <option value="hardcore">硬核</option>
+                <option value="emotion">情感</option>
+                <option value="horror">惊悚</option>
+                <option value="funny">欢乐</option>
+                <option value="mechanism">机制</option>
+              </select>
+              <select className="select" name="difficulty" defaultValue={filters.difficulty}>
+                <option value="all">全部难度</option>
+                <option value="beginner">新手</option>
+                <option value="intermediate">进阶</option>
+                <option value="advanced">烧脑</option>
+                <option value="expert">专家</option>
+              </select>
+              <button className="admin-btn primary" type="submit">
+                查询
+              </button>
+              <Link className="admin-btn" href="/scripts">
+                重置
+              </Link>
+            </div>
+          </form>
+
+          {result.error && (
+            <div className="admin-inline-alert" role="alert">
+              {result.error}
+            </div>
+          )}
+
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>剧本标题</th>
+                  <th>作者</th>
+                  <th>题材 / 难度</th>
+                  <th>规格</th>
+                  <th>内容量</th>
+                  <th>生成状态</th>
+                  <th>校验</th>
+                  <th>更新时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.scripts.map((script) => (
+                  <tr
+                    className={script.id === result.selectedScript?.id ? "table-row-selected" : ""}
+                    key={script.id}
+                  >
+                    <td>
+                      <div>
+                        <b>{script.title}</b>
+                        <div className="placeholder-meta">{shortId(script.id)}</div>
+                      </div>
+                    </td>
+                    <td>
+                      {script.author ? (
+                        <UserCell
+                          avatar={avatarText(script)}
+                          name={script.author.nickname}
+                          sub={script.author.email || shortId(script.author.id)}
+                        />
+                      ) : (
+                        <span className="placeholder-meta">作者不存在</span>
+                      )}
+                    </td>
+                    <td>
+                      {genreTag(script.genre)} {difficultyTag(script.difficulty)}
+                    </td>
+                    <td>
+                      {script.playerCount} 人 / {script.durationHours} 小时
+                    </td>
+                    <td>{script.wordCount.toLocaleString("zh-CN")} 字</td>
+                    <td>{statusTag(script.status, script.latestTask?.progressPercent)}</td>
+                    <td>{reportTag(script)}</td>
+                    <td>{formatDateTime(script.updatedAt)}</td>
+                    <td>
+                      <div className="row-actions">
+                        <Link className="link-btn" href={buildScriptHref(filters, script.id)}>
+                          详情
+                        </Link>
+                        <Link className="link-btn" href={`/tasks/generation?scriptId=${script.id}`}>
+                          任务
+                        </Link>
+                        {script.author && (
+                          <Link className="link-btn" href={`/users?userId=${script.author.id}`}>
+                            作者
+                          </Link>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {result.scripts.length === 0 && (
+                  <tr>
+                    <td className="table-empty" colSpan={9}>
+                      暂无匹配剧本
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="pagination">
+            <span className="page-total">
+              共 {result.total.toLocaleString("zh-CN")} 条，当前显示 {result.scripts.length} 条
+            </span>
+          </div>
+        </section>
+
+        <ScriptDetail script={result.selectedScript} />
       </div>
     </div>
   );
+}
+
+function ScriptDetail({ script }: { script: AdminScriptRow | null }) {
+  if (!script) {
+    return (
+      <DetailPreview
+        title="剧本详情"
+        rows={[
+          ["状态", "请从左侧列表选择剧本"],
+          ["说明", "剧本管理已接入真实列表；筛选无结果时不会展示详情。"],
+        ]}
+      />
+    );
+  }
+
+  const latestTask = script.latestTask;
+  const latestReport = script.latestReport;
+
+  return (
+    <DetailPreview
+      title="剧本详情"
+      rows={[
+        ["剧本", script.title],
+        ["作者", script.author ? `${script.author.nickname} / ${script.author.email || shortId(script.author.id)}` : "作者不存在"],
+        ["作者状态", script.author?.isBanned ? <Tag tone="error" key="banned">已封禁</Tag> : <Tag tone="success" key="active">正常</Tag>],
+        ["题材 / 难度", <span key="meta">{genreTag(script.genre)} {difficultyTag(script.difficulty)}</span>],
+        ["玩家 / 时长", `${script.playerCount} 人 / ${script.durationHours} 小时`],
+        ["剧本状态", statusTag(script.status, latestTask?.progressPercent)],
+        ["字数", `${script.wordCount.toLocaleString("zh-CN")} 字`],
+        ["内容完整度", stageSummary(script)],
+        ["结构统计", `角色 ${script.characterCount} / 幕 ${script.actCount} / 线索 ${script.clueCount} / 时间线 ${script.timelineEventCount}`],
+        ["最新任务", latestTask ? `${latestTask.taskType} / ${taskStatusLabel(latestTask.status)} / ${latestTask.progressPercent}%` : "暂无任务"],
+        ["任务异常", `运行中 ${script.runningTaskCount} / 失败 ${script.failedTaskCount}`],
+        ["最新校验", latestReport ? `${latestReport.reportType}：严重 ${latestReport.severe} / 警告 ${latestReport.warning} / 提示 ${latestReport.hint}` : "暂无校验报告"],
+        ["背景设定", script.backgroundSetting || "未填写"],
+        ["核心立意", script.coreTheme || script.description || "未填写"],
+        ["创建时间", formatDateTime(script.createdAt)],
+        ["更新时间", formatDateTime(script.updatedAt)],
+      ]}
+    />
+  );
+}
+
+function normalizeFilters(params: SearchParams) {
+  return {
+    q: params.q?.trim() ?? "",
+    status: isScriptStatus(params.status) ? params.status : "all",
+    genre: isScriptGenre(params.genre) ? params.genre : "all",
+    difficulty: isScriptDifficulty(params.difficulty) ? params.difficulty : "all",
+    selectedScriptId: params.scriptId,
+  } as const;
+}
+
+function buildScriptHref(filters: ReturnType<typeof normalizeFilters>, scriptId: string) {
+  const params = new URLSearchParams();
+  if (filters.q) params.set("q", filters.q);
+  if (filters.status !== "all") params.set("status", filters.status);
+  if (filters.genre !== "all") params.set("genre", filters.genre);
+  if (filters.difficulty !== "all") params.set("difficulty", filters.difficulty);
+  params.set("scriptId", scriptId);
+
+  return `/scripts?${params.toString()}`;
+}
+
+function statusTag(status: ScriptStatus, progress?: number) {
+  if (status === "completed") return <Tag tone="success">已完成</Tag>;
+  if (status === "archived") return <Tag>已归档</Tag>;
+  if (status === "generating") return <Tag tone="info">生成中{typeof progress === "number" ? ` ${progress}%` : ""}</Tag>;
+  return <Tag tone="warning">草稿</Tag>;
+}
+
+function genreTag(genre: ScriptGenre) {
+  const meta: Record<ScriptGenre, { label: string; tone: "default" | "success" | "warning" | "error" | "info" | "purple" }> = {
+    hardcore: { label: "硬核", tone: "error" },
+    emotion: { label: "情感", tone: "info" },
+    horror: { label: "惊悚", tone: "purple" },
+    funny: { label: "欢乐", tone: "success" },
+    mechanism: { label: "机制", tone: "success" },
+  };
+  const item = meta[genre];
+  return <Tag tone={item.tone}>{item.label}</Tag>;
+}
+
+function difficultyTag(difficulty: ScriptDifficulty) {
+  const meta: Record<ScriptDifficulty, { label: string; tone: "default" | "warning" | "error" }> = {
+    beginner: { label: "新手", tone: "default" },
+    intermediate: { label: "进阶", tone: "default" },
+    advanced: { label: "烧脑", tone: "warning" },
+    expert: { label: "专家", tone: "error" },
+  };
+  const item = meta[difficulty];
+  return <Tag tone={item.tone}>{item.label}</Tag>;
+}
+
+function reportTag(script: AdminScriptRow) {
+  const report = script.latestReport;
+  if (!report) return <Tag>未校验</Tag>;
+  if (report.severe > 0) return <Tag tone="error">严重 {report.severe}</Tag>;
+  if (report.warning > 0) return <Tag tone="warning">警告 {report.warning}</Tag>;
+  return <Tag tone="success">通过</Tag>;
+}
+
+function stageSummary(script: AdminScriptRow) {
+  const items = [
+    script.hasStoryBible ? (script.storyBibleConfirmed ? "设定本已确认" : "设定本待确认") : "无设定本",
+    `${script.characterCount} 角色`,
+    `${script.characterScriptCount} 角色剧本`,
+    script.hasOrganizerManual ? "有主持手册" : "无主持手册",
+    script.hasTruthReview ? "有真相复盘" : "无真相复盘",
+  ];
+
+  return items.join(" / ");
+}
+
+function taskStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    pending: "等待中",
+    running: "运行中",
+    completed: "已完成",
+    failed: "失败",
+    cancelled: "已取消",
+  };
+  return labels[status] ?? status;
+}
+
+function avatarText(script: AdminScriptRow) {
+  return (script.author?.nickname || script.author?.email || "作").slice(0, 1).toUpperCase();
+}
+
+function shortId(id: string) {
+  return id.slice(0, 8);
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(value));
+}
+
+function isScriptStatus(value?: string): value is ScriptStatus {
+  return value === "draft" || value === "generating" || value === "completed" || value === "archived";
+}
+
+function isScriptGenre(value?: string): value is ScriptGenre {
+  return value === "hardcore" || value === "emotion" || value === "horror" || value === "funny" || value === "mechanism";
+}
+
+function isScriptDifficulty(value?: string): value is ScriptDifficulty {
+  return value === "beginner" || value === "intermediate" || value === "advanced" || value === "expert";
 }
