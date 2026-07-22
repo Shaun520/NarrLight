@@ -994,6 +994,29 @@ a {
   gap: 8px;
 }
 
+.table-bulk-actions {
+  min-height: 44px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--admin-border);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  color: var(--admin-text-secondary);
+  font-size: 13px;
+}
+
+.table-checkbox-cell {
+  width: 44px;
+  text-align: center;
+}
+
+.table-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
 .link-btn {
   padding: 0;
   border: 0;

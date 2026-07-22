@@ -1,4 +1,9 @@
 import Link from "next/link";
+import {
+  AdminScriptDeleteButton,
+  AdminScriptDeleteForm,
+  AdminScriptSelectAllCheckbox,
+} from "@/components/admin-script-delete-form";
 import { DetailPreview, PageHeader, Tag, UserCell } from "@/components/admin-static";
 import {
   getAdminScripts,
@@ -79,81 +84,96 @@ export default async function ScriptsPage({
             </div>
           )}
 
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>剧本标题</th>
-                  <th>作者</th>
-                  <th>题材 / 难度</th>
-                  <th>规格</th>
-                  <th>内容量</th>
-                  <th>生成状态</th>
-                  <th>校验</th>
-                  <th>更新时间</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.scripts.map((script) => (
-                  <tr
-                    className={script.id === result.selectedScript?.id ? "table-row-selected" : ""}
-                    key={script.id}
-                  >
-                    <td>
-                      <div>
-                        <b>{script.title}</b>
-                        <div className="placeholder-meta">{shortId(script.id)}</div>
-                      </div>
-                    </td>
-                    <td>
-                      {script.author ? (
-                        <UserCell
-                          avatar={avatarText(script)}
-                          name={script.author.nickname}
-                          sub={script.author.email || shortId(script.author.id)}
-                        />
-                      ) : (
-                        <span className="placeholder-meta">作者不存在</span>
-                      )}
-                    </td>
-                    <td>
-                      {genreTag(script.genre)} {difficultyTag(script.difficulty)}
-                    </td>
-                    <td>
-                      {script.playerCount} 人 / {script.durationHours} 小时
-                    </td>
-                    <td>{script.wordCount.toLocaleString("zh-CN")} 字</td>
-                    <td>{statusTag(script.status, script.latestTask?.progressPercent)}</td>
-                    <td>{reportTag(script)}</td>
-                    <td>{formatDateTime(script.updatedAt)}</td>
-                    <td>
-                      <div className="row-actions">
-                        <Link className="link-btn" href={buildScriptHref(filters, script.id)}>
-                          详情
-                        </Link>
-                        <Link className="link-btn" href={`/tasks/generation?scriptId=${script.id}`}>
-                          任务
-                        </Link>
-                        {script.author && (
-                          <Link className="link-btn" href={`/users?userId=${script.author.id}`}>
-                            作者
-                          </Link>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {result.scripts.length === 0 && (
+          <AdminScriptDeleteForm returnTo={buildScriptsReturnHref(filters)}>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
                   <tr>
-                    <td className="table-empty" colSpan={9}>
-                      暂无匹配剧本
-                    </td>
+                    <th className="table-checkbox-cell">
+                      <AdminScriptSelectAllCheckbox />
+                    </th>
+                    <th>剧本标题</th>
+                    <th>作者</th>
+                    <th>题材 / 难度</th>
+                    <th>规格</th>
+                    <th>内容量</th>
+                    <th>生成状态</th>
+                    <th>校验</th>
+                    <th>更新时间</th>
+                    <th>操作</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {result.scripts.map((script) => (
+                    <tr
+                      className={script.id === result.selectedScript?.id ? "table-row-selected" : ""}
+                      key={script.id}
+                    >
+                      <td className="table-checkbox-cell">
+                        <input
+                          aria-label={`选择剧本 ${script.title}`}
+                          className="table-checkbox"
+                          name="scriptIds"
+                          type="checkbox"
+                          value={script.id}
+                        />
+                      </td>
+                      <td>
+                        <div>
+                          <b>{script.title}</b>
+                          <div className="placeholder-meta">{shortId(script.id)}</div>
+                        </div>
+                      </td>
+                      <td>
+                        {script.author ? (
+                          <UserCell
+                            avatar={avatarText(script)}
+                            name={script.author.nickname}
+                            sub={script.author.email || shortId(script.author.id)}
+                          />
+                        ) : (
+                          <span className="placeholder-meta">作者不存在</span>
+                        )}
+                      </td>
+                      <td>
+                        {genreTag(script.genre)} {difficultyTag(script.difficulty)}
+                      </td>
+                      <td>
+                        {script.playerCount} 人 / {script.durationHours} 小时
+                      </td>
+                      <td>{script.wordCount.toLocaleString("zh-CN")} 字</td>
+                      <td>{statusTag(script.status, script.latestTask?.progressPercent)}</td>
+                      <td>{reportTag(script)}</td>
+                      <td>{formatDateTime(script.updatedAt)}</td>
+                      <td>
+                        <div className="row-actions">
+                          <Link className="link-btn" href={buildScriptHref(filters, script.id)}>
+                            详情
+                          </Link>
+                          <Link className="link-btn" href={`/tasks/generation?scriptId=${script.id}`}>
+                            任务
+                          </Link>
+                          {script.author && (
+                            <Link className="link-btn" href={`/users?userId=${script.author.id}`}>
+                              作者
+                            </Link>
+                          )}
+                          <AdminScriptDeleteButton scriptId={script.id} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {result.scripts.length === 0 && (
+                    <tr>
+                      <td className="table-empty" colSpan={10}>
+                        暂无匹配剧本
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </AdminScriptDeleteForm>
 
           <div className="pagination">
             <span className="page-total">
@@ -228,6 +248,17 @@ function buildScriptHref(filters: ReturnType<typeof normalizeFilters>, scriptId:
   params.set("scriptId", scriptId);
 
   return `/scripts?${params.toString()}`;
+}
+
+function buildScriptsReturnHref(filters: ReturnType<typeof normalizeFilters>) {
+  const params = new URLSearchParams();
+  if (filters.q) params.set("q", filters.q);
+  if (filters.status !== "all") params.set("status", filters.status);
+  if (filters.genre !== "all") params.set("genre", filters.genre);
+  if (filters.difficulty !== "all") params.set("difficulty", filters.difficulty);
+  const query = params.toString();
+
+  return query ? `/scripts?${query}` : "/scripts";
 }
 
 function statusTag(status: ScriptStatus, progress?: number) {
