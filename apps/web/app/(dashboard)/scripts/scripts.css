@@ -464,3 +464,66 @@
     transform: translateX(-50%) translateY(0);
   }
 }
+
+/* ===================== 导入设计页 ===================== */
+.import-layout {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.script-import-card {
+  background: rgba(253, 248, 240, 0.72);
+}
+
+.import-counter {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--sepia);
+  letter-spacing: 0.04em;
+}
+
+.import-source {
+  min-height: 460px;
+}
+
+.import-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(122, 92, 58, 0.22);
+}
+
+.import-summary div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.import-summary strong {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.import-summary span {
+  font-size: 12px;
+  color: var(--sepia);
+}
+
+@media (max-width: 1180px) {
+  .import-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .import-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

@@ -1,0 +1,1596 @@
+<!--
+  文档: 叙光 NarrLight 剧本 AI 创作工作流可视化原型
+  作用: 面向创作者的卡片式工作流图，强调串行、并行、汇合与可点击配置
+  更新: 2026-07-22
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>叙光 NarrLight · 剧本 AI 创作工作流</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #1677ff;
+      --primary-hover: #4096ff;
+      --primary-active: #0958d9;
+      --primary-bg: #e6f4ff;
+      --primary-border: #91caff;
+      --success: #52c41a;
+      --success-bg: #f6ffed;
+      --warning: #faad14;
+      --warning-bg: #fffbe6;
+      --error: #ff4d4f;
+      --error-bg: #fff2f0;
+      --violet: #6554c0;
+      --violet-bg: #f0efff;
+      --cyan: #08979c;
+      --cyan-bg: #e6fffb;
+      --bg: #f5f5f5;
+      --card-bg: #ffffff;
+      --border: #f0f0f0;
+      --border-strong: #d9d9d9;
+      --text: rgba(0, 0, 0, 0.85);
+      --text-secondary: rgba(0, 0, 0, 0.45);
+      --text-tertiary: rgba(0, 0, 0, 0.25);
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02);
+      --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+      --shadow-lg: 0 10px 28px rgba(22, 119, 255, 0.16);
+      --radius: 8px;
+      --radius-sm: 4px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font-family: inherit;
+      color: inherit;
+    }
+
+    button {
+      border: none;
+      background: none;
+      cursor: pointer;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    .app {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      height: 56px;
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      box-shadow: var(--shadow-sm);
+      z-index: 20;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-active));
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-size: 15px;
+      line-height: 1.25;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .brand-sub {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.25;
+      white-space: nowrap;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 0 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    .btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-primary:active { background: var(--primary-active); }
+
+    .btn-ghost {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--border-strong);
+    }
+
+    .btn-ghost:hover {
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .main {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background:
+        radial-gradient(circle at 12% 10%, rgba(22, 119, 255, 0.08), transparent 28%),
+        linear-gradient(90deg, rgba(22, 119, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(22, 119, 255, 0.025) 1px, transparent 1px),
+        var(--bg);
+      background-size: auto, 24px 24px, 24px 24px, auto;
+    }
+
+    .intro {
+      padding: 24px 28px 14px;
+      flex-shrink: 0;
+    }
+
+    .intro-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .intro-title svg {
+      width: 22px;
+      height: 22px;
+      color: var(--primary);
+    }
+
+    .intro-row {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .legend-line {
+      width: 28px;
+      height: 2px;
+      background: var(--primary-border);
+      display: inline-block;
+    }
+
+    .legend-line.parallel {
+      background: linear-gradient(90deg, var(--violet), var(--cyan));
+    }
+
+    .legend-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+
+    .legend-dot.running {
+      background: var(--primary);
+      box-shadow: 0 0 0 4px rgba(22, 119, 255, 0.14);
+    }
+
+    .mini-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 30px;
+      padding: 0 12px;
+      border-radius: 15px;
+      background: #fff;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      box-shadow: var(--shadow-sm);
+      font-size: 12px;
+    }
+
+    .mini-status b {
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .board-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 4px 28px 28px;
+    }
+
+    .workflow-board {
+      width: 2600px;
+      height: 900px;
+      position: relative;
+      margin: 0 auto;
+      border: 1px solid rgba(22, 119, 255, 0.08);
+      border-radius: 12px;
+      background:
+        linear-gradient(90deg, rgba(0, 0, 0, 0.025) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.022) 1px, transparent 1px),
+        rgba(255, 255, 255, 0.58);
+      background-size: 28px 28px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    }
+
+    .lane-label {
+      position: absolute;
+      left: 18px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 10px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.88);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+      z-index: 3;
+    }
+
+    .lane-label.main-lane { top: 28px; }
+    .lane-label.parallel-lane { top: 222px; }
+    .lane-label.finish-lane { top: 632px; }
+
+    .flow-svg {
+      position: absolute;
+      inset: 0;
+      width: 2600px;
+      height: 900px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .flow-path {
+      fill: none;
+      stroke: #d1d5db;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      marker-end: url(#arrowGrey);
+    }
+
+    .flow-path.done {
+      stroke: var(--success);
+      marker-end: url(#arrowSuccess);
+    }
+
+    .flow-path.active {
+      stroke: var(--primary);
+      stroke-width: 2.5;
+      marker-end: url(#arrowPrimary);
+      stroke-dasharray: 8 6;
+      animation: dashMove 0.9s linear infinite;
+    }
+
+    .flow-path.parallel {
+      stroke: var(--violet);
+      marker-end: url(#arrowViolet);
+    }
+
+    .flow-path.merge {
+      stroke: var(--cyan);
+      marker-end: url(#arrowCyan);
+    }
+
+    @keyframes dashMove {
+      to { stroke-dashoffset: -14; }
+    }
+
+    .flow-card {
+      position: absolute;
+      z-index: 2;
+      width: 220px;
+      height: 112px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      text-align: left;
+      transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s, opacity 0.18s;
+      overflow: hidden;
+    }
+
+    .flow-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--primary-border);
+    }
+
+    .flow-card.selected {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.12), var(--shadow-md);
+    }
+
+    .flow-card.done {
+      border-color: rgba(82, 196, 26, 0.5);
+      box-shadow: inset 4px 0 0 var(--success), var(--shadow-sm);
+    }
+
+    .flow-card.running {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.14), var(--shadow-lg);
+    }
+
+    .flow-card.running::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--primary), var(--primary-border), var(--primary));
+      background-size: 200% 100%;
+      animation: flowGlow 1.2s linear infinite;
+    }
+
+    @keyframes flowGlow {
+      to { background-position: -200% 0; }
+    }
+
+    .flow-card.waiting {
+      opacity: 0.76;
+    }
+
+    .card-inner {
+      padding: 13px 14px;
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 8px;
+    }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .card-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 7px;
+      background: var(--primary-bg);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .card-icon svg {
+      width: 17px;
+      height: 17px;
+    }
+
+    .flow-card.done .card-icon {
+      color: var(--success);
+      background: var(--success-bg);
+    }
+
+    .flow-card.running .card-icon {
+      color: #fff;
+      background: var(--primary);
+    }
+
+    .flow-card[data-tone="violet"] .card-icon {
+      color: var(--violet);
+      background: var(--violet-bg);
+    }
+
+    .flow-card[data-tone="cyan"] .card-icon {
+      color: var(--cyan);
+      background: var(--cyan-bg);
+    }
+
+    .flow-card[data-tone="warning"] .card-icon {
+      color: var(--warning);
+      background: var(--warning-bg);
+    }
+
+    .flow-card.running[data-tone] .card-icon {
+      color: #fff;
+      background: var(--primary);
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.35;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-step {
+      margin-top: 1px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      line-height: 1.2;
+    }
+
+    .card-brief {
+      color: var(--text-secondary);
+      font-size: 12px;
+      line-height: 1.45;
+      overflow: hidden;
+    }
+
+    .card-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 0 8px;
+      border-radius: 11px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .badge.done {
+      color: var(--success);
+      background: var(--success-bg);
+    }
+
+    .badge.running {
+      color: var(--primary);
+      background: var(--primary-bg);
+    }
+
+    .badge.waiting {
+      color: var(--text-secondary);
+      background: #f5f5f5;
+    }
+
+    .badge.gate {
+      color: var(--warning);
+      background: var(--warning-bg);
+    }
+
+    .mini-tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 0 7px;
+      border-radius: var(--radius-sm);
+      background: #fafafa;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .split-chip,
+    .merge-chip {
+      position: absolute;
+      z-index: 3;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 14px;
+      background: #fff;
+      border: 1px solid var(--primary-border);
+      color: var(--primary);
+      box-shadow: var(--shadow-sm);
+      font-size: 12px;
+      font-weight: 700;
+      pointer-events: none;
+    }
+
+    .split-chip { left: 1430px; top: 104px; }
+    .merge-chip { left: 1710px; top: 350px; color: var(--cyan); border-color: rgba(8, 151, 156, 0.35); }
+
+    .drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s;
+      z-index: 50;
+    }
+
+    .drawer-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 440px;
+      height: 100vh;
+      transform: translateX(100%);
+      transition: transform 0.22s ease;
+      background: var(--card-bg);
+      box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .drawer.open {
+      transform: translateX(0);
+    }
+
+    .drawer-head {
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .drawer-title {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .drawer-close {
+      width: 30px;
+      height: 30px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+    }
+
+    .drawer-close:hover {
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    .drawer-body {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 20px;
+    }
+
+    .drawer-foot {
+      flex-shrink: 0;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .form-input,
+    .form-select,
+    .form-textarea {
+      width: 100%;
+      min-height: 34px;
+      padding: 7px 10px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      background: #fff;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .form-input:focus,
+    .form-select:focus,
+    .form-textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.1);
+    }
+
+    .form-textarea {
+      resize: vertical;
+      min-height: 72px;
+      line-height: 1.5;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .chip-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      min-height: 28px;
+      padding: 0 11px;
+      border-radius: 14px;
+      border: 1px solid var(--border-strong);
+      background: #fff;
+      color: var(--text);
+      font-size: 12px;
+      transition: all 0.15s;
+    }
+
+    .chip:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .chip.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .switch-row {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .switch-row:last-child {
+      border-bottom: none;
+    }
+
+    .switch-label {
+      font-size: 13px;
+    }
+
+    .switch {
+      width: 38px;
+      height: 20px;
+      border-radius: 10px;
+      background: var(--border-strong);
+      position: relative;
+      flex-shrink: 0;
+      transition: background 0.18s;
+    }
+
+    .switch.on {
+      background: var(--primary);
+    }
+
+    .switch::after {
+      content: "";
+      position: absolute;
+      left: 2px;
+      top: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+      transition: transform 0.18s;
+    }
+
+    .switch.on::after {
+      transform: translateX(18px);
+    }
+
+    .output-box {
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: #fafafa;
+      line-height: 1.6;
+      font-size: 13px;
+    }
+
+    .output-item {
+      margin-bottom: 8px;
+    }
+
+    .output-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .output-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .output-value {
+      color: var(--text);
+    }
+
+    .hint {
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      background: var(--primary-bg);
+      color: var(--primary-active);
+      border-left: 3px solid var(--primary);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .kv-grid {
+      display: grid;
+      grid-template-columns: 86px 1fr;
+      gap: 8px 10px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .kv-grid b {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .mini-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .mini-list-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 34px;
+      padding: 0 10px;
+      border-radius: var(--radius-sm);
+      background: #fafafa;
+      border: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .progress-line {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      overflow: hidden;
+      margin-top: 12px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--primary), var(--primary-border));
+      transition: width 0.25s;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 20px;
+      transform: translateX(-50%);
+      min-height: 36px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 0 14px;
+      border-radius: 18px;
+      background: #fff;
+      border: 1px solid var(--primary-border);
+      box-shadow: var(--shadow-md);
+      color: var(--text);
+      z-index: 90;
+      font-size: 13px;
+    }
+
+    .toast.show {
+      display: inline-flex;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .topbar {
+        padding: 0 14px;
+      }
+
+      .brand-sub,
+      .btn span {
+        display: none;
+      }
+
+      .intro {
+        padding: 18px 16px 12px;
+      }
+
+      .board-scroll {
+        padding: 0 16px 20px;
+      }
+
+      .workflow-board {
+        transform-origin: top left;
+      }
+
+      .drawer {
+        width: 100vw;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-logo">叙</div>
+        <div>
+          <div class="brand-title">叙光 NarrLight</div>
+          <div class="brand-sub">剧本 AI 创作工作流原型</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost" id="resetBtn" type="button" aria-label="重置">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 12"/><path d="M3 3v9h9"/></svg>
+          <span>重置</span>
+        </button>
+        <button class="btn btn-primary" id="startBtn" type="button" aria-label="开始创作">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span>开始创作</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="intro">
+        <h1 class="intro-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+          剧本 AI 创作工作流
+        </h1>
+        <div class="intro-row">
+          <div class="legend" aria-label="图例">
+            <span class="legend-item"><span class="legend-line"></span>串行</span>
+            <span class="legend-item"><span class="legend-line parallel"></span>并行分支</span>
+            <span class="legend-item"><span class="legend-dot"></span>已完成</span>
+            <span class="legend-item"><span class="legend-dot running"></span>进行中</span>
+          </div>
+          <div class="mini-status">当前：<b id="currentStatus">参数输入</b></div>
+        </div>
+      </section>
+
+      <section class="board-scroll" aria-label="剧本 AI 创作工作流画布">
+        <div class="workflow-board" id="workflowBoard">
+          <div class="lane-label main-lane">主链路</div>
+          <div class="lane-label parallel-lane">并行生成</div>
+          <div class="lane-label finish-lane">编辑交付</div>
+          <div class="split-chip">拆分</div>
+          <div class="merge-chip">汇合</div>
+
+          <svg class="flow-svg" viewBox="0 0 2600 900" aria-hidden="true">
+            <defs>
+              <marker id="arrowGrey" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#d1d5db"/></marker>
+              <marker id="arrowPrimary" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1677ff"/></marker>
+              <marker id="arrowSuccess" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#52c41a"/></marker>
+              <marker id="arrowViolet" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6554c0"/></marker>
+              <marker id="arrowCyan" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#08979c"/></marker>
+            </defs>
+            <path class="flow-path" data-edge="params-model" d="M320 126 H376"/>
+            <path class="flow-path" data-edge="model-task" d="M596 126 H652"/>
+            <path class="flow-path" data-edge="task-bible" d="M872 126 H928"/>
+            <path class="flow-path" data-edge="bible-confirm" d="M1148 126 H1204"/>
+            <path class="flow-path parallel" data-edge="confirm-characters" d="M1424 126 H1450 V206 H1470"/>
+            <path class="flow-path parallel" data-edge="confirm-acts" d="M1424 126 H1450 V366 H1470"/>
+            <path class="flow-path merge" data-edge="characters-script" d="M1700 206 H1728 V286 H1750"/>
+            <path class="flow-path merge" data-edge="acts-script" d="M1700 366 H1728 V286 H1750"/>
+            <path class="flow-path" data-edge="script-clues" d="M1980 286 H2008 V166 H2030"/>
+            <path class="flow-path" data-edge="script-manual" d="M1980 286 H2008 V326 H2030"/>
+            <path class="flow-path" data-edge="script-truth" d="M1980 286 H2008 V486 H2030"/>
+            <path class="flow-path merge" data-edge="clues-timeline" d="M2260 166 H2288 V326 H2310"/>
+            <path class="flow-path merge" data-edge="manual-timeline" d="M2260 326 H2310"/>
+            <path class="flow-path merge" data-edge="truth-timeline" d="M2260 486 H2288 V326 H2310"/>
+            <path class="flow-path" data-edge="timeline-editor" d="M2540 326 H2580 V830 H1450 V726 H1470"/>
+            <path class="flow-path" data-edge="editor-validation" d="M1700 726 H1750"/>
+            <path class="flow-path" data-edge="validation-illustration" d="M1980 726 H2030"/>
+            <path class="flow-path" data-edge="illustration-export" d="M2260 726 H2310"/>
+          </svg>
+
+          <div id="cardLayer"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="drawer-overlay" id="drawerOverlay"></div>
+  <aside class="drawer" id="drawer" aria-label="节点详情">
+    <div class="drawer-head">
+      <div class="drawer-title" id="drawerTitle">节点详情</div>
+      <button class="drawer-close" id="drawerClose" type="button" aria-label="关闭">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+    <div class="drawer-foot" id="drawerFoot"></div>
+  </aside>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const GENRE_LABEL = {
+      hardcore: "硬核推理",
+      emotion: "情感沉浸",
+      horror: "恐怖悬疑",
+      funny: "欢乐机制",
+      mechanism: "机制对抗",
+    };
+    const DIFFICULTY_LABEL = {
+      beginner: "新手",
+      intermediate: "进阶",
+      advanced: "烧脑",
+      expert: "专家",
+    };
+    const AGE_RATING_LABEL = {
+      ALL: "全年龄",
+      TWELVE_PLUS: "12+",
+      SIXTEEN_PLUS: "16+",
+      EIGHTEEN_PLUS: "18+",
+    };
+    const WRITING_STYLES = ["古风沉稳", "白描清雅", "悬疑冷峻", "诙谐明快"];
+    const TEXT_MODELS = [
+      { provider: "DeepSeek", models: ["deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"] },
+      { provider: "智谱 GLM", models: ["glm-5.2", "glm-5.1", "glm-4-plus"] },
+    ];
+
+    const DEFAULT_PARAMS = {
+      title: "古镇迷案",
+      genre: "hardcore",
+      players: 6,
+      duration: 5,
+      difficulty: "intermediate",
+      background: "民国旧城 · 雨夜戏院 · 家族旧案",
+      theme: "每个角色都有可被误解的秘密",
+      ageRating: "SIXTEEN_PLUS",
+      writingStyle: "悬疑冷峻",
+      switches: { noEdgeRole: true, compliancePreCheck: true, mechanismRules: false },
+      extraReq: "保留一轮公共搜证和一轮私聊博弈。",
+    };
+
+    const FLOW_NODES = [
+      { id: "params", title: "参数输入", step: "01", brief: "题材、人次、时长", tag: "可编辑", tone: "default", x: 100, y: 70, icon: "sliders" },
+      { id: "model", title: "模型选择", step: "02", brief: "Admin 控制可选项", tag: "DeepSeek", tone: "default", x: 376, y: 70, icon: "cpu" },
+      { id: "task", title: "任务创建", step: "03", brief: "创建 scriptId", tag: "SSE", tone: "cyan", x: 652, y: 70, icon: "play" },
+      { id: "bible", title: "设定本生成", step: "04", brief: "凶案、动机、伏笔", tag: "基础", tone: "default", x: 928, y: 70, icon: "book" },
+      { id: "confirm", title: "设定本确认", step: "05", brief: "人工闸门", tag: "确认", tone: "warning", x: 1204, y: 70, icon: "check" },
+      { id: "characters", title: "人物档案", step: "06A", brief: "角色关系与目标", tag: "并行", tone: "violet", x: 1480, y: 150, icon: "users" },
+      { id: "acts", title: "分幕结构", step: "06B", brief: "三幕节奏", tag: "并行", tone: "violet", x: 1480, y: 310, icon: "layers" },
+      { id: "scripts", title: "角色剧本", step: "07", brief: "每批 4 个角色", tag: "分批", tone: "default", x: 1760, y: 230, icon: "file" },
+      { id: "clues", title: "线索卡", step: "08A", brief: "公私线索", tag: "并行", tone: "cyan", x: 2040, y: 110, icon: "cards" },
+      { id: "manual", title: "主持手册", step: "08B", brief: "流程与控场", tag: "并行", tone: "cyan", x: 2040, y: 270, icon: "bookOpen" },
+      { id: "truth", title: "真相复盘", step: "08C", brief: "闭环解释", tag: "并行", tone: "cyan", x: 2040, y: 430, icon: "search" },
+      { id: "timeline", title: "时间线", step: "09", brief: "结构化事件", tag: "汇合", tone: "default", x: 2320, y: 270, icon: "clock" },
+      { id: "editor", title: "编辑器打磨", step: "10", brief: "保存与回滚", tag: "人工", tone: "violet", x: 1480, y: 670, icon: "edit" },
+      { id: "validation", title: "逻辑校验", step: "11", brief: "矛盾定位", tag: "校验", tone: "warning", x: 1760, y: 670, icon: "alert" },
+      { id: "illustration", title: "插画物料", step: "12", brief: "角色与场景图", tag: "图像", tone: "cyan", x: 2040, y: 670, icon: "image" },
+      { id: "export", title: "导出发布", step: "13", brief: "PDF / 社区", tag: "完成", tone: "default", x: 2320, y: 670, icon: "upload" },
+    ];
+
+    const EDGE_ORDER = [
+      ["params", "model", "params-model"],
+      ["model", "task", "model-task"],
+      ["task", "bible", "task-bible"],
+      ["bible", "confirm", "bible-confirm"],
+      ["confirm", "characters", "confirm-characters"],
+      ["confirm", "acts", "confirm-acts"],
+      ["characters", "scripts", "characters-script"],
+      ["acts", "scripts", "acts-script"],
+      ["scripts", "clues", "script-clues"],
+      ["scripts", "manual", "script-manual"],
+      ["scripts", "truth", "script-truth"],
+      ["clues", "timeline", "clues-timeline"],
+      ["manual", "timeline", "manual-timeline"],
+      ["truth", "timeline", "truth-timeline"],
+      ["timeline", "editor", "timeline-editor"],
+      ["editor", "validation", "editor-validation"],
+      ["validation", "illustration", "validation-illustration"],
+      ["illustration", "export", "illustration-export"],
+    ];
+
+    const STAGE_GROUPS = [
+      ["params"],
+      ["model"],
+      ["task"],
+      ["bible"],
+      ["confirm"],
+      ["characters", "acts"],
+      ["scripts"],
+      ["clues", "manual", "truth"],
+      ["timeline"],
+      ["editor"],
+      ["validation"],
+      ["illustration"],
+      ["export"],
+    ];
+
+    let state = {
+      groupIndex: 0,
+      selected: "params",
+      params: { ...DEFAULT_PARAMS },
+      model: "deepseek-v4-pro",
+      running: null,
+      storyBibleReady: false,
+      confirmed: false,
+      charactersReady: false,
+      scriptsReady: false,
+      assetsReady: false,
+      timelineReady: false,
+      editorReady: false,
+      validationReady: false,
+      illustrationReady: false,
+      exportReady: false,
+      progress: 0,
+    };
+    let timer = null;
+
+    function icon(name) {
+      const paths = {
+        sliders: '<path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M2 14h4"/><path d="M10 8h4"/><path d="M18 16h4"/>',
+        cpu: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 1v3"/><path d="M15 1v3"/><path d="M9 20v3"/><path d="M15 20v3"/><path d="M20 9h3"/><path d="M20 14h3"/><path d="M1 9h3"/><path d="M1 14h3"/>',
+        play: '<polygon points="6 3 20 12 6 21 6 3"/>',
+        book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/>',
+        check: '<path d="M20 6 9 17l-5-5"/>',
+        users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        layers: '<path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
+        file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h6"/>',
+        cards: '<rect x="3" y="8" width="14" height="12" rx="2"/><path d="M7 4h12a2 2 0 0 1 2 2v10"/>',
+        bookOpen: '<path d="M2 4h7a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2z"/><path d="M22 4h-7a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h8z"/>',
+        search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+        clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+        edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+        alert: '<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+        image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+        upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
+      };
+      return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
+    }
+
+    function groupForNode(id) {
+      return STAGE_GROUPS.findIndex((group) => group.includes(id));
+    }
+
+    function nodeStatus(id) {
+      const group = groupForNode(id);
+      if (state.running && STAGE_GROUPS[state.groupIndex].includes(id)) return "running";
+      if (group < state.groupIndex) return "done";
+      if (group === state.groupIndex) return "running";
+      return "waiting";
+    }
+
+    function statusText(status, id) {
+      if (id === "confirm" && status === "running") return state.confirmed ? "已确认" : "待确认";
+      if (status === "done") return "已完成";
+      if (status === "running") return "进行中";
+      return "待配置";
+    }
+
+    function renderFlow() {
+      const layer = document.getElementById("cardLayer");
+      layer.innerHTML = FLOW_NODES.map((node) => {
+        const status = nodeStatus(node.id);
+        return `
+          <button class="flow-card ${status} ${state.selected === node.id ? "selected" : ""}" data-id="${node.id}" data-tone="${node.tone}" type="button" style="left:${node.x}px;top:${node.y}px">
+            <div class="card-inner">
+              <div class="card-head">
+                <span class="card-icon">${icon(node.icon)}</span>
+                <span>
+                  <span class="card-title">${node.title}</span>
+                  <span class="card-step">STEP ${node.step}</span>
+                </span>
+              </div>
+              <div class="card-brief">${node.brief}</div>
+              <div class="card-foot">
+                <span class="badge ${status === "done" ? "done" : status === "running" ? (node.id === "confirm" && !state.confirmed ? "gate" : "running") : "waiting"}">${statusText(status, node.id)}</span>
+                <span class="mini-tag">${node.tag}</span>
+              </div>
+            </div>
+          </button>
+        `;
+      }).join("");
+
+      document.getElementById("currentStatus").textContent = FLOW_NODES.find((node) => node.id === STAGE_GROUPS[state.groupIndex][0])?.title || "完成";
+      updateEdges();
+    }
+
+    function updateEdges() {
+      document.querySelectorAll(".flow-path").forEach((path) => {
+        path.classList.remove("done", "active");
+      });
+      EDGE_ORDER.forEach(([from, to, edgeId]) => {
+        const path = document.querySelector(`[data-edge="${edgeId}"]`);
+        if (!path) return;
+        const fromGroup = groupForNode(from);
+        const toGroup = groupForNode(to);
+        if (toGroup <= state.groupIndex) path.classList.add("done");
+        if (fromGroup === state.groupIndex || toGroup === state.groupIndex) path.classList.add("active");
+      });
+    }
+
+    function openDrawer(id) {
+      state.selected = id;
+      renderFlow();
+      const node = FLOW_NODES.find((item) => item.id === id);
+      document.getElementById("drawerTitle").textContent = node.title;
+      const body = document.getElementById("drawerBody");
+      const foot = document.getElementById("drawerFoot");
+      foot.innerHTML = "";
+
+      if (id === "params") renderParamsDrawer(body, foot);
+      else if (id === "model") renderModelDrawer(body, foot);
+      else renderNodeDrawer(body, foot, node);
+
+      document.getElementById("drawer").classList.add("open");
+      document.getElementById("drawerOverlay").classList.add("open");
+    }
+
+    function closeDrawer() {
+      document.getElementById("drawer").classList.remove("open");
+      document.getElementById("drawerOverlay").classList.remove("open");
+    }
+
+    function renderParamsDrawer(body, foot) {
+      const p = state.params;
+      body.innerHTML = `
+        <div class="hint" style="margin-bottom:16px;">创作参数会进入第一阶段生成，尽量只保留创作者最关心的选择。</div>
+        <div class="form-group">
+          <label class="form-label">剧本标题</label>
+          <input class="form-input" id="p-title" value="${escapeHtml(p.title)}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">剧本类型</label>
+          <div class="chip-group" id="p-genre">
+            ${Object.entries(GENRE_LABEL).map(([key, label]) => `<button class="chip ${p.genre === key ? "active" : ""}" data-value="${key}" type="button">${label}</button>`).join("")}
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">人数</label>
+            <select class="form-select" id="p-players">${[4, 5, 6, 7, 8].map((n) => `<option value="${n}" ${p.players === n ? "selected" : ""}>${n} 人</option>`).join("")}</select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">时长</label>
+            <select class="form-select" id="p-duration">${[2, 3, 4, 5, 6, 7, 8].map((n) => `<option value="${n}" ${p.duration === n ? "selected" : ""}>${n} 小时</option>`).join("")}</select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">难度</label>
+            <select class="form-select" id="p-difficulty">${Object.entries(DIFFICULTY_LABEL).map(([key, label]) => `<option value="${key}" ${p.difficulty === key ? "selected" : ""}>${label}</option>`).join("")}</select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">适龄</label>
+            <select class="form-select" id="p-age">${Object.entries(AGE_RATING_LABEL).map(([key, label]) => `<option value="${key}" ${p.ageRating === key ? "selected" : ""}>${label}</option>`).join("")}</select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">写作风格</label>
+          <select class="form-select" id="p-style">${WRITING_STYLES.map((style) => `<option value="${style}" ${p.writingStyle === style ? "selected" : ""}>${style}</option>`).join("")}</select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">背景设定</label>
+          <input class="form-input" id="p-bg" value="${escapeHtml(p.background)}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">核心立意</label>
+          <input class="form-input" id="p-theme" value="${escapeHtml(p.theme)}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">特殊要求</label>
+          <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:0 12px;">
+            ${renderSwitch("无边缘位", "sw-edge", p.switches.noEdgeRole)}
+            ${renderSwitch("合规预检", "sw-safety", p.switches.compliancePreCheck)}
+            ${renderSwitch("机制规则", "sw-rule", p.switches.mechanismRules)}
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">附加要求</label>
+          <textarea class="form-textarea" id="p-extra">${escapeHtml(p.extraReq)}</textarea>
+        </div>
+      `;
+      foot.innerHTML = `<button class="btn btn-primary" id="saveParams" type="button">保存参数</button>`;
+      bindGenreChips();
+      bindSwitch("sw-edge", (on) => state.params.switches.noEdgeRole = on);
+      bindSwitch("sw-safety", (on) => state.params.switches.compliancePreCheck = on);
+      bindSwitch("sw-rule", (on) => state.params.switches.mechanismRules = on);
+      document.getElementById("saveParams").addEventListener("click", () => {
+        state.params.title = document.getElementById("p-title").value.trim() || DEFAULT_PARAMS.title;
+        state.params.players = Number(document.getElementById("p-players").value);
+        state.params.duration = Number(document.getElementById("p-duration").value);
+        state.params.difficulty = document.getElementById("p-difficulty").value;
+        state.params.ageRating = document.getElementById("p-age").value;
+        state.params.writingStyle = document.getElementById("p-style").value;
+        state.params.background = document.getElementById("p-bg").value;
+        state.params.theme = document.getElementById("p-theme").value;
+        state.params.extraReq = document.getElementById("p-extra").value;
+        state.groupIndex = Math.max(state.groupIndex, 1);
+        closeDrawer();
+        renderFlow();
+        showToast("参数已保存，进入模型选择");
+      });
+    }
+
+    function renderModelDrawer(body, foot) {
+      body.innerHTML = `
+        <div class="hint" style="margin-bottom:16px;">可选模型由 Admin 系统配置控制。创作者只看到已启用模型。</div>
+        <div class="form-group">
+          <label class="form-label">文本主模型</label>
+          <select class="form-select" id="modelSelect" size="8" style="min-height:214px;">
+            ${TEXT_MODELS.map((group) => `
+              <optgroup label="${group.provider}">
+                ${group.models.map((model) => `<option value="${model}" ${state.model === model ? "selected" : ""}>${model}</option>`).join("")}
+              </optgroup>
+            `).join("")}
+          </select>
+        </div>
+        <div class="output-box">
+          <div class="output-item"><div class="output-label">当前模型</div><div class="output-value" id="modelPreview">${state.model}</div></div>
+          <div class="output-item"><div class="output-label">Provider</div><div class="output-value" id="providerPreview">${getProviderName(state.model)}</div></div>
+        </div>
+      `;
+      foot.innerHTML = `<button class="btn btn-primary" id="saveModel" type="button">确认模型</button>`;
+      const select = document.getElementById("modelSelect");
+      select.addEventListener("change", () => {
+        document.getElementById("modelPreview").textContent = select.value;
+        document.getElementById("providerPreview").textContent = getProviderName(select.value);
+      });
+      document.getElementById("saveModel").addEventListener("click", () => {
+        state.model = select.value;
+        state.groupIndex = Math.max(state.groupIndex, 2);
+        closeDrawer();
+        renderFlow();
+        showToast("模型已确认");
+      });
+    }
+
+    function renderNodeDrawer(body, foot, node) {
+      const status = nodeStatus(node.id);
+      const nextAction = actionForNode(node.id);
+      body.innerHTML = `
+        <div class="output-box">
+          <div class="kv-grid">
+            <b>状态</b><span>${statusText(status, node.id)}</span>
+            <b>阶段</b><span>STEP ${node.step}</span>
+            <b>产物</b><span>${detailOutput(node.id)}</span>
+            <b>依赖</b><span>${detailInput(node.id)}</span>
+          </div>
+          ${status === "running" ? `<div class="progress-line"><div class="progress-fill" id="drawerProgress" style="width:${state.progress}%"></div></div>` : ""}
+        </div>
+        <div class="mini-list">
+          ${detailItems(node.id).map((item) => `<div class="mini-list-item"><span>${item}</span><span class="mini-tag">${node.tag}</span></div>`).join("")}
+        </div>
+      `;
+      if (node.id === "confirm" && !state.confirmed) {
+        foot.innerHTML = `<button class="btn btn-primary" id="confirmBtn" type="button">确认设定本</button>`;
+        document.getElementById("confirmBtn").addEventListener("click", () => {
+          state.confirmed = true;
+          closeDrawer();
+          runTo(5);
+        });
+      } else if (nextAction) {
+        foot.innerHTML = `<button class="btn btn-primary" id="nodeAction" type="button">${nextAction.label}</button>`;
+        document.getElementById("nodeAction").addEventListener("click", () => {
+          closeDrawer();
+          runTo(nextAction.group);
+        });
+      }
+    }
+
+    function actionForNode(id) {
+      if (id === "task") return { label: "创建任务", group: 3 };
+      if (id === "bible") return { label: "生成设定本", group: 4 };
+      if (id === "characters" || id === "acts") return { label: "并行生成人物与分幕", group: 5 };
+      if (id === "scripts") return { label: "生成角色剧本", group: 6 };
+      if (id === "clues" || id === "manual" || id === "truth") return { label: "并行生成物料", group: 7 };
+      if (id === "timeline") return { label: "结构化时间线", group: 8 };
+      if (id === "editor") return { label: "进入编辑器", group: 9 };
+      if (id === "validation") return { label: "开始校验", group: 10 };
+      if (id === "illustration") return { label: "生成插画", group: 11 };
+      if (id === "export") return { label: "导出发布", group: 12 };
+      return null;
+    }
+
+    function detailInput(id) {
+      const map = {
+        params: "创作者输入",
+        model: "Admin 启用模型列表",
+        task: "参数 + 模型",
+        bible: "任务上下文",
+        confirm: "设定本草案",
+        characters: "已确认设定本",
+        acts: "已确认设定本",
+        scripts: "人物档案 + 分幕结构",
+        clues: "角色剧本",
+        manual: "角色剧本",
+        truth: "角色剧本",
+        timeline: "线索 / 手册 / 真相",
+        editor: "全部文本产物",
+        validation: "编辑稿",
+        illustration: "角色 / 场景描述",
+        export: "校验后成品",
+      };
+      return map[id] || "-";
+    }
+
+    function detailOutput(id) {
+      const map = {
+        params: `${GENRE_LABEL[state.params.genre]} · ${state.params.players}人 · ${state.params.duration}小时`,
+        model: `${getProviderName(state.model)} · ${state.model}`,
+        task: "scriptId / generation task",
+        bible: "凶案、动机、伏笔、人物骨架",
+        confirm: "confirmed=true",
+        characters: `${state.params.players} 个角色档案`,
+        acts: "三幕结构",
+        scripts: "N 个角色剧本",
+        clues: "线索卡",
+        manual: "主持手册",
+        truth: "真相复盘",
+        timeline: "timeline_events",
+        editor: "版本保存 / 回滚 / AI 润色",
+        validation: "矛盾项与定位建议",
+        illustration: "角色图 / 场景图 / 封面",
+        export: "PDF / 图片 / 社区稿",
+      };
+      return map[id] || "-";
+    }
+
+    function detailItems(id) {
+      const map = {
+        params: ["剧本类型", "人数与时长", "难度与适龄", "背景与立意"],
+        model: ["DeepSeek", "GLM", "主模型", "备用模型"],
+        task: ["扣额度", "创建剧本", "创建生成任务"],
+        bible: ["核心诡计", "动机链", "伏笔计划"],
+        confirm: ["查看设定", "重生成", "确认后继续"],
+        characters: ["身份", "目标", "秘密"],
+        acts: ["开场", "搜证", "复盘"],
+        scripts: ["分批并行", "角色视角", "失败重试"],
+        clues: ["公开线索", "私密线索", "陷阱线索"],
+        manual: ["主持流程", "控场节点", "复盘话术"],
+        truth: ["凶手动机", "作案过程", "伏笔回收"],
+        timeline: ["事件抽取", "跨天排序", "矛盾检查"],
+        editor: ["保存", "版本", "回滚"],
+        validation: ["时间矛盾", "线索缺口", "动机断裂"],
+        illustration: ["角色图", "场景图", "封面"],
+        export: ["PDF", "线索卡图片", "社区发布"],
+      };
+      return map[id] || [];
+    }
+
+    function runTo(targetGroup) {
+      clearInterval(timer);
+      state.running = true;
+      state.groupIndex = Math.max(0, Math.min(targetGroup, STAGE_GROUPS.length - 1));
+      state.progress = 10;
+      renderFlow();
+      timer = setInterval(() => {
+        state.progress = Math.min(100, state.progress + 18);
+        const fill = document.getElementById("drawerProgress");
+        if (fill) fill.style.width = `${state.progress}%`;
+        if (state.progress >= 100) {
+          clearInterval(timer);
+          state.running = null;
+          if (targetGroup === 4) state.storyBibleReady = true;
+          if (targetGroup >= 5) state.charactersReady = true;
+          if (targetGroup >= 6) state.scriptsReady = true;
+          if (targetGroup >= 7) state.assetsReady = true;
+          if (targetGroup >= 8) state.timelineReady = true;
+          if (targetGroup >= 9) state.editorReady = true;
+          if (targetGroup >= 10) state.validationReady = true;
+          if (targetGroup >= 11) state.illustrationReady = true;
+          if (targetGroup >= 12) state.exportReady = true;
+          renderFlow();
+          showToast("阶段已完成");
+          if (targetGroup === 4) openDrawer("confirm");
+        }
+      }, 260);
+    }
+
+    function startWorkflow() {
+      if (state.groupIndex < 2) {
+        openDrawer(state.groupIndex === 0 ? "params" : "model");
+        return;
+      }
+      runTo(Math.min(state.groupIndex + 1, STAGE_GROUPS.length - 1));
+    }
+
+    function resetWorkflow() {
+      clearInterval(timer);
+      state = {
+        groupIndex: 0,
+        selected: "params",
+        params: { ...DEFAULT_PARAMS },
+        model: "deepseek-v4-pro",
+        running: null,
+        storyBibleReady: false,
+        confirmed: false,
+        charactersReady: false,
+        scriptsReady: false,
+        assetsReady: false,
+        timelineReady: false,
+        editorReady: false,
+        validationReady: false,
+        illustrationReady: false,
+        exportReady: false,
+        progress: 0,
+      };
+      closeDrawer();
+      renderFlow();
+      showToast("已重置");
+    }
+
+    function renderSwitch(label, id, checked) {
+      return `<button class="switch-row" type="button" data-switch-row="${id}">
+        <span class="switch-label">${label}</span>
+        <span class="switch ${checked ? "on" : ""}" id="${id}" role="switch" aria-checked="${checked}"></span>
+      </button>`;
+    }
+
+    function bindSwitch(id, cb) {
+      const row = document.querySelector(`[data-switch-row="${id}"]`);
+      const el = document.getElementById(id);
+      if (!row || !el) return;
+      row.addEventListener("click", () => {
+        const next = !el.classList.contains("on");
+        el.classList.toggle("on", next);
+        el.setAttribute("aria-checked", String(next));
+        cb(next);
+      });
+    }
+
+    function bindGenreChips() {
+      const group = document.getElementById("p-genre");
+      group.addEventListener("click", (event) => {
+        const chip = event.target.closest(".chip");
+        if (!chip) return;
+        group.querySelectorAll(".chip").forEach((item) => item.classList.remove("active"));
+        chip.classList.add("active");
+        state.params.genre = chip.dataset.value;
+      });
+    }
+
+    function getProviderName(model) {
+      return TEXT_MODELS.find((group) => group.models.includes(model))?.provider || "-";
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[char]);
+    }
+
+    function showToast(text) {
+      const toast = document.getElementById("toast");
+      toast.textContent = text;
+      toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.classList.remove("show"), 1600);
+    }
+
+    document.getElementById("cardLayer").addEventListener("click", (event) => {
+      const card = event.target.closest(".flow-card");
+      if (!card) return;
+      openDrawer(card.dataset.id);
+    });
+    document.getElementById("startBtn").addEventListener("click", startWorkflow);
+    document.getElementById("resetBtn").addEventListener("click", resetWorkflow);
+    document.getElementById("drawerClose").addEventListener("click", closeDrawer);
+    document.getElementById("drawerOverlay").addEventListener("click", closeDrawer);
+
+    renderFlow();
+  </script>
+</body>
+</html>

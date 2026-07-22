@@ -12,7 +12,7 @@
  */
 'use client';
 import Link from 'next/link';
-import { Plus, FileText, Users, Clock, BarChart3 } from 'lucide-react';
+import { FileInput, Plus, FileText, Users, Clock, BarChart3 } from 'lucide-react';
 import { useDashboard } from '@/lib/contexts/dashboard-context';
 import { EmptyState } from '@/components/common';
 import type { ScriptDifficulty, ScriptGenre, ScriptStatus } from '@/types';
@@ -62,6 +62,10 @@ export default function ScriptsPage() {
           </div>
         </div>
         <div className="page-actions">
+          <Link href="/scripts/import" className="btn btn-ghost">
+            <FileInput size={14} />
+            导入设计
+          </Link>
           <Link href="/generate" className="btn btn-primary">
             <Plus size={14} />
             新建剧本
