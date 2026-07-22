@@ -83,7 +83,7 @@ function PhaseRow({
   const [expanded, setExpanded] = useState(false);
   const hasStreamText = phase.streamedText.length > 0;
   const hasSubItems = phase.subItems && phase.subItems.length > 0;
-  const canExpand = hasStreamText || hasSubItems;
+  const canExpand = phase.status === 'running' || hasStreamText || hasSubItems || Boolean(phase.error);
 
   return (
     <div className="phased-phase-row">
@@ -92,12 +92,19 @@ function PhaseRow({
         onClick={() => canExpand && setExpanded(!expanded)}
         style={{ cursor: canExpand ? 'pointer' : 'default' }}
       >
-        <span
-          className="phased-phase-icon"
-          style={{ color: getStatusColor(phase.status) }}
+        <button
+          aria-expanded={expanded}
+          aria-label={`${expanded ? '收起' : '展开'}${PHASE_LABELS[phase.id]}`}
+          className="phased-phase-toggle"
+          disabled={!canExpand}
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            if (canExpand) setExpanded((value) => !value);
+          }}
         >
-          {getStatusIcon(phase.status)}
-        </span>
+          {canExpand ? (expanded ? '▼' : '▶') : getStatusIcon(phase.status)}
+        </button>
         <span className="phased-phase-label">
           {PHASE_LABELS[phase.id]}
           {phase.id === 'character_script' && hasSubItems && (
@@ -171,6 +178,10 @@ function PhaseRow({
         <pre className="phased-stream-preview">
           {phase.streamedText.slice(-2000)}
         </pre>
+      )}
+
+      {expanded && phase.status === 'running' && !hasStreamText && !hasSubItems && (
+        <div className="phased-stream-empty">正在等待模型返回内容...</div>
       )}
     </div>
   );

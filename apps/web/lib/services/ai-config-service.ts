@@ -36,8 +36,8 @@ const DEFAULT_TEXT_CONFIG: TextProviderConfig = {
   primary: "deepseek",
   fallback: "glm",
   providers: {
-    deepseek: { enabled: true, model: "deepseek-chat", timeout: 60, retries: 2 },
-    glm: { enabled: true, model: "glm-5.1", timeout: 60, retries: 2 },
+    deepseek: { enabled: true, model: "deepseek-chat", timeout: 180, retries: 2 },
+    glm: { enabled: true, model: "glm-5.1", timeout: 180, retries: 2 },
   },
 };
 

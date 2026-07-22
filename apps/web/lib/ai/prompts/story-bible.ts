@@ -97,7 +97,7 @@ export function buildStoryBibleSystemPrompt(): string {
 你必须严格遵守以下要求：
 
 1. 凶案手法必须物理可行，考虑反侦察意识
-2. 人物关系骨架的节点数量必须与玩家人数一致
+2. 人物关系骨架的 nodes 数量必须严格等于玩家人数；用户写 6 人就必须返回 exactly 6 个 nodes，不得多也不得少
 3. 凶手姓名必须出现在人物关系骨架的节点列表中
 4. 每条伏笔的 payoffAct 必须大于等于 plantAct
 5. 严格遵循用户指定的题材、难度、适龄分级与写作风格
@@ -159,7 +159,7 @@ export function buildStoryBibleUserPrompt(params: ScriptGenerationParams): strin
   }
 
   lines.push('');
-  lines.push('请按系统提示词规定的 JSON 结构生成设定本，仅产出图纸，不展开完整剧本内容。');
+  lines.push(`请按系统提示词规定的 JSON 结构生成设定本，仅产出图纸，不展开完整剧本内容。characterSkeleton.nodes 必须刚好 ${params.players} 个。`);
 
   return lines.join('\n');
 }

@@ -214,6 +214,62 @@ function validateStoryBible(json: StoryBibleJson, players: number): string[] {
   return errors;
 }
 
+function normalizeStoryBible(json: StoryBibleJson, players: number): StoryBibleJson {
+  const skeleton =
+    json.characterSkeleton && typeof json.characterSkeleton === 'object'
+      ? json.characterSkeleton
+      : { nodes: [], edges: [] };
+  const rawNodes = Array.isArray(skeleton.nodes) ? skeleton.nodes : [];
+  const rawEdges = Array.isArray(skeleton.edges) ? skeleton.edges : [];
+  const normalizedNodes = rawNodes.slice(0, players).map((node, index) => ({
+    name: String(node.name || `角色${index + 1}`),
+    identity: String(node.identity || '待展开身份'),
+    secret: String(node.secret || '与主线案件存在隐秘关联'),
+  }));
+
+  for (let index = normalizedNodes.length; index < players; index += 1) {
+    normalizedNodes.push({
+      name: `角色${index + 1}`,
+      identity: '待展开身份',
+      secret: '与主线案件存在隐秘关联',
+    });
+  }
+
+  if (normalizedNodes.length > 0 && !normalizedNodes.some((node) => node.name === json.murdererName)) {
+    normalizedNodes[0] = {
+      ...normalizedNodes[0],
+      name: json.murdererName || normalizedNodes[0].name,
+    };
+  }
+
+  return {
+    ...json,
+    characterSkeleton: {
+      nodes: normalizedNodes,
+      edges: rawEdges.filter((edge) =>
+        normalizedNodes.some((node) => node.name === edge.from) &&
+        normalizedNodes.some((node) => node.name === edge.to),
+      ),
+    },
+  };
+}
+
+function formatStoryBibleValidationErrors(errors: string[]): string {
+  return errors
+    .map((error) => {
+      const nodesLengthMatch = error.match(/^characterSkeleton\.nodes length must be (\d+)$/);
+      if (nodesLengthMatch) {
+        return `人物关系骨架数量不正确，必须刚好 ${nodesLengthMatch[1]} 个角色`;
+      }
+      const murdererMatch = error.match(/^murdererName "(.+)" is not in characterSkeleton\.nodes$/);
+      if (murdererMatch) {
+        return `凶手 "${murdererMatch[1]}" 必须出现在人物关系骨架中`;
+      }
+      return error;
+    })
+    .join('; ');
+}
+
 function buildMockStoryBible(params: ScriptGenerationParams): StoryBibleJson {
   const names = ['林少衡', '苏晚晴', '周知远', '许曼', '陈泊舟', '顾明岚', '沈砚'];
   const nodes = Array.from({ length: params.players }, (_, index) => ({
@@ -1665,10 +1721,11 @@ async function handleStoryBible(body: GenerateRequestBody): Promise<Response> {
         }
 
         controller.enqueue(encodeSse(encoder, 'progress', { percent: 100, stage: 'parsing' }));
-        const json = await parseOrRepairJson<StoryBibleJson>(accumulated, 'StoryBibleJson');
+        const parsedJson = await parseOrRepairJson<StoryBibleJson>(accumulated, 'StoryBibleJson');
+        const json = normalizeStoryBible(parsedJson, params.players);
         const validationErrors = validateStoryBible(json, params.players);
         if (validationErrors.length > 0) {
-          controller.enqueue(encodeSse(encoder, 'error', { message: validationErrors.join('; ') }));
+          controller.enqueue(encodeSse(encoder, 'error', { message: formatStoryBibleValidationErrors(validationErrors) }));
           return;
         }
 

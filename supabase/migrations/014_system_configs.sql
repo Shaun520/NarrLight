@@ -23,8 +23,8 @@ values
       "primary": "deepseek",
       "fallback": "glm",
       "providers": {
-        "deepseek": { "enabled": true, "model": "deepseek-chat", "timeout": 60, "retries": 2 },
-        "glm": { "enabled": true, "model": "glm-5.1", "timeout": 60, "retries": 2 }
+        "deepseek": { "enabled": true, "model": "deepseek-chat", "timeout": 180, "retries": 2 },
+        "glm": { "enabled": true, "model": "glm-5.1", "timeout": 180, "retries": 2 }
       }
     }'::jsonb,
     '文本生成 provider 路由（剧本生成 / 校验 / 润色）'

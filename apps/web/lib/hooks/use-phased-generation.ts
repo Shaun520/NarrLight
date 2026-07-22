@@ -244,6 +244,12 @@ function inferSSEEventType(parsed: Record<string, unknown>): string | undefined 
   return undefined;
 }
 
+function estimateStreamingPercent(currentPercent: number, streamedLength: number): number {
+  if (currentPercent >= 95) return currentPercent;
+  const byLength = Math.min(90, Math.floor(streamedLength / 120));
+  return Math.max(currentPercent, 5, byLength);
+}
+
 // ===== Hook 瀹炵幇 =====
 
 export function usePhasedGeneration(): UsePhasedGenerationResult {
@@ -287,11 +293,14 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
             (parsed.content as string) ||
             '';
           if (chunk) {
-            setState((prev) =>
-              updatePhase(prev, phaseId, {
-                streamedText: prev.phases[phaseId].streamedText + chunk,
-              }),
-            );
+            setState((prev) => {
+              const phase = prev.phases[phaseId];
+              const streamedText = phase.streamedText + chunk;
+              return updatePhase(prev, phaseId, {
+                streamedText,
+                percent: estimateStreamingPercent(phase.percent, streamedText.length),
+              });
+            });
           }
           break;
         }
@@ -446,6 +455,10 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
               setState((prev) =>
                 updatePhase(prev, phaseId, {
                   streamedText: prev.phases[phaseId].streamedText + data,
+                  percent: estimateStreamingPercent(
+                    prev.phases[phaseId].percent,
+                    prev.phases[phaseId].streamedText.length + data.length,
+                  ),
                 }),
               );
             }
@@ -581,12 +594,14 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
                   (parsed.content as string) ||
                   '';
                 if (chunk) {
-                  setState((prev) =>
-                    updatePhase(prev, 'character_script', {
-                      streamedText:
-                        prev.phases.character_script.streamedText + chunk,
-                    }),
-                  );
+                  setState((prev) => {
+                    const phase = prev.phases.character_script;
+                    const streamedText = phase.streamedText + chunk;
+                    return updatePhase(prev, 'character_script', {
+                      streamedText,
+                      percent: estimateStreamingPercent(phase.percent, streamedText.length),
+                    });
+                  });
                 }
               }
             } catch {

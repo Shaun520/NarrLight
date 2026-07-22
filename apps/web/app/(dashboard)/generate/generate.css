@@ -514,6 +514,29 @@
   gap: 8px;
   font-size: 13px;
 }
+.phased-phase-toggle {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--blood-soft, #c54848);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+.phased-phase-toggle:hover:not(:disabled),
+.phased-phase-toggle:focus-visible {
+  background: rgba(197, 72, 72, 0.12);
+  outline: none;
+}
+.phased-phase-toggle:disabled {
+  color: var(--ink-soft, #888);
+  cursor: default;
+}
 .phased-phase-icon {
   width: 16px;
   text-align: center;
@@ -572,6 +595,12 @@
   white-space: pre-wrap;
   word-break: break-all;
   color: var(--ink-soft, #666);
+}
+.phased-stream-empty {
+  margin: 4px 0 0 32px;
+  padding: 8px;
+  color: var(--ink-soft, #888);
+  font-size: 12px;
 }
 .phased-global-error {
   color: var(--blood, #a02828);

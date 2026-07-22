@@ -113,6 +113,9 @@ export class DeepSeekProvider implements AIProvider {
       } catch (error) {
         clearTimeout(timeoutId);
         lastError = error instanceof Error ? error : new Error(String(error));
+        if (controller.signal.aborted && !options.signal?.aborted) {
+          lastError = new Error(`DeepSeek 请求超时（${this.timeout} 秒），请在 Admin 模型配置中调高文本模型超时时间后重试`);
+        }
         if (signal.aborted && options.signal?.aborted) {
           // 调用方主动中断，不重试
           throw lastError;
@@ -197,6 +200,11 @@ export class DeepSeekProvider implements AIProvider {
       } finally {
         reader.releaseLock();
       }
+    } catch (error) {
+      if (controller.signal.aborted && !options.signal?.aborted) {
+        throw new Error(`DeepSeek 流式生成超时（${this.timeout} 秒），请在 Admin 模型配置中调高文本模型超时时间后重试`);
+      }
+      throw error;
     } finally {
       clearTimeout(timeoutId);
     }
