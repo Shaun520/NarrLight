@@ -52,6 +52,7 @@ type GenerationMode = 'mock' | 'real';
 interface GenerateRequestBody {
   scriptId: string;
   params: ScriptGenerationParams;
+  generationTaskId?: string;
   characterId?: string;
   scriptPartIndex?: number;
   scriptPartLabel?: string;
@@ -119,6 +120,99 @@ function generationMeta() {
     provider: mode === 'real' ? 'deepseek' : 'local',
     model: mode === 'real' ? 'deepseek-chat' : 'mock',
   };
+}
+
+function phaseToTaskType(phase: string): string {
+  const map: Record<string, string> = {
+    'story-bible': 'STORY_BIBLE',
+    'character-profiles': 'CHARACTER_PROFILES',
+    'act-structure': 'ACT_STRUCTURE',
+    'character-script': 'CHARACTER_SCRIPT',
+    clues: 'CLUES',
+    'organizer-manual': 'ORGANIZER_MANUAL',
+    'truth-review': 'TRUTH_REVIEW',
+    'timeline-structure': 'TIMELINE_STRUCTURE',
+  };
+  return map[phase] ?? 'FULL_SCRIPT';
+}
+
+async function createRunningGenerationTask(args: {
+  scriptId: string;
+  phase: GenerationCreditPhase;
+  params: ScriptGenerationParams;
+  chargedCredits: number;
+}): Promise<string> {
+  const supabase = await createGenerationDbClient();
+  const { data, error } = await supabase
+    .from('generation_tasks')
+    .insert({
+      script_id: args.scriptId,
+      task_type: phaseToTaskType(args.phase),
+      status: 'running',
+      params: args.params,
+      progress_percent: 0,
+      charged_credits: args.chargedCredits,
+      started_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    throw new Error(`Generation task start insert failed: ${error.message}`);
+  }
+
+  return (data as { id: string }).id;
+}
+
+async function updateGenerationTaskResult(
+  taskId: string | undefined,
+  resultData: Record<string, unknown>,
+): Promise<void> {
+  if (!taskId) return;
+  const supabase = await createGenerationDbClient();
+  const { error } = await supabase
+    .from('generation_tasks')
+    .update({
+      progress_percent: 100,
+      result_data: resultData,
+    })
+    .eq('id', taskId);
+  if (error) console.warn(`Generation task result update failed; continuing: ${error.message}`);
+}
+
+async function completeGenerationTask(taskId: string | null): Promise<void> {
+  if (!taskId) return;
+  const supabase = await createGenerationDbClient();
+  const { error } = await supabase
+    .from('generation_tasks')
+    .update({
+      status: 'completed',
+      progress_percent: 100,
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', taskId);
+  if (error) console.warn(`Generation task completion update failed; continuing: ${error.message}`);
+}
+
+async function failGenerationTask(
+  taskId: string | null,
+  failureReason: string,
+  refundCredits = 0,
+): Promise<void> {
+  if (!taskId) return;
+  const supabase = await createGenerationDbClient();
+  const { error } = await supabase
+    .from('generation_tasks')
+    .update({
+      status: 'failed',
+      error_message: failureReason,
+      failure_reason: failureReason.slice(0, 100),
+      refund_credits: refundCredits,
+      quality_status: refundCredits > 0 ? 'refunded' : 'failed',
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', taskId);
+  if (error) console.warn(`Generation task failure update failed; continuing: ${error.message}`);
 }
 
 async function parseOrRepairJson<T>(text: string, schemaHint: string): Promise<T> {
@@ -259,7 +353,7 @@ function formatStoryBibleValidationErrors(errors: string[]): string {
     .map((error) => {
       const nodesLengthMatch = error.match(/^characterSkeleton\.nodes length must be (\d+)$/);
       if (nodesLengthMatch) {
-        return `人物关系骨架数量不正确，必须刚好 ${nodesLengthMatch[1]} 个角色`;
+        return `人物关系骨架数量不正确，必须正好 ${nodesLengthMatch[1]} 个角色`;
       }
       const murdererMatch = error.match(/^murdererName "(.+)" is not in characterSkeleton\.nodes$/);
       if (murdererMatch) {
@@ -271,13 +365,13 @@ function formatStoryBibleValidationErrors(errors: string[]): string {
 }
 
 function buildMockStoryBible(params: ScriptGenerationParams): StoryBibleJson {
-  const names = ['林少衡', '苏晚晴', '周知远', '许曼', '陈泊舟', '顾明岚', '沈砚'];
+  const names = ['林少衡', '苏晚晴', '周知远', '许望', '陈泠舟', '顾明岚', '沈砚'];
   const nodes = Array.from({ length: params.players }, (_, index) => ({
     name: names[index] ?? `角色${index + 1}`,
     identity: index === 0 ? '旧案幸存者' : index === 1 ? '被害者亲属' : '受邀来客',
     secret:
       index === 0
-        ? '曾在十年前篡改关键证词'
+        ? '曾在十年前篡改关键证据'
         : index === 1
           ? '暗中调查家族遗产流向'
           : '与当年的失踪案存在隐秘关联',
@@ -332,6 +426,7 @@ async function persistStoryBible(
   params: ScriptGenerationParams,
   json: StoryBibleJson,
   startedAt: Date,
+  taskId?: string,
 ): Promise<string | null> {
   const supabase = await createGenerationDbClient();
   const { data: upsertedData, error: upsertError } = await supabase
@@ -370,20 +465,8 @@ async function persistStoryBible(
   }
 
   const storyBibleId = upsertedData?.id as string;
-  const { error: taskError } = await supabase.from('generation_tasks').insert({
-    script_id: scriptId,
-    task_type: 'STORY_BIBLE',
-    status: 'completed',
-    params,
-    progress_percent: 100,
-    result_data: { storyBibleId },
-    started_at: startedAt.toISOString(),
-    completed_at: new Date().toISOString(),
-  });
-
-  if (taskError) {
-    console.warn(`Generation task insert failed; continuing without task record: ${taskError.message}`);
-  }
+  void startedAt;
+  await updateGenerationTaskResult(taskId, { storyBibleId });
 
   return storyBibleId;
 }
@@ -586,7 +669,7 @@ async function runJsonPhase<T>(
         if (!isProviderKeyConfigured(name)) {
           controller.enqueue(
             encodeSse(encoder, 'error', {
-              message: `AI provider ${name} 的 API Key 未配置，请在环境变量中设置`,
+              message: `AI provider ${name} ? API Key ?????????????`,
             }),
           );
           return;
@@ -635,6 +718,7 @@ async function persistCharacterProfiles(
   scriptId: string,
   params: ScriptGenerationParams,
   json: CharacterProfilesJson,
+  taskId?: string,
 ): Promise<void> {
   const supabase = await createGenerationDbClient();
   const { error: deleteError } = await supabase.from('characters').delete().eq('script_id', scriptId);
@@ -662,23 +746,14 @@ async function persistCharacterProfiles(
     return;
   }
 
-  const { error: taskError } = await supabase.from('generation_tasks').insert({
-    script_id: scriptId,
-    task_type: 'CHARACTER_PROFILES',
-    status: 'completed',
-    params,
-    progress_percent: 100,
-    result_data: { characterCount: json.characters.length },
-    started_at: new Date().toISOString(),
-    completed_at: new Date().toISOString(),
-  });
-  if (taskError) console.warn(`Character task insert failed; continuing: ${taskError.message}`);
+  await updateGenerationTaskResult(taskId, { characterCount: json.characters.length });
 }
 
 async function persistActStructure(
   scriptId: string,
   params: ScriptGenerationParams,
   json: ActStructureJson,
+  taskId?: string,
 ): Promise<number> {
   const supabase = await createGenerationDbClient();
   const { error: deleteError } = await supabase.from('acts').delete().eq('script_id', scriptId);
@@ -720,17 +795,7 @@ async function persistActStructure(
     sceneCount += act.scenes.length;
   }
 
-  const { error: taskError } = await supabase.from('generation_tasks').insert({
-    script_id: scriptId,
-    task_type: 'ACT_STRUCTURE',
-    status: 'completed',
-    params,
-    progress_percent: 100,
-    result_data: { actCount: json.acts.length, sceneCount },
-    started_at: new Date().toISOString(),
-    completed_at: new Date().toISOString(),
-  });
-  if (taskError) console.warn(`Act task insert failed; continuing: ${taskError.message}`);
+  await updateGenerationTaskResult(taskId, { actCount: json.acts.length, sceneCount });
 
   return sceneCount;
 }
@@ -750,7 +815,7 @@ async function handleMockPhase(
 
         if (phase === 'character-profiles') {
           const json = buildMockCharacterProfiles(storyBible);
-          await persistCharacterProfiles(scriptId, params, json);
+          await persistCharacterProfiles(scriptId, params, json, body.generationTaskId);
           controller.enqueue(encodeSse(encoder, 'progress', { percent: 100, stage: 'mock' }));
           controller.enqueue(
             encodeSse(encoder, 'completed', {
@@ -765,7 +830,7 @@ async function handleMockPhase(
         const specConfig = await getGenerationSpecConfig();
         const spec = buildGenerationSpec(params, specConfig);
         const json = buildMockActStructure(params, storyBible);
-        const sceneCount = await persistActStructure(scriptId, params, json);
+        const sceneCount = await persistActStructure(scriptId, params, json, body.generationTaskId);
         const result = { ...json, generationSpec: spec };
         controller.enqueue(encodeSse(encoder, 'progress', { percent: 100, stage: 'mock' }));
         controller.enqueue(
@@ -832,7 +897,7 @@ async function handleCharacterProfiles(body: GenerateRequestBody): Promise<Respo
         if (!isProviderKeyConfigured(name)) {
           controller.enqueue(
             encodeSse(encoder, 'error', {
-              message: `AI provider ${name} 的 API Key 未配置，请在环境变量中设置`,
+              message: `AI provider ${name} ? API Key ?????????????`,
             }),
           );
           return;
@@ -865,7 +930,7 @@ async function handleCharacterProfiles(body: GenerateRequestBody): Promise<Respo
           return;
         }
 
-        await persistCharacterProfiles(scriptId, params, json);
+        await persistCharacterProfiles(scriptId, params, json, body.generationTaskId);
         controller.enqueue(
           encodeSse(encoder, 'completed', {
             scriptId,
@@ -904,7 +969,7 @@ async function handleActStructure(body: GenerateRequestBody): Promise<Response> 
         if (!isProviderKeyConfigured(name)) {
           controller.enqueue(
             encodeSse(encoder, 'error', {
-              message: `AI provider ${name} 的 API Key 未配置，请在环境变量中设置`,
+              message: `AI provider ${name} ? API Key ?????????????`,
             }),
           );
           return;
@@ -943,7 +1008,7 @@ async function handleActStructure(body: GenerateRequestBody): Promise<Response> 
           return;
         }
 
-        const sceneCount = await persistActStructure(scriptId, params, json);
+        const sceneCount = await persistActStructure(scriptId, params, json, body.generationTaskId);
         const result = { ...json, generationSpec: spec };
         controller.enqueue(
           encodeSse(encoder, 'completed', {
@@ -1025,7 +1090,7 @@ async function persistCharacterScript(
 
   const wordCount = JSON.stringify(json.actScripts).length;
   const partIndex = Math.max(1, body.scriptPartIndex ?? 1);
-  const partLabel = body.scriptPartLabel || '完整玩家剧本';
+        const partLabel = body.scriptPartLabel || '??????';
   const { error } = await supabase.from('character_scripts').upsert(
     {
       script_id: body.scriptId,
@@ -1055,11 +1120,19 @@ async function persistCharacterScript(
         partIndex,
         partLabel,
         script: json,
-      });
+      }, body.generationTaskId);
       return;
     }
     throw new Error(`Character script upsert failed: ${error.message}`);
   }
+
+  await updateGenerationTaskResult(body.generationTaskId, {
+    characterId,
+    characterName: character.name,
+    partIndex,
+    partLabel,
+    wordCount,
+  });
 }
 
 function normalizeClueType(clueType: string): 'physical' | 'testimony' | 'deep' | 'hidden' {
@@ -1071,6 +1144,7 @@ async function persistClues(
   scriptId: string,
   params: ScriptGenerationParams,
   json: CluesJson,
+  taskId?: string,
 ): Promise<void> {
   const supabase = await createGenerationDbClient();
   const { data: characters, error: characterError } = await supabase
@@ -1113,18 +1187,7 @@ async function persistClues(
     }
   }
 
-  const { error: taskError } = await supabase.from('generation_tasks').insert({
-    script_id: scriptId,
-    task_type: 'CLUES',
-    status: 'completed',
-    params,
-    progress_percent: 100,
-    result_data: { clueCount: json.clues.length },
-    started_at: new Date().toISOString(),
-    completed_at: new Date().toISOString(),
-  });
-
-  if (taskError) console.warn(`Clue task insert failed; continuing: ${taskError.message}`);
+  await updateGenerationTaskResult(taskId, { clueCount: json.clues.length });
 }
 
 async function persistFallbackGenerationResult(
@@ -1132,7 +1195,13 @@ async function persistFallbackGenerationResult(
   phase: string,
   params: ScriptGenerationParams,
   result: unknown,
+  taskId?: string,
 ): Promise<void> {
+  if (taskId) {
+    await updateGenerationTaskResult(taskId, { phase, result });
+    return;
+  }
+
   const supabase = await createGenerationDbClient();
   const { error } = await supabase.from('generation_tasks').insert({
     script_id: scriptId,
@@ -1154,6 +1223,7 @@ async function persistOrganizerManual(
   scriptId: string,
   params: ScriptGenerationParams,
   json: OrganizerManualJson,
+  taskId?: string,
 ): Promise<void> {
   const supabase = await createGenerationDbClient();
   const { error } = await supabase.from('organizer_manuals').upsert(
@@ -1173,30 +1243,20 @@ async function persistOrganizerManual(
       console.warn(
         `organizer_manuals table is missing; storing organizer manual in generation_tasks fallback: ${error.message}`,
       );
-      await persistFallbackGenerationResult(scriptId, 'organizer-manual', params, json);
+      await persistFallbackGenerationResult(scriptId, 'organizer-manual', params, json, taskId);
       return;
     }
     throw new Error(`Organizer manual upsert failed: ${error.message}`);
   }
 
-  const { error: taskError } = await supabase.from('generation_tasks').insert({
-    script_id: scriptId,
-    task_type: 'ORGANIZER_MANUAL',
-    status: 'completed',
-    params,
-    progress_percent: 100,
-    result_data: { openingFlowCount: json.openingFlow.length },
-    started_at: new Date().toISOString(),
-    completed_at: new Date().toISOString(),
-  });
-
-  if (taskError) console.warn(`Organizer manual task insert failed; continuing: ${taskError.message}`);
+  await updateGenerationTaskResult(taskId, { openingFlowCount: json.openingFlow.length });
 }
 
 async function persistTruthReview(
   scriptId: string,
   params: ScriptGenerationParams,
   json: TruthReviewJson,
+  taskId?: string,
 ): Promise<void> {
   const supabase = await createGenerationDbClient();
   const { error } = await supabase.from('truth_reviews').upsert(
@@ -1215,41 +1275,27 @@ async function persistTruthReview(
   if (error) {
     if (isMissingTableError(error)) {
       console.warn(`truth_reviews table is missing; storing truth review in generation_tasks fallback: ${error.message}`);
-      await persistFallbackGenerationResult(scriptId, 'truth-review', params, json);
+      await persistFallbackGenerationResult(scriptId, 'truth-review', params, json, taskId);
       return;
     }
     throw new Error(`Truth review upsert failed: ${error.message}`);
   }
 
-  const { error: taskError } = await supabase.from('generation_tasks').insert({
-    script_id: scriptId,
-    task_type: 'TRUTH_REVIEW',
-    status: 'completed',
-    params,
-    progress_percent: 100,
-    result_data: { characterEndingCount: json.characterEndings.length },
-    started_at: new Date().toISOString(),
-    completed_at: new Date().toISOString(),
-  });
-
-  if (taskError) console.warn(`Truth review task insert failed; continuing: ${taskError.message}`);
+  await updateGenerationTaskResult(taskId, { characterEndingCount: json.characterEndings.length });
 }
 
 /**
- * 持久化 timeline-structure 阶段产出的结构化时间线事件。
- *
- * 字段映射：AI 输出的 characterName 需先查 characters 表转成 character_id；
- * 找不到对应角色则跳过该事件。character_scripts 表缺失（isMissingTableError）
- * 时仅 console.warn 不抛错，保证阶段不因表缺失而失败。
- */
+ * 鎸佷箙鍖?timeline-structure 闃舵浜у嚭鐨勭粨鏋勫寲鏃堕棿绾夸簨浠躲€? *
+ * 瀛楁鏄犲皠锛欰I 杈撳嚭鐨?characterName 闇€鍏堟煡 characters 琛ㄨ浆鎴?character_id锛? * 鎵句笉鍒板搴旇鑹插垯璺宠繃璇ヤ簨浠躲€俢haracter_scripts 琛ㄧ己澶憋紙isMissingTableError锛? * 鏃朵粎 console.warn 涓嶆姏閿欙紝淇濊瘉闃舵涓嶅洜琛ㄧ己澶辫€屽け璐ャ€? */
 async function persistTimelineEvents(
   scriptId: string,
   params: ScriptGenerationParams,
   json: TimelineStructureJson,
+  taskId?: string,
 ): Promise<void> {
   const supabase = await createGenerationDbClient();
 
-  // 1. 查 characters 表，构建 name → id 映射
+  // 1. 鏌?characters 琛紝鏋勫缓 name 鈫?id 鏄犲皠
   const { data: characterRows, error: characterError } = await supabase
     .from('characters')
     .select('id, name')
@@ -1269,7 +1315,7 @@ async function persistTimelineEvents(
     (characterRows ?? []).map((row) => [row.name, row.id]),
   );
 
-  // 2. 删除该 scriptId 的旧 timeline_events 数据
+  // 2. 鍒犻櫎璇?scriptId 鐨勬棫 timeline_events 鏁版嵁
   const { error: deleteError } = await supabase
     .from('timeline_events')
     .delete()
@@ -1284,7 +1330,7 @@ async function persistTimelineEvents(
     throw new Error(`Timeline event cleanup failed: ${deleteError.message}`);
   }
 
-  // 3. 批量 insert（characterName 找不到 id 的事件跳过）
+  // 3. 鎵归噺 insert锛坈haracterName 鎵句笉鍒?id 鐨勪簨浠惰烦杩囷級
   const rowsToInsert = json.events
     .map((event: TimelineStructureEvent, index: number) => {
       const characterId = characterIdByName.get(event.characterName);
@@ -1317,19 +1363,8 @@ async function persistTimelineEvents(
     }
   }
 
-  // 4. 写入 generation_tasks 记录
-  const { error: taskError } = await supabase.from('generation_tasks').insert({
-    script_id: scriptId,
-    task_type: 'TIMELINE_STRUCTURE',
-    status: 'completed',
-    params,
-    progress_percent: 100,
-    result_data: { eventCount: rowsToInsert.length, totalEmitted: json.events.length },
-    started_at: new Date().toISOString(),
-    completed_at: new Date().toISOString(),
-  });
-
-  if (taskError) console.warn(`Timeline structure task insert failed; continuing: ${taskError.message}`);
+  // 4. 鍐欏叆 generation_tasks 璁板綍
+  await updateGenerationTaskResult(taskId, { eventCount: rowsToInsert.length, totalEmitted: json.events.length });
 
   try {
     await illustrationWorkflowService.ensureScriptWorkspace(scriptId);
@@ -1352,7 +1387,7 @@ async function handleCharacterScript(body: GenerateRequestBody): Promise<Respons
         if (!isProviderKeyConfigured(name)) {
           controller.enqueue(
             encodeSse(encoder, 'error', {
-              message: `AI provider ${name} 的 API Key 未配置，请在环境变量中设置`,
+              message: `AI provider ${name} ? API Key ?????????????`,
             }),
           );
           return;
@@ -1366,7 +1401,7 @@ async function handleCharacterScript(body: GenerateRequestBody): Promise<Respons
         const character = getCharacterForScript(body, characterProfiles);
         const specConfig = await getGenerationSpecConfig();
         const partIndex = Math.max(1, body.scriptPartIndex ?? 1);
-        const partLabel = body.scriptPartLabel || '完整玩家剧本';
+        const partLabel = body.scriptPartLabel || '??????';
         const { systemPrompt, userPrompt } = buildCharacterScriptPrompt({
           params,
           storyBible,
@@ -1416,7 +1451,7 @@ async function handleCharacterScript(body: GenerateRequestBody): Promise<Respons
             characterName: character.name,
             actScripts: actStructure.acts.map((act) => ({
               actTitle: act.title,
-              content: `该角色剧本生成内容 JSON 格式异常，已保留流程继续。原始错误：${parseMessage}`,
+              content: `????????? JSON ??????????????????${parseMessage}`,
               scenes: act.scenes.map((scene) => ({
                 title: scene.title,
                 content: scene.content,
@@ -1424,7 +1459,7 @@ async function handleCharacterScript(body: GenerateRequestBody): Promise<Respons
             })),
             personalArc: character.personalTask,
             visibleClueTitles: [],
-            perspectiveNote: `原始模型输出 JSON 格式异常，可重试该角色。错误：${parseMessage}`,
+            perspectiveNote: `?????? JSON ???????????????${parseMessage}`,
           };
         }
 
@@ -1474,7 +1509,7 @@ async function handleClues(body: GenerateRequestBody): Promise<Response> {
     spec: buildGenerationSpec(body.params, specConfig),
   });
   return runJsonPhase<CluesJson>('clues', body.scriptId, systemPrompt, userPrompt, 0.6, (json) =>
-    persistClues(body.scriptId, body.params, json),
+    persistClues(body.scriptId, body.params, json, body.generationTaskId),
   );
 }
 
@@ -1494,7 +1529,7 @@ async function handleOrganizerManual(body: GenerateRequestBody): Promise<Respons
     systemPrompt,
     userPrompt,
     0.5,
-    (json) => persistOrganizerManual(body.scriptId, body.params, json),
+    (json) => persistOrganizerManual(body.scriptId, body.params, json, body.generationTaskId),
   );
 }
 
@@ -1517,14 +1552,12 @@ async function handleTruthReview(body: GenerateRequestBody): Promise<Response> {
     systemPrompt,
     userPrompt,
     0.5,
-    (json) => persistTruthReview(body.scriptId, body.params, json),
+    (json) => persistTruthReview(body.scriptId, body.params, json, body.generationTaskId),
   );
 }
 
 /**
- * 获取 timeline-structure 阶段所需的 timeline_full 文本。
- * 优先用 body.timelineFull；为空则查 truth_reviews 表的 timeline_full 字段。
- */
+ * 鑾峰彇 timeline-structure 闃舵鎵€闇€鐨?timeline_full 鏂囨湰銆? * 浼樺厛鐢?body.timelineFull锛涗负绌哄垯鏌?truth_reviews 琛ㄧ殑 timeline_full 瀛楁銆? */
 async function getTimelineFullForPhase(body: GenerateRequestBody): Promise<string> {
   if (body.timelineFull && body.timelineFull.trim().length > 0) {
     return body.timelineFull;
@@ -1564,14 +1597,13 @@ async function handleTimelineStructure(body: GenerateRequestBody): Promise<Respo
     systemPrompt,
     userPrompt,
     0.4,
-    (json) => persistTimelineEvents(body.scriptId, body.params, json),
+    (json) => persistTimelineEvents(body.scriptId, body.params, json, body.generationTaskId),
   );
 }
 
 /**
  * timeline-structure 阶段的 mock 实现。
- * 从 body.timelineFull 文本按 → / 换行分段，每段生成一个占位事件；
- * 时间用 18:00 起步递增 30 分钟（上限 24:30）；characterName 取 characters[0].name（占位）。
+ * 从 body.timelineFull 拆分段落生成占位事件。
  */
 async function handleTimelineStructureMock(body: GenerateRequestBody): Promise<Response> {
   const { scriptId, params } = body;
@@ -1585,7 +1617,7 @@ async function handleTimelineStructureMock(body: GenerateRequestBody): Promise<R
 
         const supabase = await createGenerationDbClient();
 
-        // 1. 获取 timeline_full 文本（body 优先，回退查 truth_reviews 表）
+        // 1. 获取 timeline_full 文本，body 优先，回退查询 truth_reviews。
         let timelineFull = body.timelineFull ?? '';
         if (!timelineFull.trim()) {
           const { data } = await supabase
@@ -1596,7 +1628,7 @@ async function handleTimelineStructureMock(body: GenerateRequestBody): Promise<R
           timelineFull = (data as { timeline_full: string | null } | null)?.timeline_full ?? '';
         }
 
-        // 2. 获取角色列表（占位用第一个角色）
+        // 2. 获取角色列表，占位使用第一个角色。
         const { data: charRows } = await supabase
           .from('characters')
           .select('name')
@@ -1606,7 +1638,7 @@ async function handleTimelineStructureMock(body: GenerateRequestBody): Promise<R
         const placeholderName =
           charRows?.[0]?.name ?? body.characterProfiles?.characters[0]?.name ?? '角色';
 
-        // 3. 按 → / 换行分段生成事件，时间 18:00 起步递增 30 分钟（上限 24:30）
+        // 3. 按箭头或换行拆分段落，时间从 18:00 起步递增 30 分钟。
         const segments = timelineFull
           .split(/[→\n]/)
           .map((s) => s.trim())
@@ -1630,9 +1662,9 @@ async function handleTimelineStructureMock(body: GenerateRequestBody): Promise<R
 
         const json: TimelineStructureJson = { events };
 
-        // 4. 持久化（容错：表缺失不抛错）
+        // 4. 持久化，表缺失时仅记录警告。
         try {
-          await persistTimelineEvents(scriptId, params, json);
+          await persistTimelineEvents(scriptId, params, json, body.generationTaskId);
         } catch (persistError) {
           const message = persistError instanceof Error ? persistError.message : 'Unknown persist error';
           console.warn(`Timeline structure mock persist failed; continuing: ${message}`);
@@ -1679,7 +1711,7 @@ async function handleStoryBible(body: GenerateRequestBody): Promise<Response> {
 
         if (getGenerationMode() === 'mock') {
           const json = buildMockStoryBible(params);
-          const storyBibleId = await persistStoryBible(scriptId, params, json, startedAt);
+          const storyBibleId = await persistStoryBible(scriptId, params, json, startedAt, body.generationTaskId);
           controller.enqueue(encodeSse(encoder, 'progress', { percent: 100, stage: 'mock' }));
           controller.enqueue(
             encodeSse(encoder, 'completed', {
@@ -1695,7 +1727,7 @@ async function handleStoryBible(body: GenerateRequestBody): Promise<Response> {
         if (!isProviderKeyConfigured(name)) {
           controller.enqueue(
             encodeSse(encoder, 'error', {
-              message: `AI provider ${name} 的 API Key 未配置，请在环境变量中设置`,
+              message: `AI provider ${name} ? API Key ?????????????`,
             }),
           );
           return;
@@ -1729,7 +1761,7 @@ async function handleStoryBible(body: GenerateRequestBody): Promise<Response> {
           return;
         }
 
-        const storyBibleId = await persistStoryBible(scriptId, params, json, startedAt);
+        const storyBibleId = await persistStoryBible(scriptId, params, json, startedAt, body.generationTaskId);
 
         controller.enqueue(
           encodeSse(encoder, 'completed', {
@@ -1826,6 +1858,7 @@ async function wrapMeteredSseResponse(
     scriptId: string;
     amount: number;
     transactionId: string | null;
+    taskId: string | null;
   },
 ): Promise<Response> {
   const quotaService = new QuotaService();
@@ -1851,6 +1884,7 @@ async function wrapMeteredSseResponse(
       const message = error instanceof Error ? error.message : String(error);
       console.warn(`Credit refund failed; continuing response stream: ${message}`);
     }
+    await failGenerationTask(settlement.taskId, failureReason, settlement.amount);
   };
 
   if (!response.body) {
@@ -1875,6 +1909,8 @@ async function wrapMeteredSseResponse(
 
         if (failed || !completed) {
           await refund(failed ? 'sse_error' : 'stream_closed_without_completed');
+        } else {
+          await completeGenerationTask(settlement.taskId);
         }
         controller.close();
       } catch (error) {
@@ -1903,13 +1939,22 @@ async function runMeteredGeneration(
 ): Promise<Response> {
   const userId = await resolveRequestUserId(request);
   if (!userId) {
-    return buildError('未登录或登录态已失效', 401);
+    return buildError('未登录或登录状态已失效', 401);
   }
 
   const quotaService = new QuotaService();
   const charge = await quotaService.consumeGenerationPhase(userId, phase, body.scriptId);
+  let taskId: string | null = null;
 
   try {
+    taskId = await createRunningGenerationTask({
+      scriptId: body.scriptId,
+      phase,
+      params: body.params,
+      chargedCredits: charge.amount,
+    });
+    body.generationTaskId = taskId;
+
     const response = await execute();
     return wrapMeteredSseResponse(response, {
       userId,
@@ -1917,14 +1962,22 @@ async function runMeteredGeneration(
       scriptId: body.scriptId,
       amount: charge.amount,
       transactionId: charge.transactionId,
+      taskId,
     });
   } catch (error) {
-    await quotaService.refundCredits(userId, charge.amount, `生成异常返还：${phase}`, {
-      phase,
-      scriptId: body.scriptId,
-      consumeTransactionId: charge.transactionId,
-      failureReason: error instanceof Error ? error.message : String(error),
-    });
+    const failureReason = error instanceof Error ? error.message : String(error);
+    try {
+      await quotaService.refundCredits(userId, charge.amount, `生成异常返还：${phase}`, {
+        phase,
+        scriptId: body.scriptId,
+        consumeTransactionId: charge.transactionId,
+        failureReason,
+      });
+    } catch (refundError) {
+      const message = refundError instanceof Error ? refundError.message : String(refundError);
+      console.warn(`Credit refund failed after generation exception: ${message}`);
+    }
+    await failGenerationTask(taskId, failureReason, charge.amount);
     throw error;
   }
 }
