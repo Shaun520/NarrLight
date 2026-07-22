@@ -327,14 +327,14 @@ async function handleRequest(request: Request): Promise<Response> {
           return sum + act.content.length + act.scenes.reduce((s, sc) => s + sc.content.length, 0);
         }, 0);
 
-        // b. upsert 到 character_scripts 表（默认写入第 1 份完整角色本）
+        // b. upsert 到 character_scripts 表（默认写入第 1 本完整玩家剧本）
         const { data: upsertedData, error: upsertError } = await supabase
           .from('character_scripts')
           .upsert({
             script_id: scriptId,
             character_id: characterId,
             part_index: 1,
-            part_label: '完整角色本',
+            part_label: '完整玩家剧本',
             act_order: null,
             act_scripts: json.actScripts,
             personal_arc: json.personalArc,

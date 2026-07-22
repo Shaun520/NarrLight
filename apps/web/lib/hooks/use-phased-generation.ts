@@ -154,7 +154,7 @@ function buildCharacterScriptTasks(
     Array.from({ length: scriptsPerPlayer }, (_, index) => {
       const partIndex = index + 1;
       const isPerAct = mode === 'per_act';
-      const scriptPartLabel = isPerAct ? `第${partIndex}幕角色本` : scriptsPerPlayer === 1 ? '完整角色本' : `第${partIndex}份角色本`;
+      const scriptPartLabel = isPerAct ? `第${partIndex}幕玩家剧本` : scriptsPerPlayer === 1 ? '完整玩家剧本' : `第${partIndex}本玩家剧本`;
       return {
         id: `${character.id}:part:${partIndex}`,
         characterId: character.id,

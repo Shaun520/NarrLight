@@ -62,6 +62,10 @@ function optionalHtmlBlock(title: string, value: unknown, actNum = '全本'): st
   return paragraphsFromText(value).length ? htmlBlock(title, value, actNum) : '';
 }
 
+function isFullPlayerScriptLabel(label: string): boolean {
+  return label === '完整玩家剧本' || label === '完整角色本';
+}
+
 async function queryOrThrow<T>(
   query: PromiseLike<{ data: T | null; error: { message: string } | null }>,
   label: string,
@@ -227,9 +231,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ scri
         if (!pages.length) continue;
 
         const partIndex = Number(characterScript.part_index ?? 1) || 1;
-        const partLabel = String(characterScript.part_label ?? '完整角色本');
+        const partLabel = String(characterScript.part_label ?? '完整玩家剧本');
         const nodeId =
-          characterScriptRows.length === 1 && partIndex === 1 && partLabel === '完整角色本'
+          characterScriptRows.length === 1 && partIndex === 1 && isFullPlayerScriptLabel(partLabel)
             ? `char-${character.id}`
             : `char-${character.id}-part-${partIndex}`;
         const name = String(character.name ?? `角色 ${index + 1}`);
@@ -243,7 +247,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ scri
           pages,
         };
         labels[nodeId] =
-          `${name}${character.is_murderer ? '（凶手）' : ''}${partLabel === '完整角色本' ? '' : ` · ${partLabel}`}`;
+          `${name}${character.is_murderer ? '（凶手）' : ''}${isFullPlayerScriptLabel(partLabel) ? '' : ` · ${partLabel}`}`;
         charNodeIds.push(nodeId);
       }
     }

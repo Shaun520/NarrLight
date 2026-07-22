@@ -28,7 +28,7 @@ export interface CharacterNode {
   /** 节点 ID，如 "char-shenmobai" */
   id: string;
   name: string;
-  /** 当前角色本份数标签，如“完整角色本”或“第1幕角色本” */
+  /** 当前玩家剧本标签，如“完整玩家剧本”或“第1幕玩家剧本” */
   partLabel?: string;
   /** 角色身份，如 "死者视角 · 沈家家主" */
   role: string;

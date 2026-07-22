@@ -71,8 +71,8 @@ export function formatGenerationSpec(spec: GenerationSpec): string {
     `- 搜证轮次：全本至少 ${spec.searchRoundCount} 轮`,
     `- 场景数量：全本至少 ${spec.minSceneCount} 个场景`,
     `- 线索数量：全本至少 ${spec.minClueCount} 条线索`,
-    `- 角色剧本数量：每名玩家 ${spec.scriptsPerPlayer} 份，全本共 ${spec.totalCharacterScriptCount} 份`,
-    `- 单角色剧本字数：每个角色合计不少于 ${spec.minCharacterScriptWords} 字，单份不少于 ${spec.minWordsPerCharacterScriptPiece} 字`,
+    `- 玩家剧本配置：每名玩家拿到 ${spec.scriptsPerPlayer} 本，全本共 ${spec.totalCharacterScriptCount} 本`,
+    `- 玩家剧本字数：每名玩家合计不少于 ${spec.minCharacterScriptWords} 字，单本不少于 ${spec.minWordsPerCharacterScriptPiece} 字`,
   ].join("\n");
 }
 

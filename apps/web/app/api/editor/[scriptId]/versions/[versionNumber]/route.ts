@@ -74,6 +74,10 @@ function paragraphsFromText(value: unknown): string[] {
     .filter(Boolean);
 }
 
+function isFullPlayerScriptLabel(label: string): boolean {
+  return label === '完整玩家剧本' || label === '完整角色本';
+}
+
 function htmlBlock(title: string, value: unknown, actNum = '全本'): string {
   return `<h2><span class="act-num">${escapeHtml(actNum)}</span>${escapeHtml(title)}</h2>${paragraphsFromText(
     value,
@@ -214,9 +218,9 @@ function buildSnapshotPreviewData(snapshotData: Record<string, unknown>): {
       if (!pages.length) continue;
 
       const partIndex = Number(characterScript.part_index ?? 1) || 1;
-      const partLabel = String(characterScript.part_label ?? '完整角色本');
+      const partLabel = String(characterScript.part_label ?? '完整玩家剧本');
       const nodeId =
-        characterScriptRows.length === 1 && partIndex === 1 && partLabel === '完整角色本'
+        characterScriptRows.length === 1 && partIndex === 1 && isFullPlayerScriptLabel(partLabel)
           ? `char-${character.id}`
           : `char-${character.id}-part-${partIndex}`;
       const name = String(character.name ?? `角色 ${index + 1}`);
@@ -230,7 +234,7 @@ function buildSnapshotPreviewData(snapshotData: Record<string, unknown>): {
         pages,
       };
       labels[nodeId] =
-        `${name}${character.is_murderer ? '（凶手）' : ''}${partLabel === '完整角色本' ? '' : ` · ${partLabel}`}`;
+        `${name}${character.is_murderer ? '（凶手）' : ''}${isFullPlayerScriptLabel(partLabel) ? '' : ` · ${partLabel}`}`;
       charNodeIds.push(nodeId);
     }
   }

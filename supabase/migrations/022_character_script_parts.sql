@@ -1,6 +1,6 @@
 alter table public.character_scripts
   add column if not exists part_index integer not null default 1,
-  add column if not exists part_label text not null default '完整角色本',
+  add column if not exists part_label text not null default '完整玩家剧本',
   add column if not exists act_order integer;
 
 alter table public.character_scripts

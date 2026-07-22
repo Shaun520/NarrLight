@@ -269,11 +269,11 @@ export function SystemConfigPage({
               </div>
             ))}
 
-            <div className="config-subtitle">角色剧本数量</div>
+            <div className="config-subtitle">玩家剧本配置</div>
             <div className="config-row">
               <div className="config-info">
-                <div className="config-label">角色剧本发放模式</div>
-                <div className="config-desc">控制每个玩家生成一份还是多份角色剧本</div>
+                <div className="config-label">每名玩家剧本生成方式</div>
+                <div className="config-desc">控制每名玩家拿到一本、按幕拿本，还是按自定义数量生成</div>
               </div>
               <select
                 className="select"
@@ -285,15 +285,15 @@ export function SystemConfigPage({
                   }))
                 }
               >
-                <option value="single">每人一份</option>
-                <option value="per_act">按幕发放</option>
-                <option value="custom">自定义份数</option>
+                <option value="single">每名玩家一本</option>
+                <option value="per_act">每幕发一本</option>
+                <option value="custom">自定义每人本数</option>
               </select>
             </div>
             <div className="config-row">
               <div className="config-info">
-                <div className="config-label">自定义每人份数</div>
-                <div className="config-desc">仅在自定义份数模式下使用</div>
+                <div className="config-label">每名玩家剧本数</div>
+                <div className="config-desc">仅在“自定义每人本数”模式下使用</div>
               </div>
               <input
                 className="input config-number-input"

@@ -969,7 +969,7 @@ async function persistCharacterScript(
 
   const wordCount = JSON.stringify(json.actScripts).length;
   const partIndex = Math.max(1, body.scriptPartIndex ?? 1);
-  const partLabel = body.scriptPartLabel || '完整角色本';
+  const partLabel = body.scriptPartLabel || '完整玩家剧本';
   const { error } = await supabase.from('character_scripts').upsert(
     {
       script_id: body.scriptId,
@@ -1310,7 +1310,7 @@ async function handleCharacterScript(body: GenerateRequestBody): Promise<Respons
         const character = getCharacterForScript(body, characterProfiles);
         const specConfig = await getGenerationSpecConfig();
         const partIndex = Math.max(1, body.scriptPartIndex ?? 1);
-        const partLabel = body.scriptPartLabel || '完整角色本';
+        const partLabel = body.scriptPartLabel || '完整玩家剧本';
         const { systemPrompt, userPrompt } = buildCharacterScriptPrompt({
           params,
           storyBible,

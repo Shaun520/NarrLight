@@ -164,9 +164,9 @@ export function buildCharacterScriptUserPrompt(input: CharacterScriptParams): st
   if (spec) {
     lines.push('');
     lines.push('最低字数规格（必须满足）：');
-    lines.push(`- 本角色所有剧本合计不少于 ${spec.minCharacterScriptWords} 字`);
-    lines.push(`- 当前这一份角色剧本不少于 ${spec.minWordsPerCharacterScriptPiece} 字`);
-    lines.push(`- 每名玩家 ${spec.scriptsPerPlayer} 份角色剧本，全本共 ${spec.totalCharacterScriptCount} 份`);
+    lines.push(`- 本玩家所有剧本合计不少于 ${spec.minCharacterScriptWords} 字`);
+    lines.push(`- 当前这一本玩家剧本不少于 ${spec.minWordsPerCharacterScriptPiece} 字`);
+    lines.push(`- 每名玩家 ${spec.scriptsPerPlayer} 本玩家剧本，全本共 ${spec.totalCharacterScriptCount} 本`);
     if (part?.actOrder) {
       lines.push(`- 当前只覆盖第 ${part.actOrder} 幕，并让内容服务于角色视角与搜证推进`);
     } else {
@@ -175,8 +175,8 @@ export function buildCharacterScriptUserPrompt(input: CharacterScriptParams): st
   }
   if (part) {
     lines.push('');
-    lines.push('当前角色剧本份数：');
-    lines.push(`- 当前份数：第 ${part.index} 份（${part.label}）`);
+    lines.push('当前玩家剧本：');
+    lines.push(`- 当前剧本：第 ${part.index} 本（${part.label}）`);
     if (part.actOrder) {
       lines.push(`- 当前只生成第 ${part.actOrder} 幕对应的角色剧本内容`);
     }

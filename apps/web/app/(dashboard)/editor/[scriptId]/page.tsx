@@ -709,7 +709,10 @@ export default function EditorPage({ params }: PageProps) {
         : `加载于 ${ts}`;
     if (currentNode.type === 'character') {
       const c = currentNode as CharacterNode;
-      const part = c.partLabel && c.partLabel !== '完整角色本' ? ` · ${c.partLabel}` : '';
+      const part =
+        c.partLabel && c.partLabel !== '完整玩家剧本' && c.partLabel !== '完整角色本'
+          ? ` · ${c.partLabel}`
+          : '';
       setToolbarLabel(`人物剧本 · ${c.name}${part} · ${status}`);
     } else if (currentNode.type === 'clue-overview') {
       const c = currentNode as ClueOverviewNode;
@@ -897,6 +900,7 @@ export default function EditorPage({ params }: PageProps) {
         currentNode.type === 'character'
           ? `人物剧本 · ${(currentNode as CharacterNode).name}${
               (currentNode as CharacterNode).partLabel &&
+              (currentNode as CharacterNode).partLabel !== '完整玩家剧本' &&
               (currentNode as CharacterNode).partLabel !== '完整角色本'
                 ? ` · ${(currentNode as CharacterNode).partLabel}`
                 : ''

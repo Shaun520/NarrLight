@@ -164,7 +164,7 @@ async function saveCharacterNode(
       script_id: scriptId,
       character_id: parsedNode.characterId,
       part_index: parsedNode.partIndex,
-      part_label: payload.partLabel || (parsedNode.partIndex === 1 ? '完整角色本' : `第${parsedNode.partIndex}份角色本`),
+      part_label: payload.partLabel || (parsedNode.partIndex === 1 ? '完整玩家剧本' : `第${parsedNode.partIndex}本玩家剧本`),
       act_order: null,
       act_scripts: actScripts as unknown as Json,
       personal_arc: payload.plainText,
