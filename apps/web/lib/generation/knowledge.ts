@@ -103,6 +103,7 @@ export function appendKnowledgeToPrompt(userPrompt: string, items: GenerationKno
 export async function recordKnowledgeUsages(
   supabase: SupabaseClient,
   input: {
+    generationTaskId?: string;
     scriptId: string;
     stage: GenerationKnowledgeStage;
     moduleType: string;
@@ -113,6 +114,7 @@ export async function recordKnowledgeUsages(
 
   const { error } = await supabase.from("generation_knowledge_usages").insert(
     input.items.map((item) => ({
+      generation_task_id: input.generationTaskId ?? null,
       script_id: input.scriptId,
       knowledge_item_id: item.id,
       stage: input.stage,
@@ -149,6 +151,7 @@ export function assessNovelizationRisk(content: unknown) {
 export async function recordQualityReport(
   supabase: SupabaseClient,
   input: {
+    generationTaskId?: string;
     scriptId: string;
     stage: GenerationKnowledgeStage;
     moduleType: string;
@@ -157,6 +160,7 @@ export async function recordQualityReport(
 ) {
   const report = assessNovelizationRisk(input.content);
   const { error } = await supabase.from("generation_quality_reports").insert({
+    generation_task_id: input.generationTaskId ?? null,
     script_id: input.scriptId,
     stage: input.stage,
     module_type: input.moduleType,

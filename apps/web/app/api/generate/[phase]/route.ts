@@ -41,7 +41,16 @@ import {
   QuotaService,
   type GenerationCreditPhase,
 } from '@/lib/services/quota-service';
+import { ApiError } from '@/lib/api/response';
 import { buildGenerationSpec } from '@/lib/generation/spec';
+import {
+  appendKnowledgeToPrompt,
+  recordKnowledgeUsages,
+  recordQualityReport,
+  retrieveStageKnowledge,
+  type GenerationKnowledgeItem,
+  type GenerationKnowledgeStage,
+} from '@/lib/generation/knowledge';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createClient as createServerSupabaseClient } from '@/lib/supabase/server';
 
@@ -102,6 +111,13 @@ function buildError(message: string, status = 500): Response {
   return Response.json({ error: message }, { status });
 }
 
+function buildApiError(error: unknown): Response {
+  if (error instanceof ApiError) {
+    return Response.json({ error: error.message, code: error.code }, { status: error.statusCode });
+  }
+  throw error;
+}
+
 function getGenerationMode(): GenerationMode {
   if (GENERATION_MODE === 'real') return 'real';
   if (GENERATION_MODE === 'mock') return 'mock';
@@ -117,6 +133,48 @@ function generationMeta(providerName?: string, modelName?: string) {
     provider: mode === 'real' ? providerName ?? 'configured' : 'local',
     model: mode === 'real' ? modelName ?? 'configured' : 'mock',
   };
+}
+
+async function prepareKnowledgePrompt(input: {
+  stage: GenerationKnowledgeStage;
+  params: ScriptGenerationParams;
+  userPrompt: string;
+}) {
+  const supabase = await createGenerationDbClient();
+  const items = await retrieveStageKnowledge(supabase, {
+    stage: input.stage,
+    params: input.params,
+  });
+  return {
+    supabase,
+    items,
+    userPrompt: appendKnowledgeToPrompt(input.userPrompt, items),
+  };
+}
+
+async function recordKnowledgePhase(input: {
+  supabase: Awaited<ReturnType<typeof createGenerationDbClient>>;
+  generationTaskId?: string;
+  scriptId: string;
+  stage: GenerationKnowledgeStage;
+  moduleType: string;
+  items: GenerationKnowledgeItem[];
+  content: unknown;
+}) {
+  await recordKnowledgeUsages(input.supabase, {
+    generationTaskId: input.generationTaskId,
+    scriptId: input.scriptId,
+    stage: input.stage,
+    moduleType: input.moduleType,
+    items: input.items,
+  });
+  await recordQualityReport(input.supabase, {
+    generationTaskId: input.generationTaskId,
+    scriptId: input.scriptId,
+    stage: input.stage,
+    moduleType: input.moduleType,
+    content: input.content,
+  });
 }
 
 function phaseToTaskType(phase: string): string {
@@ -988,7 +1046,17 @@ async function handleCharacterProfiles(body: GenerateRequestBody): Promise<Respo
         }
 
         const storyBible = await getStoryBibleForPhase(body);
-        const { systemPrompt, userPrompt } = buildCharacterProfilesPrompt({ params, storyBible });
+        const characterPrompt = buildCharacterProfilesPrompt({ params, storyBible });
+        const {
+          supabase: knowledgeSupabase,
+          items: knowledgeItems,
+          userPrompt,
+        } = await prepareKnowledgePrompt({
+          stage: 'characters',
+          params,
+          userPrompt: characterPrompt.userPrompt,
+        });
+        const systemPrompt = characterPrompt.systemPrompt;
 
         controller.enqueue(encodeSse(encoder, 'start', { scriptId, stage: 'character-profiles-init', ...generationMeta(name, runtime.model) }));
         for await (const chunk of provider.generateStream({
@@ -1015,6 +1083,15 @@ async function handleCharacterProfiles(body: GenerateRequestBody): Promise<Respo
         }
 
         await persistCharacterProfiles(scriptId, params, json, body.generationTaskId);
+        await recordKnowledgePhase({
+          supabase: knowledgeSupabase,
+          generationTaskId: body.generationTaskId,
+          scriptId,
+          stage: 'characters',
+          moduleType: 'characters',
+          items: knowledgeItems,
+          content: json,
+        });
         controller.enqueue(
           encodeSse(encoder, 'completed', {
             scriptId,
@@ -1062,11 +1139,21 @@ async function handleActStructure(body: GenerateRequestBody): Promise<Response> 
         const storyBible = await getStoryBibleForPhase(body);
         const specConfig = await getGenerationSpecConfig();
         const spec = buildGenerationSpec(params, specConfig);
-        const { systemPrompt, userPrompt } = buildActStructurePrompt({
+        const actPrompt = buildActStructurePrompt({
           params,
           storyBible,
           spec,
         });
+        const {
+          supabase: knowledgeSupabase,
+          items: knowledgeItems,
+          userPrompt,
+        } = await prepareKnowledgePrompt({
+          stage: 'acts',
+          params,
+          userPrompt: actPrompt.userPrompt,
+        });
+        const systemPrompt = actPrompt.systemPrompt;
 
         controller.enqueue(encodeSse(encoder, 'start', { scriptId, stage: 'act-structure-init', ...generationMeta(name, runtime.model) }));
         for await (const chunk of provider.generateStream({
@@ -1093,6 +1180,15 @@ async function handleActStructure(body: GenerateRequestBody): Promise<Response> 
         }
 
         const sceneCount = await persistActStructure(scriptId, params, json, body.generationTaskId, spec);
+        await recordKnowledgePhase({
+          supabase: knowledgeSupabase,
+          generationTaskId: body.generationTaskId,
+          scriptId,
+          stage: 'acts',
+          moduleType: 'acts',
+          items: knowledgeItems,
+          content: json,
+        });
         const result = { ...json, generationSpec: spec };
         controller.enqueue(
           encodeSse(encoder, 'completed', {
@@ -1716,7 +1812,7 @@ async function handleCharacterScript(body: GenerateRequestBody): Promise<Respons
         const spec = buildGenerationSpec(params, specConfig);
         const partIndex = Math.max(1, body.scriptPartIndex ?? 1);
         const partLabel = body.scriptPartLabel || '完整玩家剧本';
-        const { systemPrompt, userPrompt } = buildCharacterScriptPrompt({
+        const characterScriptPrompt = buildCharacterScriptPrompt({
           params,
           storyBible,
           character,
@@ -1728,6 +1824,16 @@ async function handleCharacterScript(body: GenerateRequestBody): Promise<Respons
             actOrder: body.actOrder,
           },
         });
+        const {
+          supabase: knowledgeSupabase,
+          items: knowledgeItems,
+          userPrompt,
+        } = await prepareKnowledgePrompt({
+          stage: 'player_script',
+          params,
+          userPrompt: characterScriptPrompt.userPrompt,
+        });
+        const systemPrompt = characterScriptPrompt.systemPrompt;
 
         controller.enqueue(
           encodeSse(encoder, 'start', {
@@ -1813,6 +1919,15 @@ async function handleCharacterScript(body: GenerateRequestBody): Promise<Respons
         }
 
         await persistCharacterScript(body, character, json);
+        await recordKnowledgePhase({
+          supabase: knowledgeSupabase,
+          generationTaskId: body.generationTaskId,
+          scriptId,
+          stage: 'player_script',
+          moduleType: 'player_script',
+          items: knowledgeItems,
+          content: json,
+        });
         controller.enqueue(
           encodeSse(encoder, 'completed', {
             scriptId,
@@ -1846,14 +1961,34 @@ async function handleClues(body: GenerateRequestBody): Promise<Response> {
     getActStructureForPhase(body),
   ]);
   const specConfig = await getGenerationSpecConfig();
-  const { systemPrompt, userPrompt } = buildCluesPrompt({
+  const cluesPrompt = buildCluesPrompt({
     params: body.params,
     storyBible,
     actStructure,
     spec: buildGenerationSpec(body.params, specConfig),
   });
+  const {
+    supabase: knowledgeSupabase,
+    items: knowledgeItems,
+    userPrompt,
+  } = await prepareKnowledgePrompt({
+    stage: 'clues',
+    params: body.params,
+    userPrompt: cluesPrompt.userPrompt,
+  });
+  const systemPrompt = cluesPrompt.systemPrompt;
   return runJsonPhase<CluesJson>('clues', body.scriptId, systemPrompt, userPrompt, 0.6, (json) =>
-    persistClues(body.scriptId, body.params, json, body.generationTaskId),
+    persistClues(body.scriptId, body.params, json, body.generationTaskId).then(() =>
+      recordKnowledgePhase({
+        supabase: knowledgeSupabase,
+        generationTaskId: body.generationTaskId,
+        scriptId: body.scriptId,
+        stage: 'clues',
+        moduleType: 'clues',
+        items: knowledgeItems,
+        content: json,
+      }),
+    ),
   );
 }
 
@@ -1862,18 +1997,38 @@ async function handleOrganizerManual(body: GenerateRequestBody): Promise<Respons
     getStoryBibleForPhase(body),
     getActStructureForPhase(body),
   ]);
-  const { systemPrompt, userPrompt } = buildOrganizerManualPrompt({
+  const manualPrompt = buildOrganizerManualPrompt({
     params: body.params,
     storyBible,
     actStructure,
   });
+  const {
+    supabase: knowledgeSupabase,
+    items: knowledgeItems,
+    userPrompt,
+  } = await prepareKnowledgePrompt({
+    stage: 'dm_manual',
+    params: body.params,
+    userPrompt: manualPrompt.userPrompt,
+  });
+  const systemPrompt = manualPrompt.systemPrompt;
   return runJsonPhase<OrganizerManualJson>(
     'organizer-manual',
     body.scriptId,
     systemPrompt,
     userPrompt,
     0.5,
-    (json) => persistOrganizerManual(body.scriptId, body.params, json, body.generationTaskId),
+    (json) => persistOrganizerManual(body.scriptId, body.params, json, body.generationTaskId).then(() =>
+      recordKnowledgePhase({
+        supabase: knowledgeSupabase,
+        generationTaskId: body.generationTaskId,
+        scriptId: body.scriptId,
+        stage: 'dm_manual',
+        moduleType: 'dm_manual',
+        items: knowledgeItems,
+        content: json,
+      }),
+    ),
   );
 }
 
@@ -1884,20 +2039,40 @@ async function handleTruthReview(body: GenerateRequestBody): Promise<Response> {
     getCharacterScriptsForPhase(body),
     getCluesForPhase(body),
   ]);
-  const { systemPrompt, userPrompt } = buildTruthReviewPrompt({
+  const reviewPrompt = buildTruthReviewPrompt({
     params: body.params,
     storyBible,
     actStructure,
     characterScripts,
     clues,
   });
+  const {
+    supabase: knowledgeSupabase,
+    items: knowledgeItems,
+    userPrompt,
+  } = await prepareKnowledgePrompt({
+    stage: 'review',
+    params: body.params,
+    userPrompt: reviewPrompt.userPrompt,
+  });
+  const systemPrompt = reviewPrompt.systemPrompt;
   return runJsonPhase<TruthReviewJson>(
     'truth-review',
     body.scriptId,
     systemPrompt,
     userPrompt,
     0.5,
-    (json) => persistTruthReview(body.scriptId, body.params, json, body.generationTaskId),
+    (json) => persistTruthReview(body.scriptId, body.params, json, body.generationTaskId).then(() =>
+      recordKnowledgePhase({
+        supabase: knowledgeSupabase,
+        generationTaskId: body.generationTaskId,
+        scriptId: body.scriptId,
+        stage: 'review',
+        moduleType: 'truth_review',
+        items: knowledgeItems,
+        content: json,
+      }),
+    ),
   );
 }
 
@@ -2043,7 +2218,17 @@ async function handleTimelineStructureMock(body: GenerateRequestBody): Promise<R
 
 async function handleStoryBible(body: GenerateRequestBody): Promise<Response> {
   const { scriptId, params } = body;
-  const { systemPrompt, userPrompt } = buildStoryBiblePrompt(params);
+  const storyBiblePrompt = buildStoryBiblePrompt(params);
+  const {
+    supabase: knowledgeSupabase,
+    items: knowledgeItems,
+    userPrompt,
+  } = await prepareKnowledgePrompt({
+    stage: 'case_core',
+    params,
+    userPrompt: storyBiblePrompt.userPrompt,
+  });
+  const systemPrompt = storyBiblePrompt.systemPrompt;
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -2056,6 +2241,15 @@ async function handleStoryBible(body: GenerateRequestBody): Promise<Response> {
           controller.enqueue(encodeSse(encoder, 'start', { scriptId, stage: 'story-bible-init', ...generationMeta() }));
           const json = buildMockStoryBible(params);
           const storyBibleId = await persistStoryBible(scriptId, params, json, startedAt, body.generationTaskId);
+          await recordKnowledgePhase({
+            supabase: knowledgeSupabase,
+            generationTaskId: body.generationTaskId,
+            scriptId,
+            stage: 'case_core',
+            moduleType: 'case_core',
+            items: knowledgeItems,
+            content: json,
+          });
           controller.enqueue(encodeSse(encoder, 'progress', { percent: 100, stage: 'mock' }));
           controller.enqueue(
             encodeSse(encoder, 'completed', {
@@ -2108,6 +2302,15 @@ async function handleStoryBible(body: GenerateRequestBody): Promise<Response> {
         }
 
         const storyBibleId = await persistStoryBible(scriptId, params, json, startedAt, body.generationTaskId);
+        await recordKnowledgePhase({
+          supabase: knowledgeSupabase,
+          generationTaskId: body.generationTaskId,
+          scriptId,
+          stage: 'case_core',
+          moduleType: 'case_core',
+          items: knowledgeItems,
+          content: json,
+        });
 
         controller.enqueue(
           encodeSse(encoder, 'completed', {
@@ -2284,7 +2487,12 @@ async function runMeteredGeneration(
   const userId = user.id;
 
   const quotaService = new QuotaService();
-  const charge = await quotaService.consumeGenerationPhase(userId, phase, body.scriptId);
+  let charge: { amount: number; transactionId: string | null };
+  try {
+    charge = await quotaService.consumeGenerationPhase(userId, phase, body.scriptId);
+  } catch (error) {
+    return buildApiError(error);
+  }
   let taskId: string | null = null;
 
   try {

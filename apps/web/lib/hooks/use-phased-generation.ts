@@ -539,7 +539,7 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
     async (
       task: CharacterScriptTask,
       params: ScriptGenerationParams,
-    ): Promise<void> => {
+    ): Promise<boolean> => {
       // 閺嶅洩顔囩€涙劙銆嶆稉?running
       setState((prev) =>
         updateSubItem(prev, 'character_script', task.id, {
@@ -573,9 +573,17 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
       const controller = new AbortController();
       const unregisterAbortController = registerAbortController(controller);
 
-      return new Promise<void>((resolve) => {
+      return new Promise<boolean>((resolve) => {
         let subTaskCompleted = false;
         let subTaskFailed = false;
+        let settled = false;
+
+        const finish = (success: boolean) => {
+          if (settled) return;
+          settled = true;
+          unregisterAbortController();
+          resolve(success);
+        };
 
         createSSEClient({
           url,
@@ -641,9 +649,9 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
                 error: err.message,
               }),
             );
+            finish(false);
           },
           onClose: () => {
-            unregisterAbortController();
             if (controller.signal.aborted) {
               setState((prev) =>
                 updateSubItem(prev, 'character_script', task.id, {
@@ -651,6 +659,7 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
                   error: '用户中断',
                 }),
               );
+              finish(false);
             } else if (!subTaskCompleted && !subTaskFailed) {
               setState((prev) =>
                 updateSubItem(prev, 'character_script', task.id, {
@@ -658,9 +667,10 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
                   error: '流意外关闭',
                 }),
               );
+              finish(false);
+            } else {
+              finish(subTaskCompleted && !subTaskFailed);
             }
-            // 瀛愪换鍔″缁?resolve锛屼笉闃绘柇鍚屾壒娆″叾浠栬鑹?
-            resolve();
           },
         });
       });
@@ -692,21 +702,27 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
 
       for (let i = 0; i < tasks.length; i += CHARACTER_SCRIPT_CONCURRENCY) {
         const batch = tasks.slice(i, i + CHARACTER_SCRIPT_CONCURRENCY);
-        await Promise.all(
+        const results = await Promise.all(
           batch.map((task) => runCharacterScriptSubTask(task, params)),
         );
+        if (results.some((success) => !success)) {
+          setState((prev) =>
+            updatePhase(prev, 'character_script', {
+              status: 'failed',
+              percent: 100,
+            }),
+          );
+          throw new Error('玩家剧本生成未全部完成');
+        }
       }
 
       // 閸忋劑鍎寸€瑰本鍨氶崥搴㈢垼鐠佷即妯佸▓闈涚暚閹?/ 婢惰精瑙?
-      setState((prev) => {
-        const allCompleted = prev.phases.character_script.subItems?.every(
-          (s) => s.status === 'completed',
-        );
-        return updatePhase(prev, 'character_script', {
-          status: allCompleted ? 'completed' : 'failed',
+      setState((prev) =>
+        updatePhase(prev, 'character_script', {
+          status: 'completed',
           percent: 100,
-        });
-      });
+        }),
+      );
     },
     [runCharacterScriptSubTask],
   );

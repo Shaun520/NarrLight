@@ -6,7 +6,6 @@ import {
   type KnowledgeCategory,
   type KnowledgeStage,
 } from "@narrlight/shared";
-import { JsonPreview } from "@/components/json-preview";
 import { PageHeader, Tag } from "@/components/admin-static";
 import { getKnowledgeItem, getKnowledgeItems, getKnowledgeUsageSnapshot } from "@/lib/services/knowledge";
 import { deleteKnowledgeItem, saveKnowledgeItem, toggleKnowledgeItem } from "./actions";
@@ -153,9 +152,12 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
             <thead>
               <tr>
                 <th>类型</th>
+                <th>创作者</th>
+                <th>剧本</th>
+                <th>任务</th>
                 <th>阶段</th>
                 <th>模块</th>
-                <th>内容</th>
+                <th>内容 / 质检</th>
                 <th>时间</th>
               </tr>
             </thead>
@@ -163,6 +165,12 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
               {usageSnapshot.usages.map((usage) => (
                 <tr key={`usage-${usage.id}`}>
                   <td><Tag tone="info">引用</Tag></td>
+                  <td>
+                    <b>{usage.creatorName}</b>
+                    {usage.creatorEmail && <div className="placeholder-meta">{usage.creatorEmail}</div>}
+                  </td>
+                  <td>{usage.scriptId ? <Link className="link-btn" href={`/scripts?scriptId=${usage.scriptId}`}>{usage.scriptTitle}</Link> : usage.scriptTitle}</td>
+                  <td>{usage.generationTaskId ? <Link className="link-btn" href={`/tasks/generation?taskId=${usage.generationTaskId}`}>{usage.taskType ?? "生成任务"}</Link> : "未记录"}</td>
                   <td>{stageLabel(usage.stage)}</td>
                   <td>{moduleTypeLabel(usage.moduleType)}</td>
                   <td>{usage.knowledgeTitle} / {usage.usageReason || "阶段规则引用"}</td>
@@ -172,15 +180,28 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
               {usageSnapshot.reports.map((report) => (
                 <tr key={`report-${report.id}`}>
                   <td><Tag tone={report.rewriteRequired ? "warning" : "success"}>质检</Tag></td>
+                  <td>
+                    <b>{report.creatorName}</b>
+                    {report.creatorEmail && <div className="placeholder-meta">{report.creatorEmail}</div>}
+                  </td>
+                  <td>{report.scriptId ? <Link className="link-btn" href={`/scripts?scriptId=${report.scriptId}`}>{report.scriptTitle}</Link> : report.scriptTitle}</td>
+                  <td>{report.generationTaskId ? <Link className="link-btn" href={`/tasks/generation?taskId=${report.generationTaskId}`}>{report.taskType ?? "生成任务"}</Link> : "未记录"}</td>
                   <td>{stageLabel(report.stage)}</td>
                   <td>{moduleTypeLabel(report.moduleType)}</td>
-                  <td>分数 {report.score} / {report.riskLevel}<JsonPreview value={report.issues} /></td>
+                  <td>
+                    <div className="quality-summary">
+                      {riskTag(report.riskLevel)}
+                      <span>分数 {report.score}</span>
+                      <span>{report.rewriteRequired ? "建议重写" : "无需重写"}</span>
+                    </div>
+                    <div className="placeholder-meta">{issueSummary(report.issues)}</div>
+                  </td>
                   <td>{formatDateTime(report.createdAt)}</td>
                 </tr>
               ))}
               {usageSnapshot.usages.length === 0 && usageSnapshot.reports.length === 0 && (
                 <tr>
-                  <td className="table-empty" colSpan={5}>暂无引用或质检记录</td>
+                  <td className="table-empty" colSpan={8}>暂无引用或质检记录</td>
                 </tr>
               )}
             </tbody>
@@ -315,6 +336,28 @@ function moduleTypeLabel(moduleType: string) {
     quality_check: "质检规则",
   };
   return labels[moduleType] ?? moduleType;
+}
+
+function riskTag(riskLevel: string) {
+  const labels: Record<string, string> = {
+    low: "低风险",
+    medium: "中风险",
+    high: "高风险",
+  };
+  const tone = riskLevel === "high" ? "error" : riskLevel === "medium" ? "warning" : "success";
+  return <Tag tone={tone}>{labels[riskLevel] ?? riskLevel}</Tag>;
+}
+
+function issueSummary(issues: unknown) {
+  if (!Array.isArray(issues) || issues.length === 0) return "未发现明显小说化问题";
+  return issues
+    .map((issue) => {
+      if (!issue || typeof issue !== "object") return "";
+      const message = "message" in issue ? issue.message : "";
+      return typeof message === "string" ? message : "";
+    })
+    .filter(Boolean)
+    .join("；") || "存在风险项，请查看原始质检数据";
 }
 
 function formatDateTime(value: string) {

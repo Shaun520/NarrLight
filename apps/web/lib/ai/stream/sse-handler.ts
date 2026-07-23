@@ -134,9 +134,7 @@ export function createSSEClient(
       });
 
       if (!response.ok) {
-        throw new Error(
-          `SSE request failed: ${response.status} ${response.statusText}`,
-        );
+        throw new Error(await readErrorMessage(response));
       }
 
       if (!response.body) {
@@ -179,6 +177,7 @@ export function createSSEClient(
       options.onError?.(
         error instanceof Error ? error : new Error(String(error)),
       );
+      options.onClose?.();
     }
   })();
 
@@ -189,6 +188,26 @@ export function createSSEClient(
       }
     },
   };
+}
+
+async function readErrorMessage(response: Response): Promise<string> {
+  const fallback = `SSE request failed: ${response.status} ${response.statusText}`;
+  const text = await response.text().catch(() => "");
+  if (!text) return fallback;
+
+  try {
+    const parsed = JSON.parse(text) as {
+      error?: string | { message?: string };
+      message?: string;
+    };
+    if (typeof parsed.error === "string") return parsed.error;
+    if (parsed.error?.message) return parsed.error.message;
+    if (parsed.message) return parsed.message;
+  } catch {
+    return text;
+  }
+
+  return fallback;
 }
 
 /**

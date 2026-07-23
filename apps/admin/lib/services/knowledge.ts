@@ -23,7 +23,12 @@ export type KnowledgeItemRow = {
 
 export type KnowledgeUsageRow = {
   id: string;
+  generationTaskId: string | null;
   scriptId: string | null;
+  scriptTitle: string;
+  creatorName: string;
+  creatorEmail: string;
+  taskType: string | null;
   knowledgeItemId: string;
   knowledgeTitle: string;
   stage: string;
@@ -34,7 +39,12 @@ export type KnowledgeUsageRow = {
 
 export type QualityReportRow = {
   id: string;
+  generationTaskId: string | null;
   scriptId: string | null;
+  scriptTitle: string;
+  creatorName: string;
+  creatorEmail: string;
+  taskType: string | null;
   stage: string;
   moduleType: string;
   score: number;
@@ -71,6 +81,7 @@ type KnowledgeRecord = {
 
 type UsageRecord = {
   id: string;
+  generation_task_id: string | null;
   script_id: string | null;
   knowledge_item_id: string;
   stage: string;
@@ -82,6 +93,7 @@ type UsageRecord = {
 
 type QualityRecord = {
   id: string;
+  generation_task_id: string | null;
   script_id: string | null;
   stage: string;
   module_type: string;
@@ -90,6 +102,23 @@ type QualityRecord = {
   rewrite_required: boolean;
   issues: unknown;
   created_at: string;
+};
+
+type ScriptContext = {
+  id: string;
+  title: string;
+  author_id: string | null;
+};
+
+type UserContext = {
+  id: string;
+  email: string;
+  nickname: string | null;
+};
+
+type TaskContext = {
+  id: string;
+  task_type: string | null;
 };
 
 export async function getKnowledgeItems(filters: KnowledgeFilters) {
@@ -129,13 +158,13 @@ export async function getKnowledgeUsageSnapshot() {
   const [usageResult, reportResult] = await Promise.all([
     supabase
       .from("generation_knowledge_usages")
-      .select("id,script_id,knowledge_item_id,stage,module_type,usage_reason,created_at,knowledge_items(title)")
+      .select("id,generation_task_id,script_id,knowledge_item_id,stage,module_type,usage_reason,created_at,knowledge_items(title)")
       .order("created_at", { ascending: false })
       .limit(30)
       .returns<UsageRecord[]>(),
     supabase
       .from("generation_quality_reports")
-      .select("id,script_id,stage,module_type,score,risk_level,rewrite_required,issues,created_at")
+      .select("id,generation_task_id,script_id,stage,module_type,score,risk_level,rewrite_required,issues,created_at")
       .order("created_at", { ascending: false })
       .limit(30)
       .returns<QualityRecord[]>(),
@@ -144,30 +173,95 @@ export async function getKnowledgeUsageSnapshot() {
   if (usageResult.error) return { usages: [], reports: [], error: `读取知识引用失败：${usageResult.error.message}` };
   if (reportResult.error) return { usages: [], reports: [], error: `读取质检报告失败：${reportResult.error.message}` };
 
+  const usageRows = usageResult.data ?? [];
+  const reportRows = reportResult.data ?? [];
+  const scriptIds = uniqueStrings([...usageRows, ...reportRows].map((row) => row.script_id));
+  const taskIds = uniqueStrings([...usageRows, ...reportRows].map((row) => row.generation_task_id));
+  const scriptMap = await getScriptContextMap(scriptIds);
+  const userMap = await getUserContextMap(uniqueStrings(Array.from(scriptMap.values()).map((script) => script.author_id)));
+  const taskMap = await getTaskContextMap(taskIds);
+
   return {
-    usages: (usageResult.data ?? []).map((row) => ({
-      id: row.id,
-      scriptId: row.script_id,
-      knowledgeItemId: row.knowledge_item_id,
-      knowledgeTitle: row.knowledge_items?.title ?? row.knowledge_item_id.slice(0, 8),
-      stage: row.stage,
-      moduleType: row.module_type,
-      usageReason: row.usage_reason,
-      createdAt: row.created_at,
-    })),
-    reports: (reportResult.data ?? []).map((row) => ({
-      id: row.id,
-      scriptId: row.script_id,
-      stage: row.stage,
-      moduleType: row.module_type,
-      score: row.score,
-      riskLevel: row.risk_level,
-      rewriteRequired: row.rewrite_required,
-      issues: row.issues,
-      createdAt: row.created_at,
-    })),
+    usages: usageRows.map((row) => {
+      const script = row.script_id ? scriptMap.get(row.script_id) : undefined;
+      const creator = script?.author_id ? userMap.get(script.author_id) : undefined;
+      const task = row.generation_task_id ? taskMap.get(row.generation_task_id) : undefined;
+      return {
+        id: row.id,
+        generationTaskId: row.generation_task_id,
+        scriptId: row.script_id,
+        scriptTitle: script?.title ?? "未知剧本",
+        creatorName: creator?.nickname || creator?.email || "未知创作者",
+        creatorEmail: creator?.email ?? "",
+        taskType: task?.task_type ?? null,
+        knowledgeItemId: row.knowledge_item_id,
+        knowledgeTitle: row.knowledge_items?.title ?? row.knowledge_item_id.slice(0, 8),
+        stage: row.stage,
+        moduleType: row.module_type,
+        usageReason: row.usage_reason,
+        createdAt: row.created_at,
+      };
+    }),
+    reports: reportRows.map((row) => {
+      const script = row.script_id ? scriptMap.get(row.script_id) : undefined;
+      const creator = script?.author_id ? userMap.get(script.author_id) : undefined;
+      const task = row.generation_task_id ? taskMap.get(row.generation_task_id) : undefined;
+      return {
+        id: row.id,
+        generationTaskId: row.generation_task_id,
+        scriptId: row.script_id,
+        scriptTitle: script?.title ?? "未知剧本",
+        creatorName: creator?.nickname || creator?.email || "未知创作者",
+        creatorEmail: creator?.email ?? "",
+        taskType: task?.task_type ?? null,
+        stage: row.stage,
+        moduleType: row.module_type,
+        score: row.score,
+        riskLevel: row.risk_level,
+        rewriteRequired: row.rewrite_required,
+        issues: row.issues,
+        createdAt: row.created_at,
+      };
+    }),
     error: undefined,
   };
+}
+
+async function getScriptContextMap(scriptIds: string[]) {
+  const supabase = createAdminSupabaseClient();
+  if (!supabase || scriptIds.length === 0) return new Map<string, ScriptContext>();
+  const { data } = await supabase
+    .from("scripts")
+    .select("id,title,author_id")
+    .in("id", scriptIds)
+    .returns<ScriptContext[]>();
+  return new Map((data ?? []).map((script) => [script.id, script]));
+}
+
+async function getUserContextMap(userIds: string[]) {
+  const supabase = createAdminSupabaseClient();
+  if (!supabase || userIds.length === 0) return new Map<string, UserContext>();
+  const { data } = await supabase
+    .from("users")
+    .select("id,email,nickname")
+    .in("id", userIds)
+    .returns<UserContext[]>();
+  return new Map((data ?? []).map((user) => [user.id, user]));
+}
+
+async function getTaskContextMap(taskIds: string[]) {
+  const supabase = createAdminSupabaseClient();
+  if (!supabase || taskIds.length === 0) return new Map<string, TaskContext>();
+  const { data } = await supabase
+    .from("generation_tasks")
+    .select("id,task_type")
+    .in("id", taskIds)
+    .returns<TaskContext[]>();
+  return new Map((data ?? []).map((task) => [task.id, task]));
+}
+
+function uniqueStrings(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
 }
 
 function mapKnowledgeItem(row: KnowledgeRecord): KnowledgeItemRow {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminUserBanAction } from "@/components/admin-user-ban-action";
+import { AdminUserCreditAction } from "@/components/admin-user-credit-action";
 import { DetailPreview, PageHeader, Tag, UserCell } from "@/components/admin-static";
 import { getAdminUsers, type AdminUserRow } from "@/lib/services/users";
 
@@ -93,9 +94,9 @@ export default async function UsersPage({
                         <Link className="link-btn" href={buildUserHref(filters, user.id)}>
                           详情
                         </Link>
-                        <button className="link-btn" type="button" disabled title="接入审计日志后开放">
-                          配额
-                        </button>
+                        <Link className="link-btn" href={buildUserHref(filters, user.id)}>
+                          创作点
+                        </Link>
                         <AdminUserBanAction
                           isBanned={user.isBanned}
                           returnTo={buildUserHref(filters, user.id)}
@@ -152,6 +153,15 @@ function UserDetail({ user, returnTo }: { user: AdminUserRow | null; returnTo: s
         ["免费配额", quotaText(user)],
         ["创作点余额", creditText(user)],
         ["月度赠送", user.monthlyGrant === null ? "未初始化" : `${user.monthlyGrant} 点`],
+        [
+          "创作点调整",
+          <AdminUserCreditAction
+            currentBalance={user.creditBalance}
+            key="credit-action"
+            returnTo={returnTo}
+            userId={user.id}
+          />,
+        ],
         ["剧本数量", `${user.scriptCount} 个`],
         ["状态", user.isBanned ? <Tag tone="error" key="status">已封禁</Tag> : <Tag tone="success" key="status">正常</Tag>],
         ["封禁时间", user.bannedAt ? formatDateTime(user.bannedAt) : "—"],

@@ -220,6 +220,13 @@ a {
   gap: 12px;
 }
 
+.quality-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .knowledge-modal {
   width: min(720px, 100%);
 }
@@ -1152,6 +1159,27 @@ a {
 
 .link-btn.danger:disabled {
   color: var(--admin-text-tertiary);
+}
+
+.user-credit-form {
+  display: grid;
+  gap: 10px;
+  min-width: 220px;
+}
+
+.user-credit-current {
+  color: var(--admin-text-secondary);
+  font-size: 13px;
+}
+
+.user-credit-grid {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.8fr) minmax(120px, 1fr);
+  gap: 8px;
+}
+
+.user-credit-submit {
+  width: max-content;
 }
 
 .user-cell {
