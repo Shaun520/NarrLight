@@ -149,6 +149,92 @@ a {
   flex-shrink: 0;
 }
 
+.config-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-text);
+  font-size: 14px;
+}
+
+.knowledge-form {
+  display: grid;
+  gap: 12px;
+}
+
+.knowledge-field {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  color: var(--admin-text-secondary);
+  font-size: 12px;
+}
+
+.knowledge-field .input,
+.knowledge-field .select,
+.knowledge-field .textarea {
+  width: 100%;
+}
+
+.knowledge-field-full {
+  grid-column: 1 / -1;
+}
+
+.knowledge-content-input {
+  min-height: 132px;
+  line-height: 1.6;
+}
+
+.knowledge-grid-2,
+.knowledge-grid-3 {
+  display: grid;
+  gap: 12px;
+}
+
+.knowledge-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.knowledge-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.knowledge-form-actions {
+  margin-top: 2px;
+  padding-top: 12px;
+  border-top: 1px solid var(--admin-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.knowledge-modal {
+  width: min(720px, 100%);
+}
+
+.knowledge-modal .modal-head {
+  height: auto;
+  min-height: 64px;
+  padding: 14px 20px;
+}
+
+.knowledge-modal .modal-body {
+  max-height: min(720px, calc(100vh - 140px));
+  overflow-y: auto;
+}
+
 .admin-nav-badge {
   min-width: 20px;
   height: 20px;

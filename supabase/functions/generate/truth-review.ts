@@ -26,6 +26,12 @@ import type { ActStructureJson } from '@/lib/ai/prompts/act-structure';
 import type { CharacterScriptJson } from '@/lib/ai/prompts/character-script';
 import type { CluesJson } from '@/lib/ai/prompts/clues';
 import type { ScriptGenerationParams } from '@/lib/ai/prompts/script-generation';
+import {
+  appendKnowledgeToPrompt,
+  recordKnowledgeUsages,
+  recordQualityReport,
+  retrieveStageKnowledge,
+} from '@/lib/generation/knowledge';
 
 /** 入参体 */
 interface TruthReviewRequestBody {
@@ -280,13 +286,19 @@ async function handleRequest(request: Request): Promise<Response> {
   };
 
   // 构造 prompt + 实例化 provider
-  const { systemPrompt, userPrompt } = buildTruthReviewPrompt({
+  const knowledgeItems = await retrieveStageKnowledge(supabase, {
+    stage: 'review',
+    params,
+  });
+  const prompt = buildTruthReviewPrompt({
     params,
     storyBible,
     actStructure,
     characterScripts,
     clues,
   });
+  const systemPrompt = prompt.systemPrompt;
+  const userPrompt = appendKnowledgeToPrompt(prompt.userPrompt, knowledgeItems);
   const provider = new DeepSeekProvider();
 
   const stream = new ReadableStream<Uint8Array>({
@@ -376,6 +388,19 @@ async function handleRequest(request: Request): Promise<Response> {
           });
 
         if (taskError) throw new Error(`任务记录创建失败: ${taskError.message}`);
+
+        await recordKnowledgeUsages(supabase, {
+          scriptId,
+          stage: 'review',
+          moduleType: 'truth_review',
+          items: knowledgeItems,
+        });
+        await recordQualityReport(supabase, {
+          scriptId,
+          stage: 'review',
+          moduleType: 'truth_review',
+          content: json,
+        });
 
         // 6. 返回 completed 事件
         controller.enqueue(

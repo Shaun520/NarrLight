@@ -25,6 +25,12 @@ import {
 } from '@/lib/ai/prompts/character-profiles';
 import type { StoryBibleJson } from '@/lib/ai/prompts/story-bible';
 import type { ScriptGenerationParams } from '@/lib/ai/prompts/script-generation';
+import {
+  appendKnowledgeToPrompt,
+  recordKnowledgeUsages,
+  recordQualityReport,
+  retrieveStageKnowledge,
+} from '@/lib/generation/knowledge';
 
 /** 入参体 */
 interface CharacterProfilesRequestBody {
@@ -198,7 +204,13 @@ async function handleRequest(request: Request): Promise<Response> {
     foreshadowingPlan: storyBibleRow.foreshadowing_plan,
   };
 
-  const { systemPrompt, userPrompt } = buildCharacterProfilesPrompt({ params, storyBible });
+  const knowledgeItems = await retrieveStageKnowledge(supabase, {
+    stage: 'characters',
+    params,
+  });
+  const prompt = buildCharacterProfilesPrompt({ params, storyBible });
+  const systemPrompt = prompt.systemPrompt;
+  const userPrompt = appendKnowledgeToPrompt(prompt.userPrompt, knowledgeItems);
   const provider = new DeepSeekProvider();
 
   const stream = new ReadableStream<Uint8Array>({
@@ -293,6 +305,19 @@ async function handleRequest(request: Request): Promise<Response> {
             completed_at: new Date().toISOString(),
           });
         if (taskError) throw new Error(`任务记录创建失败: ${taskError.message}`);
+
+        await recordKnowledgeUsages(supabase, {
+          scriptId,
+          stage: 'characters',
+          moduleType: 'characters',
+          items: knowledgeItems,
+        });
+        await recordQualityReport(supabase, {
+          scriptId,
+          stage: 'characters',
+          moduleType: 'characters',
+          content: json,
+        });
 
         // 6. 返回 completed 事件
         controller.enqueue(

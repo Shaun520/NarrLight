@@ -22,6 +22,12 @@ import {
   type StoryBibleJson,
 } from '@/lib/ai/prompts/story-bible';
 import type { ScriptGenerationParams } from '@/lib/ai/prompts/script-generation';
+import {
+  appendKnowledgeToPrompt,
+  recordKnowledgeUsages,
+  recordQualityReport,
+  retrieveStageKnowledge,
+} from '@/lib/generation/knowledge';
 
 /** 入参体 */
 interface StoryBibleRequestBody {
@@ -144,7 +150,15 @@ async function handleRequest(request: Request): Promise<Response> {
   }
 
   const { scriptId, params } = body;
-  const { systemPrompt, userPrompt } = buildStoryBiblePrompt(params);
+  const { createClient } = await import('@/lib/supabase/server');
+  const supabase = await createClient();
+  const knowledgeItems = await retrieveStageKnowledge(supabase, {
+    stage: 'case_core',
+    params,
+  });
+  const prompt = buildStoryBiblePrompt(params);
+  const systemPrompt = prompt.systemPrompt;
+  const userPrompt = appendKnowledgeToPrompt(prompt.userPrompt, knowledgeItems);
   const provider = new DeepSeekProvider();
 
   const stream = new ReadableStream<Uint8Array>({
@@ -200,9 +214,6 @@ async function handleRequest(request: Request): Promise<Response> {
         }
 
         // 5. 入库：upsert story_bibles + 插入 generation_tasks
-        const { createClient } = await import('@/lib/supabase/server');
-        const supabase = await createClient();
-
         const { data: upsertedData, error: upsertError } = await supabase
           .from('story_bibles')
           .upsert({
@@ -237,6 +248,19 @@ async function handleRequest(request: Request): Promise<Response> {
           });
 
         if (taskError) throw new Error(`任务记录创建失败: ${taskError.message}`);
+
+        await recordKnowledgeUsages(supabase, {
+          scriptId,
+          stage: 'case_core',
+          moduleType: 'case_core',
+          items: knowledgeItems,
+        });
+        await recordQualityReport(supabase, {
+          scriptId,
+          stage: 'case_core',
+          moduleType: 'case_core',
+          content: json,
+        });
 
         // 6. 返回 completed 事件
         controller.enqueue(

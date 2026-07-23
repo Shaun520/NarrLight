@@ -22,6 +22,12 @@ import {
 import type { StoryBibleJson } from '@/lib/ai/prompts/story-bible';
 import type { ActStructureJson } from '@/lib/ai/prompts/act-structure';
 import type { ScriptGenerationParams } from '@/lib/ai/prompts/script-generation';
+import {
+  appendKnowledgeToPrompt,
+  recordKnowledgeUsages,
+  recordQualityReport,
+  retrieveStageKnowledge,
+} from '@/lib/generation/knowledge';
 
 /** 入参体 */
 interface OrganizerManualRequestBody {
@@ -239,11 +245,17 @@ async function handleRequest(request: Request): Promise<Response> {
   };
 
   // 3. 构造 prompt + 实例化 provider
-  const { systemPrompt, userPrompt } = buildOrganizerManualPrompt({
+  const knowledgeItems = await retrieveStageKnowledge(supabase, {
+    stage: 'dm_manual',
+    params,
+  });
+  const prompt = buildOrganizerManualPrompt({
     params,
     storyBible,
     actStructure,
   });
+  const systemPrompt = prompt.systemPrompt;
+  const userPrompt = appendKnowledgeToPrompt(prompt.userPrompt, knowledgeItems);
   const provider = new DeepSeekProvider();
 
   const stream = new ReadableStream<Uint8Array>({
@@ -331,6 +343,19 @@ async function handleRequest(request: Request): Promise<Response> {
           });
 
         if (taskError) throw new Error(`任务记录创建失败: ${taskError.message}`);
+
+        await recordKnowledgeUsages(supabase, {
+          scriptId,
+          stage: 'dm_manual',
+          moduleType: 'dm_manual',
+          items: knowledgeItems,
+        });
+        await recordQualityReport(supabase, {
+          scriptId,
+          stage: 'dm_manual',
+          moduleType: 'dm_manual',
+          content: json,
+        });
 
         // 9. 返回 completed 事件
         controller.enqueue(

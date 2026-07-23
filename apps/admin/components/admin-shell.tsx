@@ -8,6 +8,7 @@ import {
   ClipboardList,
   FileText,
   LayoutDashboard,
+  Library,
   LogOut,
   Settings,
   ShieldAlert,
@@ -32,6 +33,7 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
     items: [
       { href: "/users", label: "用户管理", Icon: Users },
       { href: "/scripts", label: "剧本管理", Icon: BookOpen },
+      { href: "/knowledge", label: "创作知识库", Icon: Library },
       { href: "/tasks/generation", label: "生成任务", Icon: Activity },
       { href: "/tasks/illustration", label: "插画任务", Icon: FileText },
     ],

@@ -18,6 +18,8 @@ export const ADMIN_PERMISSIONS = [
   "generation_tasks:read",
   "generation_tasks:write",
   "generation_tasks:retry:write",
+  "knowledge:read",
+  "knowledge:write",
   "illustrations:read",
   "illustrations:retry:write",
   "moderation:read",
