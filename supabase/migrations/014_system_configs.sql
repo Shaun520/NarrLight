@@ -23,7 +23,7 @@ values
       "primary": "deepseek",
       "fallback": "glm",
       "providers": {
-        "deepseek": { "enabled": true, "model": "deepseek-chat", "timeout": 180, "retries": 2 },
+        "deepseek": { "enabled": true, "model": "deepseek-v4-flash", "timeout": 180, "retries": 2 },
         "glm": { "enabled": true, "model": "glm-5.1", "timeout": 180, "retries": 2 }
       }
     }'::jsonb,

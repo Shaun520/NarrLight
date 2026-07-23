@@ -113,7 +113,7 @@ function generationMeta() {
   return {
     mode,
     provider: mode === 'real' ? 'deepseek' : 'local',
-    model: mode === 'real' ? 'deepseek-chat' : 'mock',
+    model: mode === 'real' ? 'deepseek-v4-flash' : 'mock',
   };
 }
 

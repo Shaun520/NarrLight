@@ -35,7 +35,7 @@ const TEXT_PROVIDERS: TextProviderMeta[] = [
     id: "deepseek",
     logo: "DS",
     name: "DeepSeek",
-    models: ["deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"],
+    models: ["deepseek-v4-pro", "deepseek-v4-flash", "deepseek-reasoner"],
   },
   {
     id: "glm",

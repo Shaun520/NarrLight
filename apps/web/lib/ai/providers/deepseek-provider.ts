@@ -63,7 +63,7 @@ export class DeepSeekProvider implements AIProvider {
 
   constructor(config?: Partial<ProviderRuntimeConfig>) {
     this.apiKey = process.env.DEEPSEEK_API_KEY ?? "";
-    this.model = config?.model || "deepseek-chat";
+    this.model = config?.model || "deepseek-v4-flash";
     this.timeout = config?.timeout ?? 60;
     this.retries = config?.retries ?? 2;
   }
@@ -167,6 +167,7 @@ export class DeepSeekProvider implements AIProvider {
         throw new Error("DeepSeek stream response body is empty");
       }
 
+      clearTimeout(timeoutId);
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";

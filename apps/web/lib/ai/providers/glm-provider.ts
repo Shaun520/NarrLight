@@ -160,6 +160,7 @@ export class GLMProvider implements AIProvider {
         throw new Error("GLM stream response body is empty");
       }
 
+      clearTimeout(timeoutId);
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";

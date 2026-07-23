@@ -186,6 +186,7 @@ function GeneratePageInner() {
           params={params}
           onChange={handleChange}
           onGenerate={handleGenerate}
+          onAbort={handleAbort}
           isGenerating={isGenerating}
         />
 

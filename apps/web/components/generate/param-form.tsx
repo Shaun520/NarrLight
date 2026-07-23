@@ -9,7 +9,7 @@
 'use client';
 
 import React from 'react';
-import { PenLine, Play, Loader2 } from 'lucide-react';
+import { PenLine, Play, Square } from 'lucide-react';
 import type { ScriptDifficulty, ScriptGenre } from '@/types';
 import type {
   AgeRating,
@@ -54,10 +54,11 @@ export interface ParamFormProps {
   params: ScriptGenerationParams;
   onChange: (patch: Partial<ScriptGenerationParams>) => void;
   onGenerate: () => void;
+  onAbort?: () => void;
   isGenerating: boolean;
 }
 
-export function ParamForm({ params, onChange, onGenerate, isGenerating }: ParamFormProps) {
+export function ParamForm({ params, onChange, onGenerate, onAbort, isGenerating }: ParamFormProps) {
   const hint = validateScriptParams({
     title: params.title,
     genre: params.genre,
@@ -277,11 +278,11 @@ export function ParamForm({ params, onChange, onGenerate, isGenerating }: ParamF
           <button
             type="button"
             className="btn btn-primary"
-            onClick={onGenerate}
-            disabled={!canGenerate}
+            onClick={isGenerating ? onAbort : onGenerate}
+            disabled={isGenerating ? !onAbort : !canGenerate}
           >
-            {isGenerating ? <Loader2 size={14} className="spin" /> : <Play size={14} />}
-            {isGenerating ? '生成中…' : '开始生成'}
+            {isGenerating ? <Square size={14} /> : <Play size={14} />}
+            {isGenerating ? '停止生成' : '开始生成'}
           </button>
         </div>
       </div>
