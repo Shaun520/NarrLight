@@ -108,12 +108,12 @@ function getGenerationMode(): GenerationMode {
   return 'mock';
 }
 
-function generationMeta() {
+function generationMeta(providerName?: string, modelName?: string) {
   const mode = getGenerationMode();
   return {
     mode,
-    provider: mode === 'real' ? 'deepseek' : 'local',
-    model: mode === 'real' ? 'deepseek-v4-flash' : 'mock',
+    provider: mode === 'real' ? providerName ?? 'configured' : 'local',
+    model: mode === 'real' ? modelName ?? 'configured' : 'mock',
   };
 }
 
@@ -625,6 +625,94 @@ async function getActStructureForPhase(body: GenerateRequestBody): Promise<ActSt
   };
 }
 
+async function getCharacterScriptsForPhase(body: GenerateRequestBody): Promise<CharacterScriptJson[]> {
+  if (body.characterScripts?.length) {
+    return body.characterScripts;
+  }
+
+  const supabase = await createGenerationDbClient();
+  const { data, error } = await supabase
+    .from('character_scripts')
+    .select('character_id, part_index, act_scripts, personal_arc, visible_clue_titles, perspective_note, characters(name, sort_order)')
+    .eq('script_id', body.scriptId)
+    .order('character_id')
+    .order('part_index');
+
+  if (error) {
+    if (isMissingTableError(error)) return [];
+    throw new Error(`Character scripts are required for truth review: ${error.message}`);
+  }
+
+  return ((data ?? []) as Array<{
+    act_scripts: CharacterScriptJson['actScripts'] | null;
+    personal_arc: string | null;
+    visible_clue_titles: string[] | null;
+    perspective_note: string | null;
+    characters?: { name?: string | null } | { name?: string | null }[] | null;
+  }>).map((row) => {
+    const characterRow = Array.isArray(row.characters) ? row.characters[0] : row.characters;
+    return {
+      characterName: characterRow?.name ?? '未知玩家',
+      actScripts: row.act_scripts ?? [],
+      personalArc: row.personal_arc ?? '',
+      visibleClueTitles: row.visible_clue_titles ?? [],
+      perspectiveNote: row.perspective_note ?? '',
+    };
+  });
+}
+
+async function getCluesForPhase(body: GenerateRequestBody): Promise<CluesJson> {
+  if (body.clues?.clues?.length) {
+    return body.clues;
+  }
+
+  const supabase = await createGenerationDbClient();
+  const [{ data, error }, { data: characterRows }] = await Promise.all([
+    supabase
+    .from('clues')
+    .select('title, content, clue_type, search_round, location, is_distractor, is_key_clue, unlock_condition, related_character_ids')
+    .eq('script_id', body.scriptId)
+    .order('sort_order'),
+    supabase.from('characters').select('id, name').eq('script_id', body.scriptId),
+  ]);
+
+  if (error) {
+    if (isMissingTableError(error)) return { clues: [] };
+    throw new Error(`Clues are required for truth review: ${error.message}`);
+  }
+
+  const characterNamesById = new Map(
+    ((characterRows ?? []) as Array<{ id: string; name: string }>).map((character) => [character.id, character.name]),
+  );
+
+  return {
+    clues: ((data ?? []) as Array<{
+      title: string | null;
+      content: string | null;
+      clue_type: string | null;
+      search_round: number | null;
+      location: string | null;
+      is_distractor: boolean | null;
+      is_key_clue: boolean | null;
+      unlock_condition: string | null;
+      related_character_ids: string[] | null;
+    }>).map((row) => ({
+      title: row.title ?? '',
+      content: row.content ?? '',
+      clueType: normalizeClueType(row.clue_type ?? 'physical'),
+      searchRound: row.search_round ?? 1,
+      location: row.location ?? '',
+      relatedCharacterNames: (row.related_character_ids ?? [])
+        .map((id) => characterNamesById.get(id))
+        .filter((name): name is string => Boolean(name)),
+      isDistractor: Boolean(row.is_distractor),
+      isKeyClue: Boolean(row.is_key_clue),
+      unlockCondition: row.unlock_condition ?? '',
+      foreshadowingId: '',
+    })),
+  };
+}
+
 function getCharacterForScript(
   body: GenerateRequestBody,
   profiles: CharacterProfilesJson,
@@ -660,7 +748,7 @@ async function runJsonPhase<T>(
       let accumulated = '';
 
       try {
-        const { provider, name } = await getTextProviderInstance();
+        const { provider, name, runtime } = await getTextProviderInstance();
         if (!isProviderKeyConfigured(name)) {
           controller.enqueue(
             encodeSse(encoder, 'error', {
@@ -670,7 +758,7 @@ async function runJsonPhase<T>(
           return;
         }
 
-        controller.enqueue(encodeSse(encoder, 'start', { scriptId, stage: `${phase}-init`, ...generationMeta() }));
+        controller.enqueue(encodeSse(encoder, 'start', { scriptId, stage: `${phase}-init`, ...generationMeta(name, runtime.model) }));
 
         for await (const chunk of provider.generateStream({
           prompt: userPrompt,
@@ -749,6 +837,7 @@ async function persistActStructure(
   params: ScriptGenerationParams,
   json: ActStructureJson,
   taskId?: string,
+  generationSpec?: ReturnType<typeof buildGenerationSpec>,
 ): Promise<number> {
   const supabase = await createGenerationDbClient();
   const { error: deleteError } = await supabase.from('acts').delete().eq('script_id', scriptId);
@@ -790,7 +879,7 @@ async function persistActStructure(
     sceneCount += act.scenes.length;
   }
 
-  await updateGenerationTaskResult(taskId, { actCount: json.acts.length, sceneCount });
+  await updateGenerationTaskResult(taskId, { actCount: json.acts.length, sceneCount, generationSpec });
 
   return sceneCount;
 }
@@ -825,7 +914,7 @@ async function handleMockPhase(
         const specConfig = await getGenerationSpecConfig();
         const spec = buildGenerationSpec(params, specConfig);
         const json = buildMockActStructure(params, storyBible);
-        const sceneCount = await persistActStructure(scriptId, params, json, body.generationTaskId);
+        const sceneCount = await persistActStructure(scriptId, params, json, body.generationTaskId, spec);
         const result = { ...json, generationSpec: spec };
         controller.enqueue(encodeSse(encoder, 'progress', { percent: 100, stage: 'mock' }));
         controller.enqueue(
@@ -888,7 +977,7 @@ async function handleCharacterProfiles(body: GenerateRequestBody): Promise<Respo
       let accumulated = '';
 
       try {
-        const { provider, name } = await getTextProviderInstance();
+        const { provider, name, runtime } = await getTextProviderInstance();
         if (!isProviderKeyConfigured(name)) {
           controller.enqueue(
             encodeSse(encoder, 'error', {
@@ -901,7 +990,7 @@ async function handleCharacterProfiles(body: GenerateRequestBody): Promise<Respo
         const storyBible = await getStoryBibleForPhase(body);
         const { systemPrompt, userPrompt } = buildCharacterProfilesPrompt({ params, storyBible });
 
-        controller.enqueue(encodeSse(encoder, 'start', { scriptId, stage: 'character-profiles-init', ...generationMeta() }));
+        controller.enqueue(encodeSse(encoder, 'start', { scriptId, stage: 'character-profiles-init', ...generationMeta(name, runtime.model) }));
         for await (const chunk of provider.generateStream({
           prompt: userPrompt,
           systemPrompt,
@@ -960,7 +1049,7 @@ async function handleActStructure(body: GenerateRequestBody): Promise<Response> 
       let accumulated = '';
 
       try {
-        const { provider, name } = await getTextProviderInstance();
+        const { provider, name, runtime } = await getTextProviderInstance();
         if (!isProviderKeyConfigured(name)) {
           controller.enqueue(
             encodeSse(encoder, 'error', {
@@ -979,7 +1068,7 @@ async function handleActStructure(body: GenerateRequestBody): Promise<Response> 
           spec,
         });
 
-        controller.enqueue(encodeSse(encoder, 'start', { scriptId, stage: 'act-structure-init', ...generationMeta() }));
+        controller.enqueue(encodeSse(encoder, 'start', { scriptId, stage: 'act-structure-init', ...generationMeta(name, runtime.model) }));
         for await (const chunk of provider.generateStream({
           prompt: userPrompt,
           systemPrompt,
@@ -1003,7 +1092,7 @@ async function handleActStructure(body: GenerateRequestBody): Promise<Response> 
           return;
         }
 
-        const sceneCount = await persistActStructure(scriptId, params, json, body.generationTaskId);
+        const sceneCount = await persistActStructure(scriptId, params, json, body.generationTaskId, spec);
         const result = { ...json, generationSpec: spec };
         controller.enqueue(
           encodeSse(encoder, 'completed', {
@@ -1029,6 +1118,101 @@ async function handleActStructure(body: GenerateRequestBody): Promise<Response> 
       Connection: 'keep-alive',
     },
   });
+}
+
+function countTextWords(...values: unknown[]): number {
+  return values
+    .flatMap((value): string[] => {
+      if (typeof value === 'string') return [value];
+      if (Array.isArray(value)) return value.flatMap((item) => countTextSource(item));
+      if (value && typeof value === 'object') return Object.values(value).flatMap((item) => countTextSource(item));
+      return [];
+    })
+    .join('')
+    .replace(/\s+/g, '')
+    .length;
+}
+
+function countTextSource(value: unknown): string[] {
+  if (typeof value === 'string') return [value];
+  if (Array.isArray(value)) return value.flatMap((item) => countTextSource(item));
+  if (value && typeof value === 'object') return Object.values(value).flatMap((item) => countTextSource(item));
+  return [];
+}
+
+function countCharacterScriptWords(json: CharacterScriptJson): number {
+  return countTextWords(
+    json.personalArc,
+    json.perspectiveNote,
+    json.visibleClueTitles,
+    json.actScripts.map((act) => [
+      act.content,
+      act.scenes.map((scene) => scene.content),
+    ]),
+  );
+}
+
+async function ensurePlayerIdentityAssignment(args: {
+  supabase: Awaited<ReturnType<typeof createGenerationDbClient>>;
+  scriptId: string;
+  characterId: string;
+  character: CharacterProfile;
+  partIndex: number;
+}): Promise<{ playerSeatId: string | null; identityAssignmentId: string | null }> {
+  const { supabase, scriptId, characterId, character, partIndex } = args;
+  const { data: characterRows } = await supabase
+    .from('characters')
+    .select('id, sort_order')
+    .eq('script_id', scriptId)
+    .order('sort_order');
+  const currentCharacter = ((characterRows ?? []) as Array<{ id: string; sort_order: number }>).find(
+    (row) => row.id === characterId,
+  );
+  const seatNo = Math.max(1, (currentCharacter?.sort_order ?? 0) + 1);
+
+  const { data: seat, error: seatError } = await supabase
+    .from('player_seats')
+    .upsert(
+      {
+        script_id: scriptId,
+        seat_no: seatNo,
+        display_name: `玩家${seatNo}`,
+      },
+      { onConflict: 'script_id,seat_no' },
+    )
+    .select('id')
+    .single();
+
+  if (seatError || !seat?.id) {
+    if (isMissingTableError(seatError)) {
+      return { playerSeatId: null, identityAssignmentId: null };
+    }
+    throw new Error(`Player seat upsert failed: ${seatError?.message ?? 'unknown error'}`);
+  }
+
+  const { data: assignment, error: assignmentError } = await supabase
+    .from('player_identity_assignments')
+    .upsert(
+      {
+        script_id: scriptId,
+        player_seat_id: seat.id,
+        character_id: characterId,
+        identity_label: character.roleIdentity || character.name,
+        identity_order: partIndex,
+      },
+      { onConflict: 'script_id,player_seat_id,identity_order' },
+    )
+    .select('id')
+    .single();
+
+  if (assignmentError || !assignment?.id) {
+    if (isMissingTableError(assignmentError)) {
+      return { playerSeatId: seat.id, identityAssignmentId: null };
+    }
+    throw new Error(`Player identity assignment upsert failed: ${assignmentError?.message ?? 'unknown error'}`);
+  }
+
+  return { playerSeatId: seat.id, identityAssignmentId: assignment.id };
 }
 
 async function persistCharacterScript(
@@ -1083,13 +1267,22 @@ async function persistCharacterScript(
     }
   }
 
-  const wordCount = JSON.stringify(json.actScripts).length;
   const partIndex = Math.max(1, body.scriptPartIndex ?? 1);
-        const partLabel = body.scriptPartLabel || '??????';
+  const wordCount = countCharacterScriptWords(json);
+  const partLabel = body.scriptPartLabel || '完整玩家剧本';
+  const { playerSeatId, identityAssignmentId } = await ensurePlayerIdentityAssignment({
+    supabase,
+    scriptId: body.scriptId,
+    characterId,
+    character,
+    partIndex,
+  });
   const { error } = await supabase.from('character_scripts').upsert(
     {
       script_id: body.scriptId,
       character_id: characterId,
+      player_seat_id: playerSeatId,
+      identity_assignment_id: identityAssignmentId,
       part_index: partIndex,
       part_label: partLabel,
       act_order: body.actOrder ?? null,
@@ -1378,7 +1571,7 @@ async function handleCharacterScript(body: GenerateRequestBody): Promise<Respons
       let accumulated = '';
 
       try {
-        const { provider, name } = await getTextProviderInstance();
+        const { provider, name, runtime } = await getTextProviderInstance();
         if (!isProviderKeyConfigured(name)) {
           controller.enqueue(
             encodeSse(encoder, 'error', {
@@ -1417,7 +1610,7 @@ async function handleCharacterScript(body: GenerateRequestBody): Promise<Respons
             partIndex,
             partLabel,
             stage: 'character-script-init',
-            ...generationMeta(),
+            ...generationMeta(name, runtime.model),
           }),
         );
 
@@ -1529,16 +1722,17 @@ async function handleOrganizerManual(body: GenerateRequestBody): Promise<Respons
 }
 
 async function handleTruthReview(body: GenerateRequestBody): Promise<Response> {
-  const [storyBible, actStructure] = await Promise.all([
+  const [storyBible, actStructure, characterScripts, clues] = await Promise.all([
     getStoryBibleForPhase(body),
     getActStructureForPhase(body),
+    getCharacterScriptsForPhase(body),
+    getCluesForPhase(body),
   ]);
-  const clues = body.clues ?? { clues: [] };
   const { systemPrompt, userPrompt } = buildTruthReviewPrompt({
     params: body.params,
     storyBible,
     actStructure,
-    characterScripts: body.characterScripts ?? [],
+    characterScripts,
     clues,
   });
   return runJsonPhase<TruthReviewJson>(
@@ -1702,9 +1896,8 @@ async function handleStoryBible(body: GenerateRequestBody): Promise<Response> {
       const startedAt = new Date();
 
       try {
-        controller.enqueue(encodeSse(encoder, 'start', { scriptId, stage: 'story-bible-init', ...generationMeta() }));
-
         if (getGenerationMode() === 'mock') {
+          controller.enqueue(encodeSse(encoder, 'start', { scriptId, stage: 'story-bible-init', ...generationMeta() }));
           const json = buildMockStoryBible(params);
           const storyBibleId = await persistStoryBible(scriptId, params, json, startedAt, body.generationTaskId);
           controller.enqueue(encodeSse(encoder, 'progress', { percent: 100, stage: 'mock' }));
@@ -1718,7 +1911,7 @@ async function handleStoryBible(body: GenerateRequestBody): Promise<Response> {
           return;
         }
 
-        const { provider, name } = await getTextProviderInstance();
+        const { provider, name, runtime } = await getTextProviderInstance();
         if (!isProviderKeyConfigured(name)) {
           controller.enqueue(
             encodeSse(encoder, 'error', {
@@ -1727,6 +1920,8 @@ async function handleStoryBible(body: GenerateRequestBody): Promise<Response> {
           );
           return;
         }
+
+        controller.enqueue(encodeSse(encoder, 'start', { scriptId, stage: 'story-bible-init', ...generationMeta(name, runtime.model) }));
 
         for await (const chunk of provider.generateStream({
           prompt: userPrompt,

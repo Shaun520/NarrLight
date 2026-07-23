@@ -169,6 +169,14 @@ function buildCharacterScriptTasks(
 
 // ===== 鍒濆鐘舵€佸伐鍘?=====
 
+function getExpectedCharacterScriptCount(
+  characterCount: number,
+  spec: CharacterScriptGenerationSpec | undefined,
+): number {
+  const scriptsPerPlayer = Math.max(1, Math.round(spec?.scriptsPerPlayer ?? 1));
+  return Math.max(1, characterCount) * scriptsPerPlayer;
+}
+
 function createInitialPhases(): Record<PhaseId, PhaseState> {
   const phases = {} as Record<PhaseId, PhaseState>;
   for (const id of PHASE_ORDER) {
@@ -256,7 +264,7 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
   const [state, setState] = useState<PhasedGenerationState>(createInitialState);
 
   // refs：保存最新值，避免闭包陷阱
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const abortControllersRef = useRef<Set<AbortController>>(new Set());
   const paramsRef = useRef<ScriptGenerationParams | null>(null);
   const scriptIdRef = useRef<string | null>(null);
   const stateRef = useRef<PhasedGenerationState>(state);
@@ -264,6 +272,18 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  const registerAbortController = useCallback((controller: AbortController): (() => void) => {
+    abortControllersRef.current.add(controller);
+    return () => {
+      abortControllersRef.current.delete(controller);
+    };
+  }, []);
+
+  const abortActiveRequests = useCallback((): void => {
+    abortControllersRef.current.forEach((controller) => controller.abort());
+    abortControllersRef.current.clear();
+  }, []);
 
   // ===== handleSSEEvent锛氭牴鎹?SSE 浜嬩欢鐨?event 瀛楁鍒嗗彂鐘舵€佹洿鏂?=====
   const handleSSEEvent = useCallback(
@@ -416,7 +436,7 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
 
       // 鍒涘缓 AbortController 骞跺瓨鍌ㄥ埌 ref
       const controller = new AbortController();
-      abortControllerRef.current = controller;
+      const unregisterAbortController = registerAbortController(controller);
 
       const startTime = Date.now();
 
@@ -477,6 +497,7 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
             }
           },
           onClose: () => {
+            unregisterAbortController();
             if (controller.signal.aborted) {
               // 鐢ㄦ埛涓诲姩涓柇
               setState((prev) =>
@@ -506,7 +527,7 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
         });
       });
     },
-    [handleSSEEvent, state.storyBible],
+    [handleSSEEvent, registerAbortController, state.storyBible],
   );
 
   // ===== runCharacterScriptSubTask锛氬崟涓鑹插墽鏈瓙浠诲姟 =====
@@ -546,7 +567,7 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
       };
 
       const controller = new AbortController();
-      abortControllerRef.current = controller;
+      const unregisterAbortController = registerAbortController(controller);
 
       return new Promise<void>((resolve) => {
         let subTaskCompleted = false;
@@ -618,6 +639,7 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
             );
           },
           onClose: () => {
+            unregisterAbortController();
             if (controller.signal.aborted) {
               setState((prev) =>
                 updateSubItem(prev, 'character_script', task.id, {
@@ -640,7 +662,7 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
         });
       });
     },
-    [],
+    [registerAbortController],
   );
 
   // ===== runPhaseBatch锛氶樁娈?2 瑙掕壊鍓ф湰鎵规璋冨害 =====
@@ -891,8 +913,8 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
 
         // 闃舵 3锛氱嚎绱㈠崱 + 缁勭粐鑰呮墜鍐?+ 鐪熺浉澶嶇洏 骞惰
         setState((prev) => ({ ...prev, currentPhase: 'clues' }));
+        await runPhase('clues', params);
         await Promise.all([
-          runPhase('clues', params),
           runPhase('organizer_manual', params),
           runPhase('truth_review', params),
         ]);
@@ -1036,7 +1058,7 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
 
   // ===== abort锛氫腑鏂綋鍓嶇敓鎴?=====
   const abort = useCallback((): void => {
-    abortControllerRef.current?.abort();
+    abortActiveRequests();
     setState((prev) => {
       if (!prev.currentPhase) return prev;
       return {
@@ -1047,16 +1069,15 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
         orchestrationStatus: 'failed',
       };
     });
-  }, []);
+  }, [abortActiveRequests]);
 
   // ===== reset锛氶噸缃叏閮ㄧ姸鎬?=====
   const reset = useCallback((): void => {
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = null;
+    abortActiveRequests();
     paramsRef.current = null;
     scriptIdRef.current = null;
     setState(createInitialState());
-  }, []);
+  }, [abortActiveRequests]);
 
   // ===== resumeFromScript锛氫粠宸叉湁 scriptId 鎭㈠ =====
   // 妫€娴?7 寮犺〃鐨勫畬鎴愮姸鎬侊紝鍥炲～宸插畬鎴愰樁娈典笌璁惧畾鏈紝
@@ -1075,6 +1096,7 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
         organizerManualRes,
         truthReviewRes,
         timelineEventsRes,
+        actGenerationTaskRes,
       ] = await Promise.all([
         supabase
           .from('story_bibles')
@@ -1114,6 +1136,15 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
           .from('timeline_events')
           .select('id', { count: 'exact', head: true })
           .eq('script_id', scriptId),
+        supabase
+          .from('generation_tasks')
+          .select('result_data')
+          .eq('script_id', scriptId)
+          .eq('task_type', 'ACT_STRUCTURE')
+          .eq('status', 'completed')
+          .order('completed_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
       ]);
 
       const storyBibleRow = storyBibleRes.data as {
@@ -1134,9 +1165,16 @@ export function usePhasedGeneration(): UsePhasedGenerationResult {
         name: string;
         sort_order: number;
       }>;
+      const restoredGenerationSpec = (
+        actGenerationTaskRes.data as { result_data?: { generationSpec?: CharacterScriptGenerationSpec } } | null
+      )?.result_data?.generationSpec;
+      const expectedCharacterScriptCount = getExpectedCharacterScriptCount(
+        charactersList.length || params?.players || 1,
+        restoredGenerationSpec,
+      );
       const charactersExist = charactersList.length > 0;
       const actsExists = (actsRes.count ?? 0) > 0;
-      const characterScriptsExists = (characterScriptsRes.count ?? 0) > 0;
+      const characterScriptsExists = (characterScriptsRes.count ?? 0) >= expectedCharacterScriptCount;
       const cluesExists = (cluesRes.count ?? 0) > 0;
       const organizerManualExists = !!organizerManualRes.data;
       const truthReviewExists = !!truthReviewRes.data;
