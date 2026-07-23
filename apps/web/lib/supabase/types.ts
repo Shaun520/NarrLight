@@ -92,7 +92,7 @@ export interface Database {
           genre: "hardcore" | "emotion" | "horror" | "funny" | "mechanism";
           player_count: number;
           duration_hours: number;
-          difficulty: "beginner" | "intermediate" | "advanced";
+          difficulty: "beginner" | "intermediate" | "advanced" | "expert";
           background_setting: string;
           core_theme: string;
           status: "draft" | "generating" | "completed" | "archived";
@@ -108,7 +108,7 @@ export interface Database {
           genre: "hardcore" | "emotion" | "horror" | "funny" | "mechanism";
           player_count?: number;
           duration_hours?: number;
-          difficulty?: "beginner" | "intermediate" | "advanced";
+          difficulty?: "beginner" | "intermediate" | "advanced" | "expert";
           background_setting?: string;
           core_theme?: string;
           status?: "draft" | "generating" | "completed" | "archived";
@@ -124,7 +124,7 @@ export interface Database {
           genre?: "hardcore" | "emotion" | "horror" | "funny" | "mechanism";
           player_count?: number;
           duration_hours?: number;
-          difficulty?: "beginner" | "intermediate" | "advanced";
+          difficulty?: "beginner" | "intermediate" | "advanced" | "expert";
           background_setting?: string;
           core_theme?: string;
           status?: "draft" | "generating" | "completed" | "archived";
