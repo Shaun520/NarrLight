@@ -8,7 +8,12 @@ import {
 } from "@narrlight/shared";
 import { PageHeader, Tag } from "@/components/admin-static";
 import { getKnowledgeItem, getKnowledgeItems, getKnowledgeUsageSnapshot } from "@/lib/services/knowledge";
-import { deleteKnowledgeItem, saveKnowledgeItem, toggleKnowledgeItem } from "./actions";
+import {
+  clearKnowledgeUsageRecords,
+  deleteKnowledgeItem,
+  saveKnowledgeItem,
+  toggleKnowledgeItem,
+} from "./actions";
 
 type SearchParams = {
   q?: string;
@@ -18,6 +23,7 @@ type SearchParams = {
   itemId?: string;
   mode?: string;
   saved?: string;
+  recordsCleared?: string;
 };
 
 const GENRES = ["hardcore", "emotion", "horror", "funny", "mechanism"] as const;
@@ -31,6 +37,7 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
     getKnowledgeUsageSnapshot(),
   ]);
   const modalOpen = params.mode === "new" || Boolean(selectedItem);
+  const hasUsageRecords = usageSnapshot.usages.length > 0 || usageSnapshot.reports.length > 0;
 
   return (
     <div className="page-stack">
@@ -40,6 +47,7 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
       />
 
       {params.saved === "1" && <div className="admin-inline-alert">知识条目已保存。</div>}
+      {params.recordsCleared === "1" && <div className="admin-inline-alert">引用和质检记录已清空。</div>}
       {error && <div className="admin-inline-alert" role="alert">{error}</div>}
       {usageSnapshot.error && <div className="admin-inline-alert" role="alert">{usageSnapshot.error}</div>}
 
@@ -144,8 +152,15 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
 
       <section className="admin-card">
         <div className="admin-card-head">
-          <div className="admin-card-title">最近引用和质检</div>
-          <div className="admin-card-sub">确认生成阶段实际使用了哪些规则。</div>
+          <div>
+            <div className="admin-card-title">最近引用和质检</div>
+            <div className="admin-card-sub">确认生成阶段实际使用了哪些规则。</div>
+          </div>
+          <form action={clearKnowledgeUsageRecords}>
+            <button className="admin-btn danger" disabled={!hasUsageRecords} type="submit">
+              清空记录
+            </button>
+          </form>
         </div>
         <div className="table-wrap">
           <table className="table">
@@ -199,7 +214,7 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
                   <td>{formatDateTime(report.createdAt)}</td>
                 </tr>
               ))}
-              {usageSnapshot.usages.length === 0 && usageSnapshot.reports.length === 0 && (
+              {!hasUsageRecords && (
                 <tr>
                   <td className="table-empty" colSpan={8}>暂无引用或质检记录</td>
                 </tr>

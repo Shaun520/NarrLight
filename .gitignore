@@ -30,3 +30,4 @@ supabase/.temp/
 backend/uploads/
 docs/code-review
 docs/script-example
+tmp/

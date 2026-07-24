@@ -13,6 +13,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const GENRES = ["hardcore", "emotion", "horror", "funny", "mechanism"] as const;
 const DIFFICULTIES = ["beginner", "intermediate", "advanced", "expert"] as const;
+const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
 
 export async function saveKnowledgeItem(formData: FormData) {
   await requireAdmin();
@@ -92,6 +93,23 @@ export async function deleteKnowledgeItem(formData: FormData) {
 
   revalidatePath("/knowledge");
   redirect("/knowledge");
+}
+
+export async function clearKnowledgeUsageRecords() {
+  await requireAdmin();
+  const supabase = createAdminSupabaseClient();
+  if (!supabase) throw new Error("未配置 Supabase service role，无法清空引用和质检记录。");
+
+  const [{ error: usageError }, { error: reportError }] = await Promise.all([
+    supabase.from("generation_knowledge_usages").delete().neq("id", ZERO_UUID),
+    supabase.from("generation_quality_reports").delete().neq("id", ZERO_UUID),
+  ]);
+
+  if (usageError) throw new Error(`清空知识引用记录失败：${usageError.message}`);
+  if (reportError) throw new Error(`清空质检记录失败：${reportError.message}`);
+
+  revalidatePath("/knowledge");
+  redirect("/knowledge?recordsCleared=1");
 }
 
 function stringValue(value: FormDataEntryValue | null) {

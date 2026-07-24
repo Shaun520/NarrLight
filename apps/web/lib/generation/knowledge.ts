@@ -131,7 +131,7 @@ export function assessNovelizationRisk(content: unknown) {
   const length = text.length;
   const descriptiveHits = countMatches(text, /(心中|眼前|仿佛|雨声|月光|低头|沉默|回忆|泪|苦涩|颤抖|空气|窗外)/g);
   const playableHits = countMatches(text, /(任务|目标|线索|证据|时间线|搜证|盘问|投票|复盘|嫌疑|动机|秘密|隐瞒|公开信息|私密信息)/g);
-  const paragraphRisk = countMatches(text, /。[^。]{120,}。/g);
+  const paragraphRisk = countMatches(text, /[^。！？\n]{120,}[。！？]/g);
 
   let score = 20;
   score += Math.min(35, descriptiveHits * 4);
