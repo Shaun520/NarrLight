@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Download, Filter, RefreshCw, Save } from "lucide-react";
+import Link from "next/link";
 
 type TagTone = "default" | "success" | "warning" | "error" | "info" | "purple";
 
@@ -170,13 +171,19 @@ export function Card({
 
 export function DetailPreview({
   title,
+  sub = "详情信息",
   rows,
 }: {
   title: string;
+  sub?: string;
   rows: Array<[string, ReactNode]>;
 }) {
   return (
-    <Card title={title} sub="原型中的右侧抽屉静态预览">
+    <section className="detail-section">
+      <div className="detail-section-head">
+        <div className="admin-card-title">{title}</div>
+        {sub && <div className="admin-card-sub">{sub}</div>}
+      </div>
       <dl className="desc-list">
         {rows.map(([label, value]) => (
           <div className="desc-row" key={label}>
@@ -185,7 +192,33 @@ export function DetailPreview({
           </div>
         ))}
       </dl>
-    </Card>
+    </section>
+  );
+}
+
+export function DetailModal({
+  title,
+  closeHref,
+  children,
+}: {
+  title: string;
+  closeHref: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="modal-backdrop detail-modal-backdrop" role="presentation">
+      <section className="modal detail-modal" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
+        <div className="modal-head">
+          <div className="modal-title" id="detail-modal-title">
+            {title}
+          </div>
+          <Link className="admin-btn" href={closeHref}>
+            关闭
+          </Link>
+        </div>
+        <div className="modal-body detail-modal-body">{children}</div>
+      </section>
+    </div>
   );
 }
 

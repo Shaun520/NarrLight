@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { AdminFilterForm } from "@/components/admin-filter-form";
 import {
   AdminScriptDeleteButton,
   AdminScriptDeleteForm,
   AdminScriptSelectAllCheckbox,
 } from "@/components/admin-script-delete-form";
 import { AdminScriptStatusForm } from "@/components/admin-script-status-action";
-import { DetailPreview, PageHeader, Tag, UserCell } from "@/components/admin-static";
+import { DetailModal, DetailPreview, PageHeader, Tag, UserCell } from "@/components/admin-static";
 import {
   getAdminScripts,
   type AdminScriptRow,
@@ -40,9 +41,8 @@ export default async function ScriptsPage({
         description="查看平台剧本、作者归属、生成进度与内容完整度。"
       />
 
-      <div className="content-grid">
-        <section className="admin-card">
-          <form className="toolbar" action="/scripts">
+      <section className="admin-card">
+          <AdminFilterForm action="/scripts">
             <div className="toolbar-left">
               <input
                 className="input input-wide"
@@ -83,7 +83,7 @@ export default async function ScriptsPage({
                 重置
               </Link>
             </div>
-          </form>
+          </AdminFilterForm>
 
           {result.error && (
             <div className="admin-inline-alert" role="alert">
@@ -188,27 +188,18 @@ export default async function ScriptsPage({
               共 {result.total.toLocaleString("zh-CN")} 条，当前显示 {result.scripts.length} 条
             </span>
           </div>
-        </section>
+      </section>
 
-        <ScriptDetail returnTo={buildScriptsReturnHref(filters)} script={result.selectedScript} />
-      </div>
+      {result.selectedScript && (
+        <DetailModal closeHref={buildScriptsReturnHref(filters)} title="剧本详情">
+          <ScriptDetail returnTo={buildScriptsReturnHref(filters)} script={result.selectedScript} />
+        </DetailModal>
+      )}
     </div>
   );
 }
 
-function ScriptDetail({ script, returnTo }: { script: AdminScriptRow | null; returnTo: string }) {
-  if (!script) {
-    return (
-      <DetailPreview
-        title="剧本详情"
-        rows={[
-          ["状态", "请从左侧列表选择剧本"],
-          ["说明", "剧本管理已接入真实列表；筛选无结果时不会展示详情。"],
-        ]}
-      />
-    );
-  }
-
+function ScriptDetail({ script, returnTo }: { script: AdminScriptRow; returnTo: string }) {
   const latestTask = script.latestTask;
   const latestReport = script.latestReport;
 

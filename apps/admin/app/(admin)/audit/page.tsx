@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Download } from "lucide-react";
+import { AdminFilterForm } from "@/components/admin-filter-form";
 import { AdminClearAuditLogsButton } from "@/components/admin-clear-audit-logs-button";
-import { DetailPreview, PageHeader, Tag } from "@/components/admin-static";
+import { DetailModal, DetailPreview, PageHeader, Tag } from "@/components/admin-static";
 import { getAdminAuditLogs, type AdminAuditLogRow } from "@/lib/services/audit-logs";
 
 type SearchParams = {
@@ -35,9 +36,8 @@ export default async function AuditPage({
           </>
         }
       />
-      <div className="content-grid">
-        <section className="admin-card">
-          <form className="toolbar" action="/audit">
+      <section className="admin-card">
+          <AdminFilterForm action="/audit">
             <div className="toolbar-left">
               <input
                 className="input input-wide"
@@ -65,7 +65,7 @@ export default async function AuditPage({
                 重置
               </Link>
             </div>
-          </form>
+          </AdminFilterForm>
 
           {result.error && (
             <div className="admin-inline-alert" role="alert">
@@ -116,27 +116,18 @@ export default async function AuditPage({
               共 {result.total.toLocaleString("zh-CN")} 条，当前显示 {result.logs.length} 条
             </span>
           </div>
-        </section>
+      </section>
 
-        <AuditDetail log={result.selectedLog} />
-      </div>
+      {result.selectedLog && (
+        <DetailModal closeHref={buildAuditReturnHref(filters)} title="审计详情">
+          <AuditDetail log={result.selectedLog} />
+        </DetailModal>
+      )}
     </div>
   );
 }
 
-function AuditDetail({ log }: { log: AdminAuditLogRow | null }) {
-  if (!log) {
-    return (
-      <DetailPreview
-        title="审计详情"
-        rows={[
-          ["状态", "请从左侧列表选择日志"],
-          ["说明", "当前页面读取 admin_audit_logs 真实数据。"],
-        ]}
-      />
-    );
-  }
-
+function AuditDetail({ log }: { log: AdminAuditLogRow }) {
   return (
     <DetailPreview
       title="审计详情"
@@ -171,6 +162,15 @@ function buildAuditHref(filters: ReturnType<typeof normalizeFilters>, logId: str
   if (filters.range !== "7d") params.set("range", filters.range);
   params.set("logId", logId);
   return `/audit?${params.toString()}`;
+}
+
+function buildAuditReturnHref(filters: ReturnType<typeof normalizeFilters>) {
+  const params = new URLSearchParams();
+  if (filters.q) params.set("q", filters.q);
+  if (filters.action !== "all") params.set("action", filters.action);
+  if (filters.range !== "7d") params.set("range", filters.range);
+  const query = params.toString();
+  return query ? `/audit?${query}` : "/audit";
 }
 
 function actionTag(action: string) {

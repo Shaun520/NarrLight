@@ -244,13 +244,13 @@ async function resolveSelectedTask(
   tasks: AdminGenerationTaskRow[],
   selectedTaskId?: string,
 ): Promise<AdminGenerationTaskRow | null> {
-  if (!selectedTaskId) return tasks[0] ?? null;
+  if (!selectedTaskId) return null;
   const existing = tasks.find((task) => task.id === selectedTaskId);
   if (existing) return existing;
-  if (!isUuid(selectedTaskId)) return tasks[0] ?? null;
+  if (!isUuid(selectedTaskId)) return null;
 
   const supabase = createAdminSupabaseClient();
-  if (!supabase) return tasks[0] ?? null;
+  if (!supabase) return null;
 
   const { data } = await supabase
     .from("generation_tasks")
@@ -261,7 +261,7 @@ async function resolveSelectedTask(
     .maybeSingle()
     .returns<TaskRecord | null>();
 
-  if (!data) return tasks[0] ?? null;
+  if (!data) return null;
   const hydrated = await hydrateTasks([data]);
   return hydrated[0] ?? null;
 }

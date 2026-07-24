@@ -203,10 +203,10 @@ function mapUser(
 
 function resolveSelectedUser(users: AdminUserRow[], selectedUserId?: string) {
   if (!selectedUserId) {
-    return users[0] ?? null;
+    return null;
   }
 
-  return users.find((user) => user.id === selectedUserId) ?? users[0] ?? null;
+  return users.find((user) => user.id === selectedUserId) ?? null;
 }
 
 function normalizeKeyword(value?: string) {

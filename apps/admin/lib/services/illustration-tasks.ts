@@ -422,10 +422,10 @@ async function getMatchingScriptIds(keyword: string) {
 
 function resolveSelectedTask(tasks: AdminIllustrationTaskRow[], selectedTaskId?: string) {
   if (!selectedTaskId) {
-    return tasks[0] ?? null;
+    return null;
   }
 
-  return tasks.find((task) => task.id === selectedTaskId) ?? tasks[0] ?? null;
+  return tasks.find((task) => task.id === selectedTaskId) ?? null;
 }
 
 async function buildStats(

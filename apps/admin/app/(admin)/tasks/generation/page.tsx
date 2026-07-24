@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdminFilterForm } from "@/components/admin-filter-form";
 import {
   AdminGenerationTaskCancelButton,
   AdminGenerationTaskRetryButton,
@@ -8,7 +9,7 @@ import {
   AdminGenerationTaskDeleteForm,
   AdminGenerationTaskSelectAllCheckbox,
 } from "@/components/admin-generation-task-delete-form";
-import { DetailPreview, PageHeader, Pagination, RefreshButton, StatGrid, Tag, UserCell } from "@/components/admin-static";
+import { DetailModal, DetailPreview, PageHeader, Pagination, RefreshButton, StatGrid, Tag, UserCell } from "@/components/admin-static";
 import { JsonPreview } from "@/components/json-preview";
 import {
   getAdminGenerationTasks,
@@ -63,9 +64,8 @@ export default async function GenerationTasksPage({
         ]}
       />
 
-      <div className="content-grid">
-        <section className="admin-card">
-          <form className="toolbar" action="/tasks/generation">
+      <section className="admin-card">
+          <AdminFilterForm action="/tasks/generation">
             <div className="toolbar-left">
               <input
                 className="input input-wide"
@@ -99,7 +99,7 @@ export default async function GenerationTasksPage({
                 重置
               </Link>
             </div>
-          </form>
+          </AdminFilterForm>
 
           {filters.selectedScriptId && (
             <div className="admin-inline-alert" role="status">
@@ -228,27 +228,18 @@ export default async function GenerationTasksPage({
               total={result.total}
             />
           </div>
-        </section>
+      </section>
 
-        <TaskDetail task={result.selectedTask} />
-      </div>
+      {result.selectedTask && (
+        <DetailModal closeHref={buildGenerationReturnHrefWithoutTask(filters)} title="任务详情">
+          <TaskDetail task={result.selectedTask} />
+        </DetailModal>
+      )}
     </div>
   );
 }
 
-function TaskDetail({ task }: { task: AdminGenerationTaskRow | null }) {
-  if (!task) {
-    return (
-      <DetailPreview
-        title="任务详情"
-        rows={[
-          ["状态", "请从左侧列表选择生成任务"],
-          ["说明", "生成任务监控已接入真实 generation_tasks；筛选无结果时不会展示详情。"],
-        ]}
-      />
-    );
-  }
-
+function TaskDetail({ task }: { task: AdminGenerationTaskRow }) {
   return (
     <DetailPreview
       title="任务详情"
@@ -344,6 +335,18 @@ function buildGenerationReturnHref(filters: ReturnType<typeof normalizeFilters>)
   if (filters.taskType !== "all") params.set("type", filters.taskType);
   if (filters.selectedScriptId) params.set("scriptId", filters.selectedScriptId);
   if (filters.selectedTaskId) params.set("taskId", filters.selectedTaskId);
+  const query = params.toString();
+
+  return query ? `/tasks/generation?${query}` : "/tasks/generation";
+}
+
+function buildGenerationReturnHrefWithoutTask(filters: ReturnType<typeof normalizeFilters>) {
+  const params = new URLSearchParams();
+  if (filters.q) params.set("q", filters.q);
+  if (filters.status !== "all") params.set("status", filters.status);
+  if (filters.taskType !== "all") params.set("type", filters.taskType);
+  if (filters.selectedScriptId) params.set("scriptId", filters.selectedScriptId);
+  if (filters.page && filters.page > 1) params.set("page", String(filters.page));
   const query = params.toString();
 
   return query ? `/tasks/generation?${query}` : "/tasks/generation";

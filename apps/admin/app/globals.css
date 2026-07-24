@@ -1709,8 +1709,8 @@ a {
 }
 
 .modal-head {
-  height: 52px;
-  padding: 0 20px;
+  min-height: 56px;
+  padding: 12px 20px;
   border-bottom: 1px solid var(--admin-border);
   display: flex;
   align-items: center;
@@ -1743,6 +1743,97 @@ a {
 
 .modal-body {
   padding: 20px;
+}
+
+.detail-modal-backdrop {
+  place-items: center;
+  padding: 24px;
+}
+
+.detail-modal {
+  width: min(760px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+}
+
+.detail-modal-body {
+  max-height: calc(100vh - 132px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: #fafafa;
+}
+
+.detail-section {
+  padding: 20px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.detail-section + .detail-section,
+.detail-section + .admin-card,
+.detail-modal-body .admin-card + .detail-section {
+  margin-top: 14px;
+}
+
+.detail-section-head {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.detail-modal-body .desc-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 14px 24px;
+}
+
+.detail-modal-body .desc-row {
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+}
+
+.detail-modal-body .desc-row dd {
+  color: var(--admin-text);
+}
+
+.detail-modal-body .admin-card {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.detail-modal-body .admin-card-head {
+  padding: 16px 20px 12px;
+}
+
+.detail-modal-body .admin-card-body {
+  padding: 0 20px 20px;
+}
+
+.detail-modal-body .user-credit-form {
+  min-width: 0;
+}
+
+.detail-modal-body .user-credit-grid {
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr);
+}
+
+.detail-modal-body .user-credit-form .input[name="reason"] {
+  max-width: 100%;
+}
+
+.detail-modal-body .desc-row:has(.user-credit-form) {
+  grid-column: 1 / -1;
+}
+
+.detail-modal-body .desc-row:has(.user-credit-form) dd {
+  max-width: 460px;
+}
+
+@media (max-width: 760px) {
+  .detail-modal-body .desc-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .modal-foot {

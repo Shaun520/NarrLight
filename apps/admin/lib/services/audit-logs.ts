@@ -139,8 +139,8 @@ function mapAuditLog(row: AuditLogRecord): AdminAuditLogRow {
 }
 
 function resolveSelectedLog(logs: AdminAuditLogRow[], selectedLogId?: string) {
-  if (!selectedLogId) return logs[0] ?? null;
-  return logs.find((log) => log.id === selectedLogId) ?? logs[0] ?? null;
+  if (!selectedLogId) return null;
+  return logs.find((log) => log.id === selectedLogId) ?? null;
 }
 
 function resolveSince(range: AdminAuditFilters["range"]) {

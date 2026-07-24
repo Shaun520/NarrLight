@@ -434,10 +434,10 @@ async function getReportSummary(scriptIds: string[]) {
 
 function resolveSelectedScript(scripts: AdminScriptRow[], selectedScriptId?: string) {
   if (!selectedScriptId) {
-    return scripts[0] ?? null;
+    return null;
   }
 
-  return scripts.find((script) => script.id === selectedScriptId) ?? scripts[0] ?? null;
+  return scripts.find((script) => script.id === selectedScriptId) ?? null;
 }
 
 function normalizeKeyword(value?: string) {

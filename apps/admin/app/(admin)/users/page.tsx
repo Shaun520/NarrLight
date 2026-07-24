@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { AdminFilterForm } from "@/components/admin-filter-form";
 import { AdminUserBanAction } from "@/components/admin-user-ban-action";
 import { AdminUserCreditAction } from "@/components/admin-user-credit-action";
-import { DetailPreview, PageHeader, Tag, UserCell } from "@/components/admin-static";
+import { DetailModal, DetailPreview, PageHeader, Tag, UserCell } from "@/components/admin-static";
 import { getAdminUsers, type AdminUserRow } from "@/lib/services/users";
 
 type SearchParams = {
@@ -9,6 +10,7 @@ type SearchParams = {
   plan?: string;
   status?: string;
   userId?: string;
+  mode?: string;
 };
 
 export default async function UsersPage({
@@ -24,9 +26,8 @@ export default async function UsersPage({
   return (
     <div className="page-stack">
       <PageHeader title="用户管理" description="平台全部注册用户" />
-      <div className="content-grid">
-        <section className="admin-card">
-          <form className="toolbar" action="/users">
+      <section className="admin-card">
+          <AdminFilterForm action="/users">
             <div className="toolbar-left">
               <input
                 className="input input-wide"
@@ -51,7 +52,7 @@ export default async function UsersPage({
                 重置
               </Link>
             </div>
-          </form>
+          </AdminFilterForm>
 
           {result.error && (
             <div className="admin-inline-alert" role="alert">
@@ -91,15 +92,15 @@ export default async function UsersPage({
                     </td>
                     <td>
                       <div className="row-actions">
-                        <Link className="link-btn" href={buildUserHref(filters, user.id)}>
+                        <Link className="link-btn" href={buildUserHref(filters, user.id, "detail")}>
                           详情
                         </Link>
-                        <Link className="link-btn" href={buildUserHref(filters, user.id)}>
+                        <Link className="link-btn" href={buildUserHref(filters, user.id, "credits")}>
                           创作点
                         </Link>
                         <AdminUserBanAction
                           isBanned={user.isBanned}
-                          returnTo={buildUserHref(filters, user.id)}
+                          returnTo={returnTo}
                           userId={user.id}
                         />
                       </div>
@@ -122,27 +123,24 @@ export default async function UsersPage({
               共 {result.total.toLocaleString("zh-CN")} 条，当前显示 {result.users.length} 条
             </span>
           </div>
-        </section>
+      </section>
 
-        <UserDetail returnTo={returnTo} user={result.selectedUser} />
-      </div>
+      {result.selectedUser && filters.modalMode === "detail" && (
+        <DetailModal closeHref={returnTo} title="用户详情">
+          <UserDetail returnTo={returnTo} user={result.selectedUser} />
+        </DetailModal>
+      )}
+
+      {result.selectedUser && filters.modalMode === "credits" && (
+        <DetailModal closeHref={returnTo} title="创作点调整">
+          <UserCreditDetail returnTo={buildUserHref(filters, result.selectedUser.id, "credits")} user={result.selectedUser} />
+        </DetailModal>
+      )}
     </div>
   );
 }
 
-function UserDetail({ user, returnTo }: { user: AdminUserRow | null; returnTo: string }) {
-  if (!user) {
-    return (
-      <DetailPreview
-        title="用户详情"
-        rows={[
-          ["状态", "请从左侧列表选择用户"],
-          ["说明", "当前页面已接入真实用户列表，写操作会在审计日志接入后开放。"],
-        ]}
-      />
-    );
-  }
-
+function UserDetail({ user, returnTo }: { user: AdminUserRow; returnTo: string }) {
   return (
     <DetailPreview
       title="用户详情"
@@ -153,15 +151,6 @@ function UserDetail({ user, returnTo }: { user: AdminUserRow | null; returnTo: s
         ["免费配额", quotaText(user)],
         ["创作点余额", creditText(user)],
         ["月度赠送", user.monthlyGrant === null ? "未初始化" : `${user.monthlyGrant} 点`],
-        [
-          "创作点调整",
-          <AdminUserCreditAction
-            currentBalance={user.creditBalance}
-            key="credit-action"
-            returnTo={returnTo}
-            userId={user.id}
-          />,
-        ],
         ["剧本数量", `${user.scriptCount} 个`],
         ["状态", user.isBanned ? <Tag tone="error" key="status">已封禁</Tag> : <Tag tone="success" key="status">正常</Tag>],
         ["封禁时间", user.bannedAt ? formatDateTime(user.bannedAt) : "—"],
@@ -182,18 +171,45 @@ function UserDetail({ user, returnTo }: { user: AdminUserRow | null; returnTo: s
   );
 }
 
+function UserCreditDetail({ user, returnTo }: { user: AdminUserRow; returnTo: string }) {
+  return (
+    <DetailPreview
+      title="创作点"
+      sub="调整用户创作点余额"
+      rows={[
+        ["用户", user.nickname],
+        ["邮箱", user.email],
+        ["套餐", planTag(user.planType)],
+        ["当前余额", creditText(user)],
+        ["月度赠送", user.monthlyGrant === null ? "未初始化" : `${user.monthlyGrant} 点`],
+        [
+          "调整",
+          <AdminUserCreditAction
+            currentBalance={user.creditBalance}
+            key="credit-action"
+            returnTo={returnTo}
+            userId={user.id}
+          />,
+        ],
+      ]}
+    />
+  );
+}
+
 function normalizeFilters(params: SearchParams) {
   return {
     q: params.q?.trim() ?? "",
     plan: params.plan === "free" || params.plan === "pro" ? params.plan : "all",
     status: params.status === "active" || params.status === "banned" ? params.status : "all",
     selectedUserId: params.userId,
+    modalMode: params.mode === "credits" ? "credits" : params.userId ? "detail" : null,
   } as const;
 }
 
-function buildUserHref(filters: ReturnType<typeof normalizeFilters>, userId: string) {
+function buildUserHref(filters: ReturnType<typeof normalizeFilters>, userId: string, mode: "detail" | "credits") {
   const params = buildFilterSearchParams(filters);
   params.set("userId", userId);
+  params.set("mode", mode);
 
   return `/users?${params.toString()}`;
 }

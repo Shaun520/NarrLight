@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdminFilterForm } from "@/components/admin-filter-form";
 import {
   KNOWLEDGE_CATEGORIES,
   KNOWLEDGE_MODULE_TYPES,
@@ -52,7 +53,7 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
       {usageSnapshot.error && <div className="admin-inline-alert" role="alert">{usageSnapshot.error}</div>}
 
       <section className="admin-card">
-        <form className="toolbar" action="/knowledge">
+        <AdminFilterForm action="/knowledge">
           <div className="toolbar-left">
             <input className="input input-wide" name="q" placeholder="搜索标题或内容" defaultValue={params.q ?? ""} />
             <select className="select" name="category" defaultValue={params.category ?? "all"}>
@@ -78,7 +79,7 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
           <div className="toolbar-right">
             <Link className="admin-btn primary" href={buildNewHref(params)}>新增</Link>
           </div>
-        </form>
+        </AdminFilterForm>
 
         <div className="table-wrap">
           <table className="table">

@@ -1,9 +1,10 @@
 import Link from "next/link";
+import { AdminFilterForm } from "@/components/admin-filter-form";
 import {
   AdminIllustrationTaskCancelButton,
   AdminIllustrationTaskRetryButton,
 } from "@/components/admin-task-actions";
-import { DetailPreview, PageHeader, Pagination, RefreshButton, StatGrid, Tag, UserCell } from "@/components/admin-static";
+import { DetailModal, DetailPreview, PageHeader, Pagination, RefreshButton, StatGrid, Tag, UserCell } from "@/components/admin-static";
 import { JsonPreview } from "@/components/json-preview";
 import {
   getAdminIllustrationTasks,
@@ -51,9 +52,8 @@ export default async function IllustrationTasksPage({
         ]}
       />
 
-      <div className="content-grid">
-        <section className="admin-card">
-          <form className="toolbar" action="/tasks/illustration">
+      <section className="admin-card">
+          <AdminFilterForm action="/tasks/illustration">
             <div className="toolbar-left">
               <input
                 className="input input-wide"
@@ -97,7 +97,7 @@ export default async function IllustrationTasksPage({
                 重置
               </Link>
             </div>
-          </form>
+          </AdminFilterForm>
 
           {result.error && (
             <div className="admin-inline-alert" role="alert">
@@ -203,27 +203,18 @@ export default async function IllustrationTasksPage({
               total={result.total}
             />
           </div>
-        </section>
+      </section>
 
-        <TaskDetail task={result.selectedTask} />
-      </div>
+      {result.selectedTask && (
+        <DetailModal closeHref={buildIllustrationReturnHrefWithoutTask(filters)} title="任务详情">
+          <TaskDetail task={result.selectedTask} />
+        </DetailModal>
+      )}
     </div>
   );
 }
 
-function TaskDetail({ task }: { task: AdminIllustrationTaskRow | null }) {
-  if (!task) {
-    return (
-      <DetailPreview
-        title="任务详情"
-        rows={[
-          ["状态", "请从左侧列表选择插画任务"],
-          ["说明", "插画任务监控已接入真实列表；筛选无结果时不会展示详情。"],
-        ]}
-      />
-    );
-  }
-
+function TaskDetail({ task }: { task: AdminIllustrationTaskRow }) {
   return (
     <DetailPreview
       title="任务详情"
@@ -281,6 +272,18 @@ function buildIllustrationBaseHref(filters: ReturnType<typeof normalizeFilters>)
 /** 构造操作后跳转链接：保留筛选参数与当前选中任务，与 buildIllustrationBaseHref 一致 */
 function buildIllustrationReturnHref(filters: ReturnType<typeof normalizeFilters>): string {
   return buildIllustrationBaseHref(filters);
+}
+
+function buildIllustrationReturnHrefWithoutTask(filters: ReturnType<typeof normalizeFilters>): string {
+  const params = new URLSearchParams();
+  if (filters.q) params.set("q", filters.q);
+  if (filters.status !== "all") params.set("status", filters.status);
+  if (filters.taskType !== "all") params.set("type", filters.taskType);
+  if (filters.quality !== "all") params.set("quality", filters.quality);
+  if (filters.model !== "all") params.set("model", filters.model);
+  if (filters.page && filters.page > 1) params.set("page", String(filters.page));
+  const query = params.toString();
+  return query ? `/tasks/illustration?${query}` : "/tasks/illustration";
 }
 
 function buildTaskHref(filters: ReturnType<typeof normalizeFilters>, taskId: string) {
